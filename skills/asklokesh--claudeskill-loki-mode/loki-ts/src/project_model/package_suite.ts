@@ -21,6 +21,15 @@ interface SuiteCheck { name: string; cmd: string; result: "pass" | "fail" | "not
 export interface SuiteSpec { name: string; cmd: string; cwd: string; run: string; go?: string } // go: the plain `go test -json <pkgs>` a Go full suite is read and corroborated as (goMakeSuite)
 
 /** One spec per multi-root package with a test command; null when the model is absent, single-root or defines none. With `repoDir`, a Go package whose test command is a plain `go test`, or a Makefile target that only runs one, runs as `go test -json` (goMakeSuite). */
+/** NTF: for each changed file the deepest package suite whose cwd holds it (the root "." only when no deeper package does). */
+export function ownedSuites<T extends { cwd: string }>(specs: T[], changed: readonly string[]): T[] {
+  const out = new Set<T>();
+  for (const f of changed) {
+    const own = specs.filter((s) => s.cwd === "." || f === s.cwd || f.startsWith(`${s.cwd.replace(/\/$/, "")}/`)).sort((a, b) => b.cwd.length - a.cwd.length)[0];
+    if (own) out.add(own);
+  }
+  return specs.filter((s) => out.has(s));
+}
 export function packageSuiteSpecs(api: ProjectApi | null | undefined, repoDir?: string): SuiteSpec[] | null {
   if (!isMultiRoot(api)) return null;
   const specs = api.packages().filter((p) => p.commands.test).map((p): SuiteSpec => { const tc = p.commands.test!, g = repoDir !== undefined ? goMakeSuite(repoDir, tc.cwd, tc.cmd) : null, line = g?.run ?? tc.cmd; return { name: `full suite: ${p.name}`, cmd: `(cd ${tc.cwd} && ${line})`, cwd: tc.cwd, run: line, ...(g ? { go: g.go } : {}) }; });
@@ -94,15 +103,20 @@ function execProves(repoDir: string, o: { changed?: string[] | undefined; proofF
 /** Test files of the Wall and holdout checks, only when at least one ran and every one passed (fail-safe: none ran, or any not pass, is no proof). A package without tests is proven only by a file inside it. */
 export const wallProofOf = (checks: { name: string; result: string }[], wall: { name: string; path: string }[]): string[] => { const n = new Set(wall.map((w) => w.name)), w = checks.filter((c) => n.has(c.name) || c.name.startsWith("holdout")); return w.length > 0 && w.every((c) => c.result === "pass") ? wall.map((x) => x.path) : []; };
 
+/** EMPTY-SUBSUITE-NA (LOKI_E10_EMPTY_SUBSUITE_NA, default on, =0 opts out): a package suite below the repo root that ran 0 tests on base and on head (exit 0, empty
+ *  discovery, no skips on either side; suiteEmptyOnBase) is not applicable even when no Wall or task-named check passed. The root suite keeps that requirement. */
+export const emptySubsuiteNaOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_EMPTY_SUBSUITE_NA"] ?? "").trim());
 export async function runPackageSuites(
   repoDir: string,
   signal: AbortSignal,
-  opts: { path?: string | undefined; timeoutMs: number; baseSha?: string; skip?: (f: string) => boolean; changed?: string[] | undefined; proofFiles?: string[] | undefined; wallBaseRed?: boolean | undefined; targetPassed?: boolean | undefined },
+  opts: { path?: string | undefined; timeoutMs: number; baseSha?: string; skip?: (f: string) => boolean; changed?: string[] | undefined; proofFiles?: string[] | undefined; wallBaseRed?: boolean | undefined; targetPassed?: boolean | undefined; ownedOnly?: boolean },
   checks: SuiteCheck[],
   notProven: Set<string>,
 ): Promise<boolean> {
-  const api = loadProjectApi(repoDir), specs = packageSuiteSpecs(api, repoDir);
-  if (!api || !specs) return false;
+  const api = loadProjectApi(repoDir), all = packageSuiteSpecs(api, repoDir);
+  if (!api || !all) return false;
+  const specs = opts.ownedOnly ? ownedSuites(all, opts.changed ?? []) : all; // NTF: the suites of the packages that own the changed files, never the whole workspace
+  if (!specs.length) return false;
   for (const { name, cmd, cwd, run: line, go } of specs) {
     const started = Date.now();
     const r = await run(["bash", "-c", line], { cwd: join(repoDir, cwd), timeoutMs: opts.timeoutMs, env: suiteEnv(opts.path) });
@@ -113,7 +127,7 @@ export async function runPackageSuites(
     const lr = r.exitCode === 0 || !opts.baseSha ? undefined : await harnessLoadReason({ repoDir, baseSha: opts.baseSha, ...(opts.skip ? { skip: opts.skip } : {}), out, cmd: "bash", args: ["-c", line], signal, cwd: join(repoDir, cwd), env: suiteEnv(opts.path) });
     if (lr) { checks.push({ name, cmd, result: "not_run", duration_s }); notProven.add(`${lr} (${name}; harness-owned)`); continue; }
     const cls = await corroboratePass(classifyCheck({ kind: "test", ok: r.exitCode === 0, out, ...(go ? { runner: "go" as const } : goRunner(line)), exitCoded: !go && isExitCodedScript(line) }), out, go ?? line, undefined, { cwd: join(repoDir, cwd), env: suiteEnv(opts.path), signal }); // FC-FULL-SUITE-EXIT-CODED-SCRIPT
-    if (cls.result === "not_run" && r.exitCode === 0 && opts.targetPassed === true && suiteEmptyOnBase(repoDir, opts.baseSha, line, cmd, cls, out, cwd)) { notProven.add(`${NA_PREFIX}${name} (ran 0 tests on base and head; the Wall or a task-named check passed with executed tests)`); continue; } // a full suite that discovers nothing is a disclosed note, not a gate, once a target check proved the change
+    if (cls.result === "not_run" && r.exitCode === 0 && (opts.targetPassed === true || (cwd !== "." && emptySubsuiteNaOn())) && suiteEmptyOnBase(repoDir, opts.baseSha, line, cmd, cls, out, cwd)) { notProven.add(`${NA_PREFIX}${name} (ran 0 tests on base and head; ${opts.targetPassed === true ? "the Wall or a task-named check passed with executed tests" : "a sub-module package with no tests on either side"})`); continue; } // EMPTY-SUBSUITE-NA: a package below the root that executes exactly 0 tests on base and head is not applicable without a target check // a full suite that discovers nothing is a disclosed note, not a gate, once a target check proved the change
     checks.push({ name, cmd, result: cls.result, duration_s, ...(cls.count ? { count: cls.count } : {}), ...(cls.result === "fail" ? { exit: r.exitCode, ...(cls.count || failIds(out).length ? {} : { shape: failureShape(out) }), ids: cls.count ? [exitCodedId(line, out, repoDir) ?? []].flat() as string[] : failIds(out), errors: Object.fromEntries(errorsById(out)), ...(unhandledBlock(out).length ? { unhandled: unhandledBlock(out) } : {}), first_error: firstError(out), excerpt: failureExcerpt(out, repoDir) } : {}) });
     if (cls.result === "not_run") notProven.add(`not run: ${name} (${cls.reason ?? NO_TESTS_REASON})`);
   }

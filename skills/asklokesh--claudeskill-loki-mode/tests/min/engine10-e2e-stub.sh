@@ -49,6 +49,24 @@
 #   12. loki-ts/src/engine10/stages/xreview.ts: drop the run-model pin for the default review (the high-tier leg reads no --model haiku).
 #   13. loki-ts/src/engine10/machine.ts capReached: return false always (the capped run completes and reads VERIFIED, exit 0).
 #   14. loki-ts/src/util/check_result.ts changedSymbols: drop the ENCLOSING-DECL fallback (the enclosing-declaration unit line reads method=[]).
+#   30. machine.ts: cascadeNow ignores wallFailedOf (the lint-only leg cascades).
+#   31. machine.ts: drop the Wall tail from the cascade brief (the brief leg finds no Wall failure).
+#   32. wall.ts wallRoute: drop the !wallEnabled() lean override (the lean-path leg reads the Wall skipped).
+#   33. machine.ts: never set fresh (the snapshot fallback leg reads stage.failed).
+#   15. claude_model.ts chooseSessionModel: ignore EXPLICIT_MODEL_ENV (the env leg reads sonnet, source default).
+#   16. supervisor.ts: do not export the default pin (the default leg reads the provider default and no --model).
+#   17. seal.ts: drop model_source (every default-model leg reads absent).
+#   18. claude_model.ts chooseSessionModel: ignore LOKI_DEFAULT_SESSION_MODEL=provider (the provider leg reads sonnet).
+#   24. verify.ts: drop the ntf condition (the no-test fallback leg reads no full suite).
+#   25. verify.ts: skip the envCrash conversion (the base crash leg reads STALLED, no base-crash line).
+#   19. claude_model.ts DEFAULT_SESSION_MODEL changed to haiku without autonomy/route.sh (the newcomer-path acc-156 route leg reads ts haiku, route sonnet).
+#   20. claude_model.ts chooseSessionModel: drop the LOKI_ROUTER check (the router leg reads source default; auto-route.sh's small, hard, wall legs run on sonnet).
+#   21. seal.ts commitStage: drop the hooks-off retry (the commit hook leg reads FAILED, git commit failed).
+#   22. seal.ts commitStage: skip the read-tree/checkout-index restore (the delivered commit holds "hook was here").
+#   23. machine.ts: return before seal on a failed commit (the signing leg reads no-receipt).
+#   34. loki-ts/src/util/receipt_surface.ts proofCardOf: go green on verdict VERIFIED instead of mutation_outcome "yes" (the never-green and states proof card unit lines fail).
+#   35. loki-ts/src/e10ext/liveline.ts CandidateView: clear the pending flag on the first test.result instead of on verify's stage.completed (the diff-early, label-until-verify and stopped-verify unit lines fail).
+#   36. loki-ts/src/e10ext/liveline.ts CandidateView: clear the pending flag on a failed verify too (the stopped-verify unit line fails).
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need bun
@@ -71,6 +89,99 @@ console.log(`method=${JSON.stringify(method)} kept=${JSON.stringify(kept)} col0=
 [ "$U" = 'method=["sourceWithGlobals"] kept=["other"] col0=[] noreader=[] off=[]' ] \
     && ok "unit: an edit inside an indented method names the enclosing method; a naming @@ context is kept as is; column-0 code names nothing" || bad "unit: enclosing-declaration gave: $U"
 
+# Unit: AWE (presentation only, from source, no model). A fixture repo whose tree adds multiply() to calc.ts and a new file new.ts is fed the events a run emits:
+#   LOKI_AWE_DIFF_EARLY: implement's stage.completed prints the real candidate diff (the new file included) under "Candidate diff (candidate, not yet checked)", each verify test.result
+#     ticks in under it with the label, and the status line keeps the label until verify completes; a stopped verify never reads as checked; =0 prints none of it; on a TTY the status line is erased first.
+#   LOKI_AWE_LIVE_COST: the status line carries run elapsed and the spend so far from cost events; =0 is the old line byte for byte.
+#   LOKI_AWE_PROOF_CARD: from receipt.json only, a "yes" proof shows Before (the recorded output line) and After: passes in green; "no", inconclusive, no proof and no receipt are never green and
+#     never say "After: passes"; a "yes" whose proving test did not pass is not green either. The default output carries the card as one line (renderAweProofLine: yes/no plus the
+#     proving test file), the full card only under --verbose; the done run's default output holds the D48 8-line cap with the card on.
+#   The VERIFIED console summary (default and --verbose) has no model-tier or model-comparison text.
+#   PR body (runPr, the real stage, its push script faked to fail after the body is written): a VERIFIED body has no model-tier or model-comparison text (no "opus").
+#   PR body from the receipt: the proof, conventions followed and Loki's own total cost (partial, unmetered and null read as such, never $0.00, no model comparison); LOKI_AWE_LIVE_COST=0 is the old body.
+cat > "$T/awe.ts" <<'TS'
+const SRC = process.env.AWE_SRC!;
+const { LiveLine, CANDIDATE_LABEL } = await import(`${SRC}/e10ext/liveline.ts`);
+const { proofCardOf, renderAweProofCard } = await import(`${SRC}/util/receipt_surface.ts`);
+const { renderReviewerBody } = await import(`${SRC}/e10ext/reviewer_body.ts`);
+const { proofCardOf: _pc, renderAweProofLine } = await import(`${SRC}/util/receipt_surface.ts`);
+const { runPr } = await import(`${SRC}/engine10/stages/pr.ts`);
+const [repo, base] = process.argv.slice(2);
+const out: Record<string, unknown> = {};
+const ev = (type: string, stage: string | null, data: Record<string, unknown> = {}) => ({ v: 1, seq: 0, ts: new Date().toISOString(), run: "r1", type, stage, data });
+const implDone = ev("stage.completed", "implement", { duration_s: 40, diff_stat: { files: 2, added: 2, removed: 0, paths: [{ path: "calc.ts", added: 1, removed: 0 }, { path: "new.ts", added: 1, removed: 0 }] } });
+const feed = (env: Record<string, string>, tty: boolean, verifyEnd: "completed" | "failed") => {
+  let buf = "", t = 1000; const ll = new LiveLine({ tty, write: (s: string) => { buf += s; }, now: () => t, columns: 200, graceS: 0, repoDir: repo, env });
+  const mid: Record<string, string | null> = {};
+  ll.onEvent(ev("stage.completed", "intake", { base_sha: base, duration_s: 1 }));
+  ll.onEvent(ev("stage.started", "implement")); t += 65_000; ll.onEvent(ev("cost", "implement", { usd: 0.04, input_tokens: 10, output_tokens: 5 }));
+  mid.impl = ll.text();
+  ll.onEvent(implDone); ll.onEvent(ev("stage.started", "verify"));
+  ll.onEvent(ev("test.result", "verify", { name: "vitest:calc.test.ts", result: "pass" }));
+  mid.verifying = ll.text();
+  if (verifyEnd === "completed") ll.onEvent(ev("stage.completed", "verify", { duration_s: 5, checks: [{ name: "vitest:calc.test.ts", result: "pass" }] }));
+  else ll.onEvent(ev("stage.failed", "verify", { duration_s: 5, reason: "limit" }));
+  ll.onEvent(ev("stage.started", "seal")); mid.after = ll.text(); ll.clear();
+  return { buf, ...mid };
+};
+const on = feed({}, false, "completed"), off = feed({ LOKI_AWE_DIFF_EARLY: "0", LOKI_AWE_LIVE_COST: "0" }, false, "completed");
+const failed = feed({}, false, "failed"), tty = feed({}, true, "completed");
+out.diff_on = [on.buf.includes(`Candidate diff (${CANDIDATE_LABEL}): 2 files, +2 -0`), on.buf.includes("+export const multiply"), on.buf.includes("+export const fresh"), on.buf.indexOf("Candidate diff") < on.buf.indexOf("check vitest:calc.test.ts: pass (candidate, not yet checked)"), on.buf.includes("Candidate checked by verify: 1 passed, 0 failed")].join(",");
+out.label_until_verify = [String(on.verifying).includes(CANDIDATE_LABEL), String(on.after).includes(CANDIDATE_LABEL)].join(",");
+out.label_failed_verify = [failed.buf.includes("Candidate checked"), failed.buf.includes("the candidate is still not checked"), String(failed.after).includes(CANDIDATE_LABEL)].join(",");
+out.diff_off = [off.buf.includes("Candidate"), off.buf.includes("check vitest"), String(off.verifying).includes(CANDIDATE_LABEL)].join(",");
+out.tty_clears = tty.buf.includes("\r\x1b[2KCandidate diff");
+out.cost_on = String(on.impl);
+out.cost_off = String(off.impl);
+const checks = [{ name: "vitest:calc.test.ts", result: "pass" }];
+const yes = { verdict: "VERIFIED", mutation_outcome: "yes", mutation_proof: "test fails without the fix: yes", mutation_before: [{ file: "calc.test.ts", lines: ["AssertionError: expected 6 to be 7"] }], checks, not_proven: ["no browser check ran"], cost: { usd: 0.3141 }, conventions: { formatted: [{ tool: "prettier", files: ["calc.ts"] }], release_note: ".changeset/x.md" } };
+const no = { verdict: "VERIFIED", mutation_outcome: "no", mutation_proof: "test fails without the fix: no (warning: the Wall tests also pass on the old code)", checks, not_proven: ["Wall tests passed without the fix (mutation proof)"], cost: { usd: null, partial_usd: 0.1, measured_sessions: 1, total_sessions: 3 } };
+const inc = { verdict: "VERIFIED", mutation_outcome: "inconclusive", mutation_proof: "test fails without the fix: inconclusive (timeout)", checks, not_proven: [], cost: { usd: 0, source: "cli-invoker-unmetered" } };
+const none = { verdict: "PARTIAL", checks, not_proven: ["a check failed"] };
+const card = (r: Record<string, unknown> | null) => renderAweProofCard(proofCardOf(r), true);
+const GREEN = "\x1b[32m";
+out.card_yes = [card(yes).includes(`${GREEN}fail-then-pass shown`), card(yes).includes("Before: calc.test.ts fails on your code with:\n    AssertionError: expected 6 to be 7\n  After: passes"), card(yes).includes("  - no browser check ran")].join(",");
+out.card_never_green = [no, inc, none, null].map((r) => { const c = card(r); return c.includes(GREEN) || c.includes("After: passes") || proofCardOf(r).green; }).join(",");
+out.card_states = [no, inc, none, null].map((r) => proofCardOf(r).state).join(",");
+out.card_after_red = proofCardOf({ ...yes, checks: [{ name: "vitest:calc.test.ts", result: "fail" }] }).green;
+const body = (receipt: Record<string, unknown> | null, env: Record<string, string> = {}) => renderReviewerBody({ verdict: "VERIFIED", draftReason: null, notProven: [], receiptPath: null, receiptSha256: null, signed: null, runId: "r", outputs: {}, receipt }, env, "0.0.0");
+const by = body(yes);
+out.pr_yes = [by.includes("## The proof\n- Before: `calc.test.ts` fails on the base code with:\n  ```text\n  AssertionError: expected 6 to be 7\n  ```\n- After: passes"), by.includes("## Conventions followed\n- Formatted with the repo's prettier: calc.ts\n- Release note added: .changeset/x.md"), by.includes("## Cost\n- Total: $0.31 (this run's own spend, from the receipt)"), /opus|cheaper|times/i.test(by.slice(by.indexOf("## Cost"), by.indexOf("## Receipt")))].join(",");
+out.pr_never_green = [no, inc, none].map((r) => { const b = body(r); return b.includes("- After: passes") || b.includes("- Before:"); }).join(",");
+out.pr_cost = [body(no).includes("- Total: partial: $0.10 for 1 of 3 sessions"), body(inc).includes("- Total: not measured (this invoker records no cost)"), body(none).includes("- Total: not measured (this run's"), body(inc).includes("$0.00")].join(",");
+out.card_line = [yes, no, inc, none, null].map((r) => renderAweProofLine(_pc(r))).join(" | ");
+const { mkdtempSync, writeFileSync: wf, readFileSync: rf, chmodSync } = await import("node:fs"), prd = mkdtempSync(`${repo}/../prbody.`), fakePush = `${prd}/push.sh`;
+wf(fakePush, "#!/bin/sh\nexit 1\n"); chmodSync(fakePush, 0o755);
+const prOut = { seal: { verdict: "VERIFIED", not_proven: [], receipt_path: null, receipt_sha256: null }, intake: { task: "add multiply", base_sha: base }, verify: { changed_files: [] } };
+await runPr({ runId: "e10-prbody", repoDir: repo, runDir: `${prd}/run`, baseSha: base, branch: "loki/e10-prbody", provider: "claude", model: "sonnet", deep: false, capS: 0, pinnedOrigin: "https://github.com/acme/calc.git", emit: () => {}, outputs: () => prOut } as never, new AbortController().signal, { pushScriptPath: fakePush, gitlabPushScriptPath: fakePush }).catch(() => null);
+let prBody = ""; try { prBody = rf(`${prd}/run/pr-body.md`, "utf8"); } catch { /* not written */ }
+out.pr_no_model_cmp = [prBody.length > 0, /opus|model tier|top-tier|cost avoided|parity|cheaper|\bvs\.? raw/i.test(prBody)].join(",");
+out.pr_off = [body(yes, { LOKI_AWE_LIVE_COST: "0" }) === body(null), body(yes, { LOKI_AWE_PROOF_CARD: "0" }).includes("## The proof"), body(yes, { LOKI_AWE_PROOF_CARD: "0" }).includes("## Cost")].join(",");
+console.log(JSON.stringify(out));
+TS
+AWR="$T/awe-repo"; mkdir -p "$AWR"; git -C "$AWR" init -q -b main; git -C "$AWR" config user.name e2e; git -C "$AWR" config user.email e2e@example.invalid
+printf 'export const add = (a: number, b: number) => a + b;\n' > "$AWR/calc.ts"; git -C "$AWR" add calc.ts; git -C "$AWR" commit -q -m base; AWB="$(git -C "$AWR" rev-parse HEAD)"
+printf 'export const multiply = (a: number, b: number) => a * b;\n' >> "$AWR/calc.ts"; printf 'export const fresh = 1;\n' > "$AWR/new.ts"
+AW="$(cd "$ROOT/loki-ts" && AWE_SRC="$ROOT/loki-ts/src" bun "$T/awe.ts" "$AWR" "$AWB" 2>&1 | tail -1)"
+awe() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2]))' "$AW" "$1" 2>/dev/null; }
+[ "$(awe diff_on)" = "true,true,true,true,true" ] && ok "awe diff early: the candidate diff (new file included) prints when implement ends, checks tick in under it, then the checked line" || bad "awe diff early: got $(awe diff_on) ($AW)"
+[ "$(awe label_until_verify)" = "true,false" ] && ok "awe honesty: the status line says 'candidate, not yet checked' until verify completes, and not after" || bad "awe label until verify: got $(awe label_until_verify)"
+[ "$(awe label_failed_verify)" = "false,true,true" ] && ok "awe honesty: a stopped verify never reads as checked and the label stays" || bad "awe stopped verify: got $(awe label_failed_verify)"
+[ "$(awe diff_off)" = "false,false,false" ] && ok "awe diff early off (LOKI_AWE_DIFF_EARLY=0): no candidate block, no ticks, no label" || bad "awe diff early off: got $(awe diff_off)"
+[ "$(awe tty_clears)" = "True" ] && ok "awe diff early on a TTY: the status line is erased before the candidate block" || bad "awe tty: got $(awe tty_clears)"
+[ "$(awe cost_on)" = '[implement] implementing  1m05s  run 1m05s  $0.04 so far  (intake done 1s)' ] && ok "awe live cost: the status line carries stage, run elapsed and the spend so far" || bad "awe live cost: got '$(awe cost_on)'"
+[ "$(awe cost_off)" = '[implement] implementing  1m05s  (intake done 1s)' ] && ok "awe live cost off (LOKI_AWE_LIVE_COST=0): the old status line" || bad "awe live cost off: got '$(awe cost_off)'"
+[ "$(awe card_yes)" = "true,true,true" ] && ok "awe proof card: a yes proof shows Before with the recorded output line, After: passes, in green, and the not-proven list" || bad "awe proof card yes: got $(awe card_yes)"
+[ "$(awe card_never_green)" = "false,false,false,false" ] && ok "awe honesty: a no, inconclusive, absent or unsealed proof never renders green or says After: passes" || bad "awe proof card never green: got $(awe card_never_green)"
+[ "$(awe card_states)" = "not shown,not run,not run,not run" ] && ok "awe proof card: no reads 'not shown', inconclusive and absent read 'not run'" || bad "awe proof card states: got $(awe card_states)"
+[ "$(awe card_after_red)" = "False" ] && ok "awe honesty: a yes proof whose proving test did not pass after the change is not green" || bad "awe proof card after red: got $(awe card_after_red)"
+[ "$(awe pr_yes)" = "true,true,true,false" ] && ok "awe PR body from the receipt: the proof, conventions followed and Loki's own total cost, with no model comparison" || bad "awe PR body: got $(awe pr_yes)"
+[ "$(awe pr_never_green)" = "false,false,false" ] && ok "awe honesty: a no, inconclusive or absent proof never writes Before/After into the PR body" || bad "awe PR body never green: got $(awe pr_never_green)"
+[ "$(awe pr_cost)" = "true,true,true,false" ] && ok "awe PR cost: partial, unmetered and null read as such, never \$0.00" || bad "awe PR cost: got $(awe pr_cost)"
+[ "$(awe card_line)" = "Proof: yes, calc.test.ts fails on your code and passes after the change | Proof: no (the new tests also pass on your old code, so they do not show the fix) | Proof: not run (inconclusive: timeout) | Proof: not run (the fail-then-pass proof runs only on a VERIFIED run) | Proof: not run (no trusted receipt was sealed)" ] && ok "awe proof card, one line (D48 default): yes names the proving test; no and not run say why" || bad "awe proof card line: got $(awe card_line)"
+[ "$(awe pr_no_model_cmp)" = "true,false" ] && ok "PR body (runPr, VERIFIED): no model-tier or model-comparison text, no 'opus' (Loki's own cost only)" || bad "PR body model comparison: got $(awe pr_no_model_cmp)"
+[ "$(awe pr_off)" = "true,false,true" ] && ok "awe PR body off: LOKI_AWE_LIVE_COST=0 is the old body; LOKI_AWE_PROOF_CARD=0 drops only the proof section" || bad "awe PR body off: got $(awe pr_off)"
+
 echo "TEST: engine10 end to end on the stub provider"
 
 FIX="$ROOT/tests/min/fixtures/e2e"
@@ -90,13 +201,14 @@ run_engine() {
     git -C "$REPO" config user.email e2e@example.invalid
     git -C "$REPO" add calc.ts calc.test.ts bunfig.toml
     git -C "$REPO" commit -q -m base
+    if [ -n "${E2E_PREP:-}" ]; then "$E2E_PREP" "$REPO"; fi # a leg's extra repo setup (hooks, config) after the base commit
     KEY="$d/k.pem"
     STUBENV="$d/stub-env.log"
     OUT="$(cd "$REPO" && env -u LOKI_ALLOW_AGENT_GITHUB_TOKEN -u LOKI_MODEL_OVERRIDE -u LOKI_RECEIPT_SIGNING_KEY \
         LOKI_E10_INVOKER=cli LOKI_CLAUDE_CLI="$FIX/bin/claude" PATH="$FIX/bin:$PATH" \
         E2E_STUB_MODE="$mode" E2E_STUB_LOG="$d/stub.log" E2E_STUB_ENV_LOG="$STUBENV" \
-        LOKI_E10_PLAN=1 GH_TOKEN="$CANARY" LOKI_RECEIPT_SIGNING_KEY_FILE="$KEY" \
-        ${TO[@]+"${TO[@]}"} bash "$ROOT/bin/loki" "$TASK" --no-pr "$@" 2>&1)"
+        LOKI_E10_PLAN="${E2E_PLAN:-1}" GH_TOKEN="$CANARY" LOKI_RECEIPT_SIGNING_KEY_FILE="$KEY" \
+        ${TO[@]+"${TO[@]}"} bash "$ROOT/bin/loki" ${E2E_VERB:+"$E2E_VERB"} "$TASK" --no-pr "$@" 2>&1)"
     RC=$?
     RUNDIR=""
     if [ -f "$REPO/.loki/engine.json" ]; then
@@ -118,6 +230,9 @@ run_engine done
 [ "$RC" -eq 0 ] && ok "done run exits 0" || { bad "done run exited $RC"; printf '%s\n' "$OUT" | tail -15 | sed 's/^/    | /'; }
 printf '%s\n' "$OUT" | grep -Eq '^Outcome:[[:space:]]+VERIFIED' && ok "done run prints Outcome: VERIFIED" || bad "done run did not print Outcome: VERIFIED"
 grep -q 'export function multiply' "$REPO/calc.ts" && ok "stub's change landed in calc.ts" || bad "calc.ts has no multiply()"
+# D48 counts the start line plus the summary block (Outcome: to the end); the live candidate diff and the branch note print while the run goes
+DSUM="$(printf '%s\n' "$OUT" | sed -n '/^Outcome:/,$p')"; DLN=$(( $(printf '%s\n' "$DSUM" | grep -c '') + 1 )); DPC="$(printf '%s\n' "$DSUM" | grep -ciE '(^|; )proof: (yes|no|not run)')"; DFULL="$(printf '%s\n' "$OUT" | grep -cE '^(  Before: |Not proven:)')"
+[ -n "$DSUM" ] && [ "$DLN" -le 8 ] && [ "$DPC" = 1 ] && [ "$DFULL" = 0 ] && ok "D48: the done run's default output is $DLN lines (cap 8) with the one-line proof card on, no full card" || { bad "D48 cap with the proof card: $DLN lines, $DPC proof lines, $DFULL full-card lines"; printf '%s\n' "$OUT" | sed 's/^/    | /'; }
 if [ -n "$RUNDIR" ] && [ -f "$RUNDIR/receipt.json" ]; then
     r="$(verify_run)"
     [ "$r" = "0 VERIFIED" ] && ok "loki verify on the run receipt: VERIFIED rc 0" || bad "loki verify gave: $r"
@@ -134,6 +249,11 @@ else
     bad "stub env log is empty (the stub never ran)"
 fi
 
+printf '%s\n' "$OUT" | grep -qiE 'opus|parity|top-tier|cost avoided|tier sealed' && { bad "VERIFIED console summary compares models"; printf '%s\n' "$OUT" | grep -iE 'opus|parity|top-tier|cost avoided|tier sealed' | sed 's/^/    | /'; } || ok "VERIFIED console summary (default): no opus, parity, top-tier or tier-sealed text (Loki's own cost only)"
+run_engine done --verbose
+printf '%s\n' "$OUT" | grep -qiE 'opus|parity|top-tier|cost avoided|tier sealed' && bad "VERIFIED console summary (--verbose) compares models" || ok "VERIFIED console summary (--verbose): no opus, parity, top-tier or tier-sealed text"
+printf '%s\n' "$OUT" | grep -qE '^Proof: ' && printf '%s\n' "$OUT" | grep -qE '^Not proven:' && ok "--verbose: the full proof card prints after the summary" || { bad "--verbose: no full proof card"; printf '%s\n' "$OUT" | tail -12 | sed 's/^/    | /'; }
+
 run_engine tamper
 [ "$RC" -ne 0 ] && ok "tampered run exits non-zero" || bad "tampered run exited 0"
 printf '%s\n' "$OUT" | grep -Eq '^Receipt:[[:space:]]+TAMPERED' && ok "tampered run prints Receipt: TAMPERED" || bad "tampered run did not print Receipt: TAMPERED"
@@ -144,6 +264,86 @@ printf '%s\n' "$OUT" | grep -q 'Outcome:    VERIFIED' && bad "tampered run claim
 # never hard-coded, so implement starts under the cap and ends over it. A sealed run is never BUDGET_STOP (outcomeOf: BUDGET_STOP
 # needs a run that sealed no receipt), so the capped run reads PARTIAL, exit 6, "cost/time cap reached"; the start line states
 # the cap and the quote before spending, implement's edit is kept as a commit on loki/<run>, and main is untouched.
+# acc-156: a bare run with no model named starts on Loki's default session model (DEFAULT_SESSION_MODEL, sonnet), never the CLI's own account default;
+# a flag or a model env wins, and LOKI_DEFAULT_SESSION_MODEL=provider gives the old run with no --model. The start line and the receipt say which and why.
+# dm_facts -> "<receipt model>~<receipt model_source>~<implement --model value or none>~<start line model clause>"
+dm_facts() {
+    python3 -I - "$RUNDIR/receipt.json" "$T/dm-argv.log" "$OUT" <<'PY'
+import json, os, re, sys
+rec = json.load(open(sys.argv[1])); argv = open(sys.argv[2]).read().splitlines() if os.path.exists(sys.argv[2]) else []
+impl = [l for l in argv if l.startswith("implement")]
+m = re.search(r"--model (\S+)", impl[0]) if impl else None
+start = next((l for l in sys.argv[3].splitlines() if l.startswith("Loki 10 engine")), "")
+c = re.search(r", model (.*?)(?:; |$)", start)
+print("~".join([str(rec.get("model")), rec.get("model_source", "absent"), m.group(1) if m else "none", c.group(1) if c else "noclause"]))
+PY
+}
+for leg in "default||" "flag|--session-model haiku|" "env||LOKI_MODEL_DEVELOPMENT=haiku" "provider||LOKI_DEFAULT_SESSION_MODEL=provider" "pinned||LOKI_DEFAULT_SESSION_MODEL=haiku" "router||LOKI_ROUTER=auto"; do
+    IFS='|' read -r dm_name dm_flag dm_env <<< "$leg"; rm -f "$T/dm-argv.log"
+    unset LOKI_SESSION_MODEL LOKI_SESSION_MODEL_SOURCE LOKI_MODEL_DEVELOPMENT LOKI_CLAUDE_MODEL_DEVELOPMENT LOKI_DEFAULT_SESSION_MODEL LOKI_ROUTER
+    export E2E_STUB_ARGV_LOG="$T/dm-argv.log"; if [ -n "$dm_env" ]; then export "${dm_env?}"; fi
+    # shellcheck disable=SC2086 # dm_flag is a flag and its value
+    if [ -n "$dm_flag" ]; then E2E_VERB=start run_engine done $dm_flag; else run_engine done; fi
+    unset E2E_STUB_ARGV_LOG; if [ -n "$dm_env" ]; then unset "${dm_env%%=*}"; fi
+    DM="$( [ -n "$RUNDIR" ] && dm_facts 2>&1)"
+    case "$dm_name:$DM" in
+        "default:sonnet~default~sonnet~sonnet (Loki default, "*) ok "default model: a bare run pins sonnet (implement --model sonnet), the start line says Loki default, receipt model_source default" ;;
+        "flag:haiku~explicit~haiku~haiku (--session-model"*) ok "default model: --session-model haiku wins over the default (receipt explicit)" ;;
+        "env:haiku~explicit~haiku~haiku (LOKI_MODEL_DEVELOPMENT)") ok "default model: LOKI_MODEL_DEVELOPMENT wins over the default (receipt explicit)" ;;
+        "provider:claude (provider default)~provider~none~claude (provider default) (LOKI_DEFAULT_SESSION_MODEL=provider"*) ok "default model: LOKI_DEFAULT_SESSION_MODEL=provider restores the CLI default (no --model passed)" ;;
+        "pinned:haiku~default~haiku~haiku (LOKI_DEFAULT_SESSION_MODEL=haiku)") ok "default model: LOKI_DEFAULT_SESSION_MODEL=haiku changes the default (receipt default)" ;;
+        "router:"*"~explicit~"*"(LOKI_ROUTER=auto)") ok "default model: the model router (LOKI_ROUTER=auto) is a model choice, so no default pin overrides its per-unit models" ;;
+        *) bad "default model leg $dm_name: facts '$DM' (rc $RC)"; printf '%s\n' "$OUT" | grep -m3 "^Loki 10 engine\|engine10:\|rror" | sed 's/^/    | /' ;;
+    esac
+done
+unset dm_name dm_flag dm_env DM
+
+# acc-160 COMMIT-HOOK-BYPASS: a repo's own commit hooks never fail Loki's delivery. msw: the session's `pnpm run build` installed simple-git-hooks,
+# whose commit-msg commitlint rejected "loki: ..." and ended the run "git commit failed" with no receipt. The prep installs a pre-commit hook that
+# rewrites and restages calc.ts (lint-staged style) and a commit-msg hook that rejects a "loki:" subject.
+hook_prep() {
+    printf '#!/bin/sh\nprintf "// hook was here\\n" >> calc.ts && git add calc.ts\n' > "$1/.git/hooks/pre-commit"
+    printf '#!/bin/sh\nif head -1 "$1" | grep -q "^loki:"; then echo "commitlint: type must be one of [feat, fix]" >&2; exit 1; fi\n' > "$1/.git/hooks/commit-msg"
+    chmod +x "$1/.git/hooks/pre-commit" "$1/.git/hooks/commit-msg"
+}
+sign_prep() { git -C "$1" config commit.gpgSign true; git -C "$1" config gpg.program false; } # a signing setup that cannot sign: not a hook, so no bypass
+hk_np() { python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r.get("verdict"), "|", " ".join(n for n in r.get("not_proven", []) if "commit" in n)[:300])' "$RUNDIR/receipt.json" 2>/dev/null || echo "no-receipt"; }
+E2E_PREP=hook_prep run_engine done
+HK="$(hk_np)"
+case "$HK" in "VERIFIED | "*"the repo's own commit hook rejected Loki's commit (commitlint: type must be one of [feat, fix])"*) ok "commit hook: a hook that rejects the message is bypassed for Loki's commit, VERIFIED, and the receipt says so" ;; *) bad "commit hook: rejecting hook gave '$HK' (rc $RC)" ;; esac
+grep -q "hook was here" "$REPO/calc.ts" && bad "commit hook: the pre-commit hook's restaged edit reached the delivered commit" || ok "commit hook: the delivered commit holds the verified tree, not the hook's restaged edit"
+git -C "$REPO" log -1 --format=%s | grep -q "^loki: " && ok "commit hook: the delivered commit keeps Loki's own message" || bad "commit hook: delivered message '$(git -C "$REPO" log -1 --format=%s)'"
+E2E_PREP=hook_prep LOKI_E10_COMMIT_HOOK_BYPASS=0 run_engine done
+[ "$RC" -ne 0 ] && printf '%s\n' "$OUT" | grep -q "git commit failed" && [ ! -f "${RUNDIR:-/nonexistent}/receipt.json" ] && ok "commit hook: LOKI_E10_COMMIT_HOOK_BYPASS=0 keeps the old stop (git commit failed, no receipt)" || bad "commit hook: knob off gave rc $RC, receipt $( [ -f "${RUNDIR:-/x}/receipt.json" ] && echo yes || echo no)"
+E2E_PREP=sign_prep run_engine done
+HK="$(hk_np)"
+case "$HK" in "FAILED | git commit failed: "*) ok "commit hook: a failure no hook caused (signing) is not bypassed, and the run still writes a FAILED receipt naming the git error" ;; *) bad "commit hook: signing failure gave '$HK' (rc $RC)" ;; esac
+unset -f hook_prep sign_prep
+
+# acc-162 NTF: a low-tier change whose repo maps no test file (an npm package whose tests have no .test name) still runs the repo's own test command.
+ntf_prep() {
+    git -C "$1" rm -q calc.test.ts bunfig.toml
+    printf '{"name":"calc","private":true,"scripts":{"test":"node t.cjs"}}\n' > "$1/package.json"
+    printf 'const s = require("fs").readFileSync(__dirname + "/calc.ts", "utf8");\nconst ok = s.includes("export function add");\nconsole.log("TAP version 13\\n" + (ok ? "ok" : "not ok") + " 1 - add is exported\\n1..1\\n# tests 1\\n# suites 0\\n# pass " + (ok ? 1 : 0) + "\\n# fail " + (ok ? 0 : 1) + "\\n# cancelled 0\\n# skipped 0\\n# todo 0");\nprocess.exit(ok ? 0 : 1);\n' > "$1/t.cjs"
+    git -C "$1" add package.json t.cjs && git -C "$1" commit -q --amend -m base
+}
+ntf_facts() { python3 -I - "$RUNDIR/events.jsonl" <<'PY'
+import json, sys
+v = [json.loads(l)["data"] for l in open(sys.argv[1]) if '"stage.completed"' in l and '"verify"' in l]
+v = [d for d in v if "checks" in d]
+d = v[-1] if v else {}
+full = [c["result"] for c in d.get("checks", []) if c["name"].startswith("full suite")]
+print(d.get("no_test_fallback", False), "pass" in full, ",".join(sorted({c["name"].split(":")[0] for c in d.get("checks", [])})))
+PY
+}
+E2E_PREP=ntf_prep LOKI_E10_NO_TEST_FALLBACK=1 run_engine done
+f="$(ntf_facts)"; set -- $f
+[ "$1" = True ] && [ "$2" = True ] && ok "no-test fallback: a low-tier verify that ran no test runs the repo's own test command, and it passed ($3)" || bad "no-test fallback facts: $f (rc $RC)"
+E2E_PREP=ntf_prep LOKI_E10_NO_TEST_FALLBACK=0 run_engine done
+f="$(ntf_facts)"; set -- $f
+[ "$1" = False ] && [ "$2" = False ] && ok "no-test fallback: LOKI_E10_NO_TEST_FALLBACK=0 keeps the low tier's deferred test command" || bad "no-test fallback off facts: $f"
+unset -f ntf_prep
+
 E2E_STUB_USAGE=10 run_engine done
 cat > "$T/cap.py" <<'PY'
 import json, sys
@@ -181,6 +381,7 @@ py_engine() {
     [ "${PY_UNTESTED:-0}" = 1 ] || printf '    if hasattr(calc, "multiply"):\n        assert calc.multiply(3, 4) == 12\n' >> "$REPO/tests/test_calc.py"
     printf '[pytest]\npythonpath = .\n' > "$REPO/pytest.ini"
     for f in "$@"; do printf 'pytest\n' > "$REPO/$f"; done
+    if [ -n "${PY_PREP:-}" ]; then "$PY_PREP"; fi # a leg's extra base files
     git -C "$REPO" init -q -b main; git -C "$REPO" config user.name e2e; git -C "$REPO" config user.email e2e@example.invalid
     git -C "$REPO" add -A .; git -C "$REPO" commit -q -m base
     OUT="$(cd "$REPO" && env -u LOKI_ALLOW_AGENT_GITHUB_TOKEN -u LOKI_MODEL_OVERRIDE -u LOKI_RECEIPT_SIGNING_KEY -u VIRTUAL_ENV \
@@ -213,6 +414,13 @@ if python3 -m pytest --version >/dev/null 2>&1; then
     PY_UNTESTED=1 py_engine calc.py
     [ -n "$(outcome)" ] && [ "$(outcome)" != "VERIFIED" ] && ok "python, impacted test passes but never calls multiply(): not VERIFIED ($(outcome))" || { bad "python, unexercised change: outcome '$(outcome)'"; printf '%s\n' "$NOTES" | sed 's/^/    np | /'; }
     printf '%s\n' "$NOTES" | grep -q "no passing check references a changed symbol.*multiply" && ok "python, unexercised change: the receipt names multiply as unexercised" || bad "python, unexercised change: no changed-symbol note"
+    # acc-162 BCE: a test whose conftest cannot import on base and head alike is the environment, not the change: not_run on NOT PROVEN, never FAILED.
+    bce_prep() { printf 'import loki_missing_module_bce\n' > "$REPO/tests/conftest.py"; }
+    PY_PREP=bce_prep LOKI_E10_BASE_CRASH_ENV=1 py_engine calc.py
+    case "$(outcome)" in FAILED|STALLED|"") bad "base crash: a conftest that fails on base too ended '$(outcome)'" ;; *) printf '%s\n' "$NOTES" | grep -q "fails the same way on base, so its result cannot be read" && ok "base crash: the same ImportError on base makes the check environment ($(outcome)), named on NOT PROVEN" || bad "base crash: NOT PROVEN lacks the base-crash line ($(outcome))" ;; esac
+    PY_PREP=bce_prep LOKI_E10_BASE_CRASH_ENV=0 py_engine calc.py
+    printf '%s\n' "$NOTES" | grep -q "fails the same way on base" && bad "base crash: LOKI_E10_BASE_CRASH_ENV=0 still wrote the base-crash line" || ok "base crash: LOKI_E10_BASE_CRASH_ENV=0 keeps the crash a failure ($(outcome))"
+    unset -f bce_prep
 elif [ "${CI:-}" = "true" ]; then
     bad "python legs: pytest is not installed on the CI runner"
 else
@@ -265,7 +473,7 @@ total = sum(json.load(open(f)).get("total_cost_usd") or 0 for f in costs)
 usd = rec.get("cost", {}).get("usd")
 add = os.path.join(rd, "receipt-addendum-1.json")
 state = json.load(open(add))["status_state"] if os.path.exists(add) else "none"
-print(len(pr), bool(pr and pr[0]["data"].get("draft")), sum(e.get("type") == "deep.started" for e in ev), reviews, council,
+print(len(pr), bool(pr and pr[0]["data"].get("draft")), sum(e.get("type") == "deep.started" and not (e.get("data") or {}).get("poster") for e in ev), reviews, council,
       rec.get("verdict"), usd is not None and round(total, 2) == round(usd, 2), state)
 PY
 }
@@ -329,6 +537,54 @@ case "$U" in "low=0 medium=0 high=1 "*) ok "unit: with no reviewer configured an
 
 # EXP-0010: parallel attempts after a red first attempt. The stub (mode attempts) writes a wrong multiply() in every session except the one in
 # the attempt worktree B<E2E_STUB_RIGHT>; E2E_STUB_FIX=noprogress keeps the primary's fix round red so the extra attempts run. Real bun test, real pytest, real vitest.
+# CASCADE-V0 (LOKI_E10_CASCADE_V0, default off): the Wall is the oracle. A Wall test that fails on the first candidate (Haiku) starts ONE more attempt on the next
+# LOKI_E10_ATTEMPT_MODELS entry (haiku,sonnet by default), before any fix round, and its brief carries the Wall's failing output. No other red cascades.
+cas_ev() { python3 -I -c '
+import json, sys
+for l in open(sys.argv[1]):
+    e = json.loads(l)
+    if e["type"] == "attempts.selected": d = e["data"]; c = d.get("cascade") or {}; print("winner=%s total=%s trigger=%s to=%s" % (d.get("winner"), d.get("total"), c.get("trigger"), c.get("to"))); break
+else: print("none")
+' "$RUNDIR/events.jsonl" 2>/dev/null; }
+cas_brief() { grep -l "The previous attempt at this task failed these acceptance tests" "$T"/cas.prompt.* 2>/dev/null | head -1; }
+E2E_STUB_RIGHT=1 E2E_STUB_WALL=multiply E2E_STUB_PROMPT_LOG="$T/cas.prompt" LOKI_SESSION_MODEL=haiku LOKI_E10_CASCADE_V0=1 run_engine attempts
+c="$(cas_ev)"
+case "$c" in "winner=x1 total=2 trigger=wall to=claude-sonnet"*) ok "cascade: a failing Wall test on the Haiku candidate starts one Sonnet attempt, which wins ($c)" ;; *) bad "cascade: attempts.selected '$c' (outcome $(outcome))"; printf '%s\n' "$OUT" | tail -6 | sed 's/^/    | /' ;; esac
+[ "$(outcome)" = "VERIFIED" ] && ok "cascade: the winning attempt's tree seals VERIFIED" || bad "cascade: outcome '$(outcome)'"
+[ -n "$(cas_brief)" ] && grep -q "loki_wall_multiply" "$(cas_brief)" && ok "cascade: the retry brief carries the Wall's failing output" || bad "cascade: no implement prompt carried the Wall failure"
+rm -f "$T"/cas.prompt*
+E2E_STUB_WALL=multiply E2E_STUB_LINTBAD=1 LOKI_SESSION_MODEL=haiku LOKI_E10_CASCADE_V0=1 run_engine done
+[ "$(cas_ev)" = "none" ] && ok "cascade: a red that is not the Wall (a lint error) never cascades" || bad "cascade: a lint-only red cascaded ($(cas_ev))"
+E2E_STUB_RIGHT=1 E2E_STUB_WALL=multiply E2E_STUB_FIX=noprogress LOKI_SESSION_MODEL=haiku run_engine attempts
+[ "$(cas_ev)" = "none" ] && ok "cascade: off by default (no LOKI_E10_CASCADE_V0): no extra attempt" || bad "cascade: ran with the flag unset ($(cas_ev))"
+
+# CASCADE-V0 must-haves. (1) The calc fixture is a lean task (small, a relevant visible test): the Wall still runs with LOKI_E10_WALL=1, and plan is not forced.
+# (2) A pre-implement snapshot that fails (a 1 KB size ceiling) no longer drops the oracle under the flag: the Wall runs on a fresh base checkout, said on NOT PROVEN.
+wall_facts() { python3 -I - "$RUNDIR/events.jsonl" "$RUNDIR/receipt.json" <<'PY'
+import json, sys
+ev = [json.loads(l) for l in open(sys.argv[1]) if l.strip().startswith("{")]
+w = [e for e in ev if e.get("stage") == "wall" and e["type"] in ("stage.completed", "stage.failed", "stage.skipped")]
+p = [e["type"] for e in ev if e.get("stage") == "plan" and e["type"] in ("stage.completed", "stage.skipped")]
+d = (w[-1].get("data") or {}) if w else {}
+try: rec = json.load(open(sys.argv[2]))
+except Exception: rec = {}
+np = " ".join(rec.get("not_proven", []))
+print(w[-1]["type"] if w else "none", len(d.get("files") or []), d.get("base_checkout", "-"), "fresh-note" if "fresh checkout of the base commit" in np else "no-note", p[0] if p else "none", "oracle" if "wall_oracle" in rec else "no-oracle")
+PY
+}
+E2E_STUB_WALL=multiply LOKI_E10_WALL=1 LOKI_E10_WALL_ON_LEAN=1 E2E_PLAN=auto run_engine done
+f="$(wall_facts)"; set -- $f
+[ "$1" = stage.completed ] && [ "$2" -ge 1 ] && [ "$5" = stage.skipped ] && [ "$6" = oracle ] && ok "lean path: LOKI_E10_WALL=1 runs the Wall on a lean task without forcing plan, and the receipt prices it ($f)" || bad "lean path wall facts: $f"
+E2E_STUB_WALL=multiply E2E_PLAN=auto run_engine done
+f="$(wall_facts)"; set -- $f
+[ "$1" != stage.completed ] || [ "$2" = 0 ] && ok "lean path: with no Wall switch the lean task still skips the Wall ($f)" || bad "lean path default: the Wall ran ($f)"
+E2E_STUB_WALL=multiply LOKI_E10_CASCADE_V0=1 LOKI_E10_WALL_SNAPSHOT_MAX_MB=0.000001 run_engine done
+f="$(wall_facts)"; set -- $f
+[ "$1" = stage.completed ] && [ "$3" = fresh ] && [ "$4" = fresh-note ] && ok "snapshot fallback: with the flag, a failed snapshot runs the Wall on a fresh base checkout, named on NOT PROVEN ($f)" || bad "snapshot fallback facts: $f"
+E2E_STUB_WALL=multiply LOKI_E10_WALL=1 LOKI_E10_WALL_ON_LEAN=1 LOKI_E10_WALL_SNAPSHOT_MAX_MB=0.000001 run_engine done
+f="$(wall_facts)"; set -- $f
+[ "$1" = stage.failed ] && ok "snapshot fallback: without the cascade flag a failed snapshot still fails the Wall stage, as before ($f)" || bad "snapshot no-flag facts: $f"
+
 att_ev() { python3 -I -c '
 import json, sys
 for l in open(sys.argv[1]):
@@ -490,5 +746,130 @@ console.log(out.join(" "));
 ' 2>&1)"
 [ "$U" = "clean=0/0/score0 early=1/1/score0,run1,enter1,score1 rank=2/2/score0,run1,run2,enter1,score1,enter2,score2 tie_review=1/1/score0,run1,enter1,score1,review0+1:true tie_null=0/1/score0,run1,enter1,score1,review0+1,enter0 receipt=3:true throws=0/2/score0,run1,run2 score_error=0/1/score0,run1,enter1,score1,enter0 restore_fail=AttemptsRestoreError aborted=0/0/score0 no_receipt_when_none=0" ] \
     && ok "unit: attempts over fake ops (clean first starts none, clean extra stops the rest, rank picks, a tie goes to the review, a null review keeps the first, errored and aborted keep it, receipt lines)" || bad "unit (attempts ops) gave: $U"
+
+# ---------------------------------------------------------------- DEEP-POST (FireLater#24 PRs #40 to #43): the poster, not the credential-less worker, posts the deep-verify status
+cat > "$T/fl24-deeppost.ts" <<'TS'
+import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { join } from "node:path";
+const root = process.argv[2]!, T = process.argv[3]!;
+const dp = await import(root + "/loki-ts/src/engine10/stages/deep.ts"), sup = await import(root + "/loki-ts/src/engine10/supervisor.ts");
+const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
+const R = join(T, "dpost"); rmSync(R, { recursive: true, force: true });
+const id = "e10-20261114T215737Z-c8f5", run = join(R, ".loki/runs", id); mkdirSync(run, { recursive: true });
+const stub = join(R, "push.sh"), log = join(R, "push.log");
+writeFileSync(stub, '#!/bin/bash\nprintf "%s|" "$@" >> "$STUB_LOG"; printf "pinned=%s\\n" "$_LOKI_PINNED_ORIGIN" >> "$STUB_LOG"\n');
+const sha = "c1be166dcccfd3cf1f425a54f8115599a837a24a";
+writeFileSync(join(run, "receipt.json"), JSON.stringify({ run_id: id, head_sha: sha }));
+writeFileSync(join(run, "events.jsonl"), JSON.stringify({ type: "pr.opened", data: { url: "https://github.com/o/r/pull/40" } }) + "\n");
+const cwd0 = process.cwd(); process.chdir(R);
+const sleeper = (s: number) => spawn("sleep", [String(s)], { stdio: "ignore" });
+try {
+  // the worker is still running: the poster waits for it, then reads the addendum it wrote
+  const w = sleeper(1); setTimeout(() => writeFileSync(join(run, "receipt-addendum-1.json"), JSON.stringify({ run_id: id, status_state: "success", checks: [{ name: "full suite: api", result: "pass" }], not_proven: [] })), 300);
+  const t0 = Date.now(), rc = await dp.deepPost([id, String(w.pid), "https://github.com/o/r.git"], { pushScriptPath: stub, pushExtraEnv: { STUB_LOG: log }, pollMs: 100 });
+  const l = readFileSync(log, "utf8");
+  res("DEEP-POST waits for the worker pid before posting", Date.now() - t0 >= 800);
+  res("DEEP-POST posts the comment to the PR from the pr.opened event", l.includes("comment|40|") && existsSync(join(run, "deep-comment.md")) && readFileSync(join(run, "deep-comment.md"), "utf8").includes("deep verify: success"));
+  res("DEEP-POST posts the final status for the sealed head sha with the addendum's state", l.includes(`status|${sha}|success|`) && rc === 0);
+  res("DEEP-POST passes the pinned origin to the push script", l.includes("pinned=https://github.com/o/r.git"));
+  // the worker died without an addendum: the status is error, never left pending
+  rmSync(join(run, "receipt-addendum-1.json")); writeFileSync(log, "");
+  const w2 = sleeper(0); await new Promise((r) => w2.on("exit", r));
+  await dp.deepPost([id, String(w2.pid), "https://github.com/o/r.git"], { pushScriptPath: stub, pushExtraEnv: { STUB_LOG: log }, pollMs: 50 });
+  res("DEEP-POST a worker that wrote no addendum gets status error, not pending", readFileSync(log, "utf8").includes(`status|${sha}|error|`));
+  writeFileSync(join(run, "receipt-addendum-1.json"), JSON.stringify({ run_id: "e10-other", status_state: "success", checks: [] })); writeFileSync(log, "");
+  await dp.deepPost([id, String(w2.pid), "https://github.com/o/r.git"], { pushScriptPath: stub, pushExtraEnv: { STUB_LOG: log }, pollMs: 50 });
+  res("DEEP-POST an addendum of another run is never trusted (error)", readFileSync(log, "utf8").includes(`status|${sha}|error|`));
+  res("DEEP-POST bad arguments exit 2 and post nothing", (await dp.deepPost(["../x", "1", ""], {})) === 2);
+} finally { process.chdir(cwd0); }
+const a = sup.deepPostArgv(["/bun", "--smol", "/cli.ts", "engine10", "deep-worker", id, "claude", "sonnet"], "https://github.com/o/r.git", 4242);
+res("DEEP-POST argv reuses the runtime and CLI with run id, worker pid and origin", JSON.stringify(a) === JSON.stringify(["/bun", "--smol", "/cli.ts", "engine10", "deep-post", id, "4242", "https://github.com/o/r.git"]));
+{ const calls: { cmd: string; args: string[]; env: NodeJS.ProcessEnv }[] = [], ev: { type: string; data: Record<string, unknown> }[] = [];
+  const fake = (cmd: string, args: string[], o: { env: NodeJS.ProcessEnv }) => { calls.push({ cmd, args, env: o.env }); return 100 + calls.length; };
+  const worker = { GH_TOKEN: "ghp_LOKIWITHHELDsentinelX", PATH: "/bin" }, real = { GH_TOKEN: "real-token", PATH: "/bin" };
+  const np = sup.spawnDeep(["/bun", "/cli.ts", "engine10", "deep-worker", id, "claude", "sonnet"], "https://github.com/o/r.git", { workerEnv: worker, env: real, repoDir: R, append: (e) => ev.push(e), spawn: fake as never });
+  const w = calls.find((c) => c.args.includes("deep-worker")), p = calls.find((c) => c.args.includes("deep-post"));
+  res("DEEP-POST the worker gets the withheld env plus LOKI_E10_DEEP_POSTER=1; the poster gets the supervisor env", !!w && w.env.GH_TOKEN === worker.GH_TOKEN && w.env.LOKI_E10_DEEP_POSTER === "1" && !!p && p.env.GH_TOKEN === "real-token" && p.args.includes(String(101)) && np.length === 0);
+  const ds = ev.filter((e) => e.type === "deep.started");
+  res("DEEP-POST deep.started is recorded for the worker, then for the poster last", ds.length === 2 && ds[0]!.data.pid === 101 && ds[1]!.data.pid === 102 && ds[1]!.data.poster === true);
+  calls.length = 0; ev.length = 0;
+  sup.spawnDeep(["/bun", "/cli.ts", "engine10", "deep-worker", id, "claude", "sonnet"], "o", { workerEnv: worker, env: { ...real, LOKI_E10_DEEP_POST: "0" }, repoDir: R, append: (e) => ev.push(e), spawn: fake as never });
+  res("DEEP-POST =0 spawns the worker alone without the poster flag", calls.length === 1 && calls[0]!.env.LOKI_E10_DEEP_POSTER === undefined && ev.filter((e) => e.type === "deep.started").length === 1); }
+res("DEEP-POST on by default, =0 opts out", sup.deepPostOn({}) && !sup.deepPostOn({ LOKI_E10_DEEP_POST: "0" }));
+rmSync(R, { recursive: true, force: true });
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/fl24-deeppost.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || bad "fl24-deeppost unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 12 ] || bad "fl24-deeppost unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 12"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+
+# ---------------------------------------------------------------- RUN-DEADLINE (dev4 cap kills): an outer deadline becomes the fixed run cap, and the run seals before it
+cat > "$T/deadline.ts" <<'TS'
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+const root = process.argv[2]!;
+const rc = await import(root + "/loki-ts/src/util/run_cap.ts"), mc = await import(root + "/loki-ts/src/engine10/machine.ts");
+const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
+const d = mkdtempSync(join(tmpdir(), "dl-"));
+try {
+  res("RUN-DEADLINE unset changes nothing (the sized default cap)", rc.deadlineCapS({}, 5) === undefined && rc.resolveRunCapS(d, true, {}).fixedS === undefined);
+  res("RUN-DEADLINE the cap is the time left of the deadline minus the margin", rc.deadlineCapS({ LOKI_RUN_DEADLINE_S: "1200" }, 5) === 1165);
+  const r = rc.resolveRunCapS(d, true, { LOKI_RUN_DEADLINE_S: "1200" });
+  res("RUN-DEADLINE it is a fixed cap and the ceiling (never resized past it)", r.fixedS !== undefined && r.fixedS <= 1170 && r.ceilingS === r.fixedS && r.capS === r.fixedS);
+  res("RUN-DEADLINE a smaller explicit cap wins; a larger one is held to the deadline", rc.resolveRunCapS(d, true, { LOKI_RUN_DEADLINE_S: "1200", LOKI_E10_CAP_S: "600" }).capS === 600 && rc.resolveRunCapS(d, true, { LOKI_RUN_DEADLINE_S: "1200", LOKI_E10_CAP_S: "3000" }).capS <= 1170);
+  res("RUN-DEADLINE the soft cap seals at least a minute before the deadline", mc.softCapS(1165) <= 1200 - 60);
+  res("RUN-DEADLINE a bad value is ignored (warned), a tiny one keeps the minimum cap", rc.deadlineCapS({ LOKI_RUN_DEADLINE_S: "soon" }, 0) === undefined && rc.deadlineCapS({ LOKI_RUN_DEADLINE_S: "20" }, 0) === rc.DEADLINE_MIN_CAP_S);
+} finally { rmSync(d, { recursive: true, force: true }); }
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/deadline.ts" "$ROOT" 2>&1; echo "EXIT $?")"
+printf '%s\n' "$out" | grep -q '^EXIT 0$' || bad "deadline unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 6 ] || bad "deadline unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 6"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+# End to end: a 95 s deadline with an implement session that would sleep 200 s. The run must seal a receipt (cap.hit) and exit before the deadline.
+DLTO=(${TO[@]+"${TO[@]}"}); DL0=$(date +%s); TO=(LOKI_RUN_DEADLINE_S=95 E2E_STUB_SLEEP=200 ${DLTO[@]+"${DLTO[@]}"}); run_engine done; TO=(${DLTO[@]+"${DLTO[@]}"}); DLW=$(( $(date +%s) - DL0 ))
+[ "$DLW" -lt 95 ] && ok "RUN-DEADLINE the run ended inside its 95 s deadline (${DLW}s)" || bad "RUN-DEADLINE the run took ${DLW}s against a 95 s deadline"
+[ -n "$RUNDIR" ] && [ -f "$RUNDIR/receipt.json" ] && ok "RUN-DEADLINE a receipt was sealed when time ran out" || { bad "RUN-DEADLINE no receipt at the deadline"; printf '%s\n' "$OUT" | tail -8 | sed 's/^/    | /'; }
+[ -n "$RUNDIR" ] && grep -q '"cap.hit"' "$RUNDIR/events.jsonl" 2>/dev/null && ok "RUN-DEADLINE cap.hit recorded (time ran out, not a kill)" || bad "RUN-DEADLINE no cap.hit event"
+# ---------------------------------------------------------------- WATCHDOG (dev4 gitoxide): a silence with no worker event is recorded, naming the running processes
+cat > "$T/wd.ts" <<'TS'
+import { spawn } from "node:child_process";
+const root = process.argv[2]!;
+const sv = await import(root + "/loki-ts/src/engine10/supervisor.ts");
+const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
+const w = sv.silenceWatch(120, 0);
+w.event("implement", "session.ended", 10_000);
+res("WATCHDOG nothing is due before 120 s of silence", w.due(129_000) === null);
+const d = w.due(131_000);
+res("WATCHDOG one event is due at 120 s of silence, naming the last stage and event", !!d && d.stage === "implement" && d.lastType === "session.ended" && d.silentS === 121);
+res("WATCHDOG the next one is due one interval later, not every tick", w.due(140_000) === null && w.due(252_000) !== null);
+w.event("verify", "stage.started", 300_000);
+res("WATCHDOG a worker event resets the silence", w.due(400_000) === null);
+res("WATCHDOG 0 turns it off; the default is 120 s", sv.silenceWatch(0, 0).due(10_000_000) === null && sv.watchdogSilentS({}) === 120 && sv.watchdogSilentS({ LOKI_E10_WATCHDOG_SILENT_S: "0" }) === 0);
+const child = spawn("sleep", ["5"], { stdio: "ignore" });
+await new Promise((r) => setTimeout(r, 200));
+const names = sv.descendantNames(process.pid);
+child.kill();
+res("WATCHDOG it names the processes running under the supervisor, without arguments", names.includes("sleep") && !names.some((n: string) => n.includes(" ")));
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/wd.ts" "$ROOT" 2>&1; echo "EXIT $?")"
+printf '%s\n' "$out" | grep -q '^EXIT 0$' || bad "wd unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 6 ] || bad "wd unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 6"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+# End to end: a 20 s implement session with no heartbeat yet and a 2 s watchdog: the log carries watchdog.silent naming processes, and the run still delivers.
+WDTO=(${TO[@]+"${TO[@]}"}); TO=(LOKI_E10_WATCHDOG_SILENT_S=2 E2E_STUB_SLEEP=20 ${WDTO[@]+"${WDTO[@]}"}); run_engine done; TO=(${WDTO[@]+"${WDTO[@]}"})
+wd="$([ -n "$RUNDIR" ] && python3 -I -c 'import json,sys
+ev=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+w=[e for e in ev if e.get("type")=="watchdog.silent"]
+print(len(w), w[0]["stage"] if w else "-", len(w[0]["data"].get("processes") or []) if w else 0)' "$RUNDIR/events.jsonl" 2>/dev/null)"
+case "$wd" in 0*|"") bad "WATCHDOG no watchdog.silent event in a 20 s silent session: '$wd'" ;; *) set -- $wd; [ "$2" = implement ] && [ "$3" -gt 0 ] && ok "WATCHDOG the silent implement session is recorded ($1 event(s)) with the processes running" || bad "WATCHDOG event facts: $wd" ;; esac
+[ "$(outcome)" = VERIFIED ] && ok "WATCHDOG recording a silence changes nothing else (VERIFIED)" || { bad "WATCHDOG outcome is '$(outcome)'"; printf '%s\n' "$OUT" | tail -6 | sed 's/^/    | /'; }
 
 finish

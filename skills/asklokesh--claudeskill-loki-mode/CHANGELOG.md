@@ -7,10 +7,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## v11.141.5 (2026-11-15)
+
+A split issue ends in one pull request, a run can finish inside an outer time limit, a silent run leaves a trace, and a timed-out untouched test is not rerun.
+
+### Added
+- Loki can finish inside an outer time limit. Set `LOKI_RUN_DEADLINE_S` to the seconds your CI job or wrapper allows. The run budgets every stage to that limit, and with about a minute left it seals the current change as "time ran out" (PARTIAL, with a receipt) instead of being killed with nothing. `loki start --max-duration` already sets a fixed run cap; the deadline variable also counts time already spent and leaves a margin. On dev4, 4 runs with a 3600 s budget were killed by a 1200 s bench limit and left no receipt.
+- A run that goes quiet now leaves a trace. After 120 s with no event from the engine, the supervisor records a `watchdog.silent` event naming the last stage and the programs running then (names only, never their arguments). It repeats for each further 120 s. On dev4, gitoxide sat 854 s inside implement with no event at all, so its cause could not be found. `LOKI_E10_WATCHDOG_SILENT_S` sets the interval; `0` turns it off.
+- Off by default until measured (in the code since v11.141.1, first listed here): the pre-delivery review turn can be kept from breaking a test. With `LOKI_E10_REVIEW_TURN_GUARD=1`, when the turn edits anything, Loki reruns the tests of what it changed; if a test that passed before the turn fails after it, only that turn's edits are taken back, the implemented change is kept, and the receipt says which test it broke.
+
 ### Changed
-- LOKI_E10_ATTEMPTS now counts TOTAL implement attempts, not extra ones: LOKI_E10_ATTEMPTS=3 used to mean 3 extra attempts after a red verify and now means 3 attempts in all (2 extra). Unset, 0 and 1 stay off (one attempt, as before); `on` is 2 in all.
-- With LOKI_E10_ATTEMPTS=N, a first attempt that is not clean (a red check, a spec conflict, or any NOT PROVEN line from verify or a fix round) gets N-1 more independent attempts. Each one runs Loki's full verify; the first clean one stops the others. Otherwise the run keeps the attempt with a green verify, then no spec conflict, then the fewest NOT PROVEN lines. A tie goes to one review of the tied diffs, shown in both orders and counted only when both agree, against the issue, the repo's CONTRIBUTING, PR template and style configs, and the pre-fix code (Sonnet by default, LOKI_E10_ATTEMPTS_REVIEW_MODEL to change it, LOKI_E10_ATTEMPTS_REVIEW=0 to keep the first attempt on a tie). A clean first attempt costs nothing extra.
-- Only the chosen attempt is sealed. The receipt's new `attempts` lines name every attempt's outcome and the selection reason. The field is left out when no extra attempt ran, so a one-attempt receipt is unchanged.
+- A split issue now ends in one pull request for the issue, not one per slice. Each slice still runs and verifies on its own branch with its own receipt; Loki then combines them in dependency order on `loki/<issue>-combined`, reruns every slice's sealed Wall and the impacted tests on the combined tree, and opens one PR with a section per slice and one combined receipt whose verdict is the weakest slice's. A conflict gets one bounded resolve session; if it stays unresolved, that slice and those stacked on it open their own PRs and the PR says why. `LOKI_SPLIT_ONE_PR=0` restores one PR per slice, a combined diff over `LOKI_SPLIT_ONE_PR_MAX_FILES` (default 150) falls back to per-slice PRs, and `LOKI_SPLIT_MAX_SLICES` (default 8, at most 32) replaces the fixed cap of 4. Only `loki start owner/repo#N` is wired; `loki issues run` epics still open per-slice PRs.
+
+### Fixed
+- A test file that timed out is not run again in later verifies of the same run when the change does not touch it. Its earlier result is carried, with the reason. A test that ignores the stop signal is now killed a few seconds after its time limit, instead of running minutes past it (dev4 aiohttp: a 60 s limit cost about 160 s in every verify). `LOKI_E10_TIMEOUT_CARRY=0` reruns such tests.
+- Removed claims we no longer make; CLI hints and tour spend notice fixed. Shipped text no longer says "tamper-evident" (the receipt is checked by `loki proof verify` and `loki verify`; the audit logs are hash-chained), the agent docs make no SOC 2 or GDPR compliance claim and give no agent-type count, and the architecture map names no HumanEval figure. The Control Plane hints now say `loki dashboard` (there is no `loki ui`). `loki tour --live` and `loki wow` say they make real model calls and the most they can cost, and ask y/N before spending; `--yes` skips the question, and with no terminal they spend nothing.
+
+### Measured
+- The v11.141.1 note's 19.5 against 16.5 for raw Opus (Loki on Sonnet) was on the tuned 22-task dev set. On fresh sets it measured: dev3 13.0 vs raw Opus 13.0 at 3.7x lower cost; dev4 15.5 vs 16.5 at 4.1x lower cost.
+
+## v11.141.4 (2026-11-15)
+
+Fixes from a real multi-PR issue run (FireLater#24) and cleaner delivered diffs.
+
+### Fixed
+- Files Loki's own test runs wrote no longer ship in the delivered diff. A snapshot a verify run rewrote, or a fixture cache it created, is left out. That now includes the work-in-progress commit of a run that did not pass. A new file stays only when the task names its path. Before anything is left out, the targeted tests run without it, and a file a test needs is kept and named on the receipt. `LOKI_E10_REGEN_DROP=0` turns this off.
+- The `loki/deep-verify` commit status no longer stays pending forever. The background deep verify runs the repository's own tests, so it holds no GitHub credentials, and its status and comment posts always failed (FireLater#24: pending for hours on all four PRs). A small poster that runs no repository code now waits for it, then posts the deep-verify comment and the final status; when the deep verify dies without a result the status reads error, never pending. `LOKI_E10_DEEP_POST=0` restores the old behavior.
+- An edit to an existing test that the task asks for no longer caps the run at PARTIAL as a weakened test. Fewer assertions inside a test case that the task names by its exact title and asks to update (FireLater#24 s1 updated 'should search across title, issue_number, description' as the issue asked) are no longer read as weakening. The receipt names every such edit. Any other dropped assertion, dropped or skipped case, or added setup still caps. `LOKI_E10_WEAK_EXCUSE=0` restores the count rule alone. Added setup (a hook in an added describe block, a mock of a module the change adds, a bare logger stub) stays capped unless `LOKI_E10_WEAK_MOCK_NEW=1`, since such a mock can still reach an existing test.
+- A second or third verify in the same run no longer reruns the base tests the first one already ran. The base never changes inside a run, so base results are kept in the run directory and reused. `LOKI_E10_BASE_MEMO=0` reruns base every time.
+- Intake no longer runs the same base test suite twice. The root suite verify runs was spelled with the repository's absolute path while the baseline ran it relative, so the two never matched and the suite ran again (copier: a 300 s capped baseline, then 286 s more). One run now serves both. When the baseline was cut off at its cap, the suite is not run again: verify's per-file base reruns cover the targeted tests, and a cut base still excuses nothing. `LOKI_E10_ONE_BASE_RUN=0` restores the second run.
+
+## v11.141.3 (2026-11-15)
+
+Sixteen improvements to how Loki plans, checks and fixes a change are on by default again.
+
+### Changed
+- 16 improvements now on by default (measured: +3.5 merge-ready on our 21-task dev2 set, 2 seeds, same engine, lower cost per merge-ready; each can be turned off with =0). The knobs are listed in docs/dev/architecture-reference.md; LOKI_E10_WALL_ON_LEAN and LOKI_E10_CASCADE_V0 stay off.
+- The terminal summary no longer compares models. It reports Loki's own cost only; the receipt still records the model.
+
+## v11.141.2 (2026-11-14)
+
+See what Loki changed and why it believes the change works, while the run is still going.
+
+### Added
+- The candidate diff is shown as soon as implement finishes, labeled "candidate, not yet checked" until verify ends (LOKI_AWE_DIFF_EARLY=0 turns it off).
+- A one-line proof card in the run summary: whether the fail-then-pass proof held and which test shows it, inside the usual 8-line output. `--verbose` prints the full card: the test that fails on your code, the lines it failed with, that it passes after the change, and what is not proven. It is green only when the proof really held (LOKI_AWE_PROOF_CARD=0 turns it off).
+- The status line shows elapsed time and spend so far, and the pull request body gets "The proof", "Conventions followed" and "Cost" sections read from the sealed receipt (LOKI_AWE_LIVE_COST=0 turns it off).
+
+### Changed
+- The pull request body no longer has the model tier line. It reports Loki's own cost only; the receipt still records the model.
+
+## v11.141.1 (2026-11-14)
+
+Faster runs on long tasks, a correct fail-then-pass proof on editable installs, and safer releases.
+
+On our 22-task dev set, Loki on Sonnet reached 19.5 merge-ready tasks against 16.5 for raw Opus, at 4.6x lower cost per merge-ready task (2 seeds; tuned on this set; not a blind result).
+
+### Fixed
+- Long task descriptions no longer slow a run down: the check for file paths named in the task took about 7.6 s per call on a 99 KB task and ran several times per run. It now takes a few milliseconds.
+- The proof that a test fails without the fix no longer runs the fixed code. On a repo whose virtualenv holds an editable install, the base checkout used to import the already-changed sources, so a real fail-then-pass test read as passing on the old code. The Wall's base copy had the same leak through linked dependencies, and now points at the copy.
+
+### Added
+- Off by default, opt in with LOKI_E10_REVIEW_TURN_GUARD=1: when the pre-delivery review turn edits anything, Loki reruns the tests of what it changed, and takes back only that turn's edits if a test that passed before now fails. The receipt names the test.
+- Releases refuse to ship while the repo's GitHub CI is red on the commit being released (`scripts/release.sh --ship`, exit 6; `--check-ci` runs the check alone).
+
+## v11.141.0 (2026-11-14)
+
+Verify runs the repo's real tests on repos it has never seen, and Loki does less harm on the way.
+
+This release runs more of a new repo's own tests, reads more runners' results, keeps the delivered diff to what the fix needs, and stops spending fix rounds on failures the change cannot have caused. Changes measured on the bench ship on by default with their own opt-out. Changes not yet measured on the bench ship off by default: each says so and names the switch that turns it on.
+
+### Added
+- A pre-delivery self-check runs before verify. It checks the diff for a missing release note the repo requires, stray files, a source change with no test, formatter conformance, edits outside the planned scope, and a test for every case the issue states, and it may fix the diff in one bounded review turn (LOKI_E10_SELF_REVIEW=0 opts out). Its stated-case and sibling-definition items are off by default; opt in with LOKI_E10_SR_COVERAGE=1.
+- Changed ava tests (test files with no .test name) run as `npx --no-install ava <file>`, counted from ava's own summary. Off by default; opt in with LOKI_E10_AVA_TARGETED=1.
+- A low-risk change for which verify selected no test runs the test command of the package that owns the changed files. Off by default; opt in with LOKI_E10_NO_TEST_FALLBACK=1.
+- The cases an issue states are handed to the Wall test writer as required cases. Off by default; opt in with LOKI_E10_WALL_CASES=1.
+- New and off by default: LOKI_E10_CASCADE_V0=1 turns the Wall on and, only when a Wall test fails on the first candidate, runs one more attempt on the next model of LOKI_E10_ATTEMPT_MODELS (haiku then sonnet by default), with the Wall's failing output in its brief, before any fix round. The receipt records the Wall's cost and time and whether the cascade fired.
+- New and off by default: LOKI_E10_WALL_ON_LEAN=1 (implied by LOKI_E10_CASCADE_V0=1) also runs a Wall that is on for a small task that has a relevant visible test, without forcing a plan.
+- The receipt records which model a run used and who chose it (`model_source`: explicit, default or provider).
+
+### Changed
+- A `loki start`, or any Loki 10 run on Claude, that names no model now runs on Sonnet instead of the Claude CLI's own account default, which is Opus on many plans. `--session-model`, LOKI_SESSION_MODEL, any LOKI_MODEL_* or LOKI_CLAUDE_MODEL_* variable and the model router still win. LOKI_DEFAULT_SESSION_MODEL sets another default, and LOKI_DEFAULT_SESSION_MODEL=provider restores the CLI default. The first status line names the model and why.
+- A symbol the task names resolves to its source file, not to build output, a type declaration or a benchmark copy. Off by default; opt in with LOKI_E10_SOURCE_SITES=1.
+- The plan is a hint in the implement brief, never the scope: every case the task states is covered even where the plan leaves it out. Off by default; opt in with LOKI_E10_PLAN_HINTS=1.
+- A failing check the diff cannot have caused (no failing id or diagnostic names a changed file, and the change touches only docs, type declarations, tests or changelog fragments) gets no fix round; the verdict is unchanged. Off by default; opt in with LOKI_E10_UNCAUSED_NO_FIX=1.
+- A Haiku run gets no fix round unless an independent check failed: the Wall, a targeted test the diff touches, or a test that passed on the base commit. Off by default; opt in with LOKI_E10_HAIKU_INDEP_FIX=1.
+- The shared intake baseline budget (LOKI_E10_INTAKE_CAP_S) is opt-in again, and intake says so when it cuts a baseline short.
+- A relevant test is the task's own only when it is paired by path with a file the diff changed (LOKI_E10_OWN_BY_PATH=0 opts out).
+- A file name mentioned only inside spelled paths names only the files those paths spell (LOKI_E10_NAMED_EXACT=0 opts out).
+- Output the run's own commands wrote and build output the run created are left out of the delivered diff and named on the receipt.
+- Off by default: a formatting-only or suppression-only change to a file outside the fix (opt in with LOKI_E10_DIFF_NEED=1) and a file only Loki's own check rewrote (opt in with LOKI_E10_REGEN_DROP=1) are left out of the delivered diff.
+- Off by default: the implement rules ask to update existing docs that list what changed (opt in with LOKI_E10_DOC_UPDATE_RULE=1), and the self-check flags a doc that enumerates the changed thing (opt in with LOKI_E10_DOC_ENUM=1).
+
+### Fixed
+- Rust suites on the 2024 edition (merged doctests) and crates with no test target are read correctly instead of as unparsed. Off by default; opt in with LOKI_E10_CARGO_MERGED_DOCTEST=1.
+- pytest output from repos that load pytest-pretty is counted. Off by default; opt in with LOKI_E10_PYTEST_PRETTY=1.
+- A repo that requires a newer uv than the host has installs with that uv through uvx, at the uv workspace root for a member package. Off by default; opt in with LOKI_E10_UV_REQUIRED=1.
+- A test that crashes or cannot import in the same way on the base commit is reported as the environment on NOT PROVEN instead of failing the run. Off by default; opt in with LOKI_E10_BASE_CRASH_ENV=1.
+- A repo's own commit hook (commitlint, lint-staged) no longer fails a run: Loki restores the verified files and commits once more with hooks off, keeping signing, and says so on the receipt. A commit that still fails ends with a FAILED receipt naming the git error instead of no receipt (LOKI_E10_COMMIT_HOOK_BYPASS=0 restores the old stop).
+- A base failure that is the error the issue reports, by exception type or Go panic, counts as fail-then-pass proof, and node:test, jest, mocha and python -m unittest assertion failures on the base count too.
+- A check whose tool could not be started is not run, not failed; a linter that cannot start is retried by its other launchers, then disclosed instead of capping.
+- A sub-module suite with no tests on the base or the change no longer caps the run, and a unittest repo whose venv has no pytest runs its tests under unittest.
+- An edited test file red on the base by every failing id, with its added cases passing, is excused as a disclosure, guarded by the environment; a collateral test equal to the intake baseline costs no fix round and no cap.
+- A package-relative test id names its changed repo file, and the fail-then-pass proof runs a package's test in its package; a compiled stack's proof gets a 40 s cap and a pre-built base.
+- A regression test that imports the changed code is never dropped as outside the change's packages.
+- Changelog and release-note handling: the brief names the changelog file a contribution guide asks for, a real towncrier fragment is the example, a changelog is frozen only when it says so, an entry carries only the task's own issue or PR number, and a towncrier fix with no number ships an orphan fragment.
+- The commit-stage formatter resolves exactly like verify's linter.
 
 ## v11.140.0 (2026-11-13)
 

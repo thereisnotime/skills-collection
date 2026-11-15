@@ -20,7 +20,8 @@
 #                   context_pack, and the seal stage.completed event and receipt carry context_recall 1; the same
 #                   run on the default model sends no pack but still records brief_files and the coverage.
 #   loki stats --outcomes --json reports the median context recall of those runs.
-#   L3/L5 rules:    release-note fragment line (changeset, towncrier, changelog.d, newsfragments, changie, none) and the
+#   L3/L5 rules:    release-note fragment line (changeset, towncrier, changelog.d, newsfragments, changie, a changelog file the
+#                   contribution guide asks entries for (CL), none) and the
 #                   byte-stable FIXED_RULES prefix (extra planted defects 5 and 6 below).
 #
 #   E6 diet:        LOKI_E10_PACK_DIET (default on, =0 opts out): one named definition keeps its span and loses the fill, the
@@ -37,6 +38,26 @@
 #   4. loki-ts/src/engine10/repomap.ts: SOURCE_EXT back to ts|tsx|js|jsx|mjs|cjs|py; the L020 ranking legs fail.
 #   5. loki-ts/src/project_model/conventions.ts releaseNoteConvention: drop the .changeset/config.json branch; the changeset legs fail.
 #   6. loki-ts/src/e10ext/context.ts: interpolate the convention line into FIXED_RULES; prefix_stable fails.
+#   7. loki-ts/src/project_model/conventions.ts releaseNoteConvention: `return null;` in place of the changelogFileConvention fallback; the
+#      CL cl_required, cl_named, cl_rst and cl_on_again legs fail (CL: a changelog file the contribution guide asks entries for).
+#   8. conventions.ts guideRequiresChangelog: delete the LOG_FORBID line; cl_forbid fails (a guide saying not to update the CHANGELOG got a line).
+#   9. conventions.ts releaseNoteBrief: `if (false) {` in place of the towncrier example branch (TX); tx_example and tx_template_only fail.
+#  11. conventions.ts logFrozen: always use LOG_FROZEN_LOOSE (FS); fs_deprecated_section fails.
+#  14. loki-ts/src/features/self_review.ts selfReviewWanted: `mode !== "off"` (SR); sr_clean_turn fails (a clean minimal diff would get a review turn: churn and cost).
+#  16. conventions.ts changelogRefOn: `false &&` (CR); cr_brief, cr_checks, cr_changeset and cr_towncrier fail.
+#  18. conventions.ts towncrierNewOrphanOn: `false &&` (TN); tn_first_orphan and tn_brief fail (a fix with no number ships no fragment).
+#  19. conventions.ts renameInventedFragment: `if (true || ...)` (ON); on_rename fails (the invented 1604 fragment ships under its number).
+#  20. self_review.ts caseCovered: `return true;` first (SC); sc_edge, sc_same and sc_repro fail (a stated case with no test reads covered).
+#  21. self_review.ts siblingDefinitions: `return out;` right after `const changed` (SC); sc_sib and sc_sib_detail fail (the sibling override goes unflagged).
+#  22. self_review.ts docEnumerations: `return out;` right after `const touched` (DE); de_flag fails (the README that lists every other option is not flagged).
+#  24. loki-ts/src/e10ext/context.ts: `const DOC_RULE = DOC_RULE_V139;` (UD); ud_rule fails (the rules still say write no documentation).
+#  23. self_review.ts wallRequiredCases: `if (wallCasesOn(env)) return [];` (WC); wc_lines, wc_marker, wc_off and wc_wall fail.
+#  17. conventions.ts stripInventedRefsInFile: `if (base.has(l) || true) return l;` (CR strip); cr_strip_file fails (the invented #2383 ships).
+#  15. self_review.ts settleItems: never trust the after-turn check (`if (false && a)`); sr_settled fails (fixed items read unresolved).
+#  12. conventions.ts writeReleaseNoteFragment: `op = null` (TO); to_older_orphan and to_cfg_prefix fail.
+#  13. conventions.ts scaffoldRecord: `return null` for a skip (TR); tr_skip fails.
+#  25. self_review.ts guardReviewTurn: `if (false && broke.length)` (TG); tg_revert fails (the turn that broke a passing test is kept).
+#  10. loki-ts/src/e10ext/scope.ts flagOutsideScope: `mine = (f: string): boolean => false` (CS); cs_on fails (the asked-for changelog edit is flagged).
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need() { command -v "$1" >/dev/null 2>&1 || { echo "context-pack: needs $1" >&2; exit 2; }; }
@@ -185,10 +206,44 @@ out.rn_changelogd = releaseNoteBrief(mk("cd", { "changelog.d/20240101_fix.md": "
 out.rn_newsfrag = releaseNoteBrief(mk("nf", { "newsfragments/7.feature.rst": "z" }), []);
 out.rn_changie = releaseNoteBrief(mk("ch", { ".changes/unreleased/Fixed-1.yaml": "z" }), []);
 out.rn_none = releaseNoteBrief(mk("no", { "package.json": '{"name":"p"}', "CHANGELOG.md": "# c" }), []) === "" ? "empty" : "present";
+// CL LOKI_E10_CHANGELOG_CONVENTION: a single changelog file the contribution guide asks entries for.
+const LOG = "# Changelog\n\n## Unreleased\n\n### Fixed\n\n- Fixed a crash on empty input.\n\n## 1.0.0\n\n- First release.\n";
+let clN = 0; const clEmpty = (files: Record<string, string>) => (releaseNoteBrief(mk(`cl-neg-${++clN}`, files), []) === "" ? "empty" : "present");
+out.cl_required = releaseNoteBrief(mk("cl1", { "CONTRIBUTING.md": "# Contributing\n\nPlease add an entry to CHANGELOG.md for every\nuser-visible change.\n", "CHANGELOG.md": LOG, "a.py": "x = 1\n" }), []);
+out.cl_named = releaseNoteBrief(mk("cl2", { ".github/PULL_REQUEST_TEMPLATE.md": "## Checklist\n\n- [ ] `docs/changelog.md` has been updated if applicable.\n", "docs/changelog.md": "Change Log\n==========\n\n## Unreleased\n\n * Fix: a thing. (#12)\n", "CHANGELOG.md": LOG }), []);
+out.cl_rst = releaseNoteBrief(mk("cl3", { "CONTRIBUTING.rst": "Each pull request must include an entry in the changelog.\n", "CHANGES.rst": "Changes\n=======\n\n1.2.0 (unreleased)\n------------------\n\n- Bug fix in the parser.\n\n1.1.0\n-----\n\n- Older.\n" }), []);
+out.cl_forbid = clEmpty({ "CONTRIBUTING.md": "Don't update the CHANGELOG or the version number. That gets done by maintainers when preparing the release.\n", "CHANGELOG.md": LOG });
+out.cl_soft = clEmpty({ ".github/pull_request_template.md": "## ChangeLog\n\nOptional. Suggest a line for adding to the CHANGELOG to summarise your change.\n", "CHANGELOG.md": LOG });
+out.cl_pr_section = clEmpty({ ".github/pull_request_template.md": "## Release Notes\n\nInclude anything here that you didn't include in *Release Notes* above.\n", "CHANGELOG.md": LOG });
+out.cl_no_unreleased = clEmpty({ "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": "# Changelog\n\n## 1.0.0\n\n- First release.\n" });
+out.cl_frozen = clEmpty({ "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": "> This document is no longer being actively maintained. See the releases page.\n\n# Changelog\n\n## Unreleased\n\n- x\n" });
+// FS LOKI_E10_CHANGELOG_FROZEN_STRICT: a "### Deprecated" subsection under Unreleased is not a frozen log; a head that says the file is deprecated is.
+const fsRepo = mk("fs-dep", { "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": "# Changelog\n\n## Unreleased\n\n### Deprecated\n\n- The old parser API.\n" });
+out.fs_deprecated_section = releaseNoteBrief(fsRepo, []) === "" ? "empty" : "present";
+process.env.LOKI_E10_CHANGELOG_FROZEN_STRICT = "0"; out.fs_off = releaseNoteBrief(fsRepo, []) === "" ? "empty" : "present"; delete process.env.LOKI_E10_CHANGELOG_FROZEN_STRICT;
+out.fs_file_deprecated = clEmpty({ "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": "As of 3.0.0 this file has been deprecated.\n\n## Unreleased\n\n- x\n" });
+out.cl_no_guide =clEmpty({ "CHANGELOG.md": LOG, "README.md": "# p\n" });
+const clOffRepo = mk("cl-off", { "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": LOG });
+process.env.LOKI_E10_CHANGELOG_CONVENTION = "0"; out.cl_off = releaseNoteBrief(clOffRepo, []) === "" ? "empty" : "present"; delete process.env.LOKI_E10_CHANGELOG_CONVENTION;
+out.cl_on_again = releaseNoteBrief(clOffRepo, []) === "" ? "empty" : "present";
+// CS LOKI_E10_CHANGELOG_SCOPE: the changelog the brief's line names is in scope for the advisory scope notes; any other unplanned file still is not.
+{ const sc = await import(join(SRC, "e10ext/scope.ts")); const csr = mk("cs-scope", { "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": LOG, "src/a.py": "x = 1\n", "README.md": "# r\n" });
+  const so = { plan: { relevant_files: ["src/a.py"], plan: "Change src/a.py." }, intake: { task: "Fix the parser" } }, st = [{ st: "M", f: "CHANGELOG.md" }, { st: "M", f: "src/a.py" }, { st: "M", f: "README.md" }];
+  const notes = (): string => sc.flagOutsideScope(so, st, undefined, csr).join("|");
+  out.cs_on = notes(); process.env.LOKI_E10_CHANGELOG_SCOPE = "0"; out.cs_off = notes(); delete process.env.LOKI_E10_CHANGELOG_SCOPE; }
+out.cl_precedence =releaseNoteBrief(mk("cl-cs", { ".changeset/config.json": "{}", "package.json": '{"name":"p"}', "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": LOG }), []);
+// TX LOKI_E10_TOWNCRIER_EXAMPLE: the example is a real fragment, never the towncrier template, even when every mtime ties (a fresh checkout).
+const txRepo = mk("tx", { "pyproject.toml": '[tool.towncrier]\ndirectory = "changes"\ntemplate = "changes/template.rst"\n', "changes/12.bugfix.rst": "Fixed a thing.\n", "changes/template.rst": "{{ text }}\n" });
+utimesSync(join(txRepo, "changes/12.bugfix.rst"), 5000, 5000); utimesSync(join(txRepo, "changes/template.rst"), 5000, 5000);
+out.tx_example = releaseNoteBrief(txRepo, []);
+process.env.LOKI_E10_TOWNCRIER_EXAMPLE = "0"; out.tx_off = releaseNoteBrief(txRepo, []); delete process.env.LOKI_E10_TOWNCRIER_EXAMPLE;
+out.tx_template_only = releaseNoteBrief(mk("tx2", { "pyproject.toml": '[tool.towncrier]\ndirectory = "changes"\n', "changes/template.rst": "{{ text }}\n" }), []).includes("newest example") ? "example" : "none";
 const bp = (rm: string, task: string) => buildImplementBrief(task, null, [], rm);
 const b1 = bp(out.rn_changeset as string, "task one"), b2 = bp("", "a different task entirely");
 const cut = (b: string) => b.slice(0, b.indexOf(FIXED_RULES) + FIXED_RULES.length);
 out.prefix_stable = b1.includes(FIXED_RULES) && b2.includes(FIXED_RULES) && cut(b1) === cut(b2) && !FIXED_RULES.includes("Release-note convention") && b1.indexOf("Release-note convention") > FIXED_RULES.length ? "yes" : "no";
+{ const cx = await import(join(SRC, "e10ext/context.ts")); // UD LOKI_E10_DOC_UPDATE_RULE
+  out.ud_rule = [FIXED_RULES.includes("Do update existing docs that list what you changed"), !FIXED_RULES.includes("Write no documentation unless the task explicitly asks for it"), cx.fixedRules(process.env) === FIXED_RULES, cx.fixedRules({ LOKI_E10_DOC_UPDATE_RULE: "0" }) === cx.FIXED_RULES_DOC_V139, cx.FIXED_RULES_DOC_V139.includes(cx.DOC_RULE_V139), cx.LEGACY_FIXED_RULES.includes(cx.DOC_RULE_V139)].map((b) => (b ? "y" : "n")).join(""); }
 out.rules = ["read the whole function", "sibling branches", "fix the issue prefers", "never npm test", "release-note fragment a repository convention"].map((k) => FIXED_RULES.includes(k) ? "y" : "n").join("");
 // L3 fragment writer: deterministic release-note fragment from the repo's own convention (LOKI_E10_SCAFFOLD).
 const { writeReleaseNoteFragment: wf, summaryNote, taskForbidsReleaseNote, fragmentWriterOn, fragmentNoticeLine } = await import(join(SRC, "project_model/conventions.ts"));
@@ -254,9 +309,157 @@ out.fw_ignore_glob = skip("p", mk("wg", csFiles({ ".changeset/config.json": '{"i
 // towncrier
 const tcFiles = (extra: Record<string, string> = {}) => ({ "pyproject.toml": '[tool.towncrier]\ndirectory = "changes"\n', "changes/7.feature.rst": "Added a thing.\n", "changes/_template.rst": "{{ text }}\n", "changes/README.rst": "notes\n", "pkg/mod.py": "x = 1\n", ...extra });
 const tw = (repo: string, task: string, files = ["pkg/mod.py"]) => wf(repo, files, task, "", { tools: false }) as { path?: string; skipped?: string };
+// TO LOKI_E10_TOWNCRIER_ORPHAN and TR LOKI_E10_SCAFFOLD_TRACE: an orphan in use anywhere (or orphan_prefix in config) names a fragment without an issue; a skip is recorded.
+{ const cv = await import(join(SRC, "project_model/conventions.ts"));
+  const older = () => { const d = mk(`to-old-${++clN}`, tcFiles({ "changes/+old.feature.rst": "Added.\n", "changes/99.bugfix.rst": "Fixed.\n" })); utimesSync(join(d, "changes/+old.feature.rst"), 1000, 1000); utimesSync(join(d, "changes/99.bugfix.rst"), 9000, 9000); utimesSync(join(d, "changes/7.feature.rst"), 1000, 1000); return d; };
+  out.to_older_orphan = tw(older(), "Fix crash when the cache is empty").path ?? "skipped";
+  out.to_cfg_prefix = tw(mk("to-cfg", tcFiles({ "pyproject.toml": '[tool.towncrier]\ndirectory = "changes"\norphan_prefix = "~"\n' })), "Fix crash when the cache is empty").path ?? "skipped";
+  process.env.LOKI_E10_TOWNCRIER_ORPHAN = "0"; process.env.LOKI_E10_TOWNCRIER_NEW_ORPHAN = "0"; out.to_off = tw(older(), "Fix crash when the cache is empty").path ?? "skipped"; delete process.env.LOKI_E10_TOWNCRIER_ORPHAN; delete process.env.LOKI_E10_TOWNCRIER_NEW_ORPHAN;
+  process.env.LOKI_E10_TOWNCRIER_NEW_ORPHAN = "0"; out.tr_skip = JSON.stringify(cv.scaffoldRecord(tw(mk("tr1", tcFiles()), "Fix crash when the cache is empty"))); delete process.env.LOKI_E10_TOWNCRIER_NEW_ORPHAN;
+  const trCl = mk("tr-cl", { "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": LOG, "a.py": "x = 1\n" });
+  out.tr_entry_written = JSON.stringify(cv.scaffoldRecord(wf(trCl, ["a.py", "CHANGELOG.md"], "Fix the parser", "", { tools: false })));
+  out.tr_entry_missing = JSON.stringify(cv.scaffoldRecord(wf(trCl, ["a.py"], "Fix the parser", "", { tools: false })));
+  out.tr_no_conv =JSON.stringify(cv.scaffoldRecord({ skipped: "the repo has no release-note convention" }));
+  process.env.LOKI_E10_SCAFFOLD_TRACE = "0"; out.tr_off = JSON.stringify(cv.scaffoldRecord({ skipped: "towncrier: the change type is not clear from the task" })); delete process.env.LOKI_E10_SCAFFOLD_TRACE;
+  out.tr_block = JSON.stringify([cv.releaseNoteSkipBlock({ scaffold_skipped: "why" }), cv.releaseNoteSkipBlock({ scaffold: { path: "x" } }), cv.releaseNoteSkipBlock(undefined)]);
+  const src = (f: string) => rf(join(SRC, f), "utf8");
+  out.tr_wired = src("engine10/machine.ts").includes("scaffold_skipped: sc.skipped") && src("engine10/stages/seal.ts").includes("...releaseNoteSkipBlock(o.implement)") && src("contrib/index.ts").includes("return scaffoldRecord(r);") ? "yes" : "no"; }
+// SR LOKI_E10_SELF_REVIEW: the pre-delivery review self-check (deterministic items, then at most one bounded "-rv" resume).
+{ const sr = await import(join(SRC, "features/self_review.ts")), { execFileSync: ex2 } = await import("node:child_process"), { rmSync } = await import("node:fs");
+  const repo = (name: string, files: Record<string, string>) => { const d = mk(name, files); const g = (...a: string[]) => ex2("git", ["-C", d, ...a], { stdio: "pipe" }).toString().trim(); g("init", "-q", "-b", "main"); g("config", "user.name", "sr"); g("config", "user.email", "sr@example.invalid"); g("add", "-A"); g("commit", "-q", "-m", "base"); return { d, base: g("rev-parse", "HEAD") }; };
+  const st = (o: Record<string, string>) => Object.entries(o).map(([f, s]) => ({ st: s, f }));
+  const sum = (items: { item: string; status: string }[]) => items.map((i) => `${i.item}=${i.status}`).join(",");
+  const plan = { plan: { relevant_files: ["src/calc.py"], plan: "Change src/calc.py and tests/test_calc.py." } };
+  const clean = repo("sr-clean", { "src/calc.py": "x = 1\n", "tests/test_calc.py": "def test(): pass\n" });
+  writeFileSync(join(clean.d, "src/calc.py"), "x = 2\n"); writeFileSync(join(clean.d, "tests/test_calc.py"), "def test(): assert True\n");
+  const cleanItems = sr.selfReviewChecks(clean.d, clean.base, sr.treeStaged(clean.d, clean.base), "Fix calc", plan);
+  out.sr_clean = sum(cleanItems); out.sr_clean_turn = sr.selfReviewWanted(cleanItems, "on") ? "turn" : "no-turn";
+  out.sr_clean_always = sr.selfReviewWanted(cleanItems, "always") ? "turn" : "no-turn";
+  const cl = repo("sr-cl", { "CONTRIBUTING.md": "Please add an entry to CHANGELOG.md.\n", "CHANGELOG.md": LOG, "src/calc.py": "x = 1\n", "tests/test_calc.py": "t\n", "README.md": "# r\n" });
+  writeFileSync(join(cl.d, "src/calc.py"), "x = 2\n"); writeFileSync(join(cl.d, "README.md"), "# r2\n"); mkdirSync(join(cl.d, "scratch"), { recursive: true }); writeFileSync(join(cl.d, "scratch/debug.py"), "print(1)\n");
+  const clBefore = sr.selfReviewChecks(cl.d, cl.base, sr.treeStaged(cl.d, cl.base), "Fix calc", plan);
+  out.sr_flags = sum(clBefore); out.sr_flag_turn = sr.selfReviewWanted(clBefore, "on") ? "turn" : "no-turn";
+  const brief = sr.selfReviewBrief(cl.d, clBefore);
+  out.sr_brief = ["Please add an entry to CHANGELOG.md.", "FLAGGED: the contribution guide asks for an entry in CHANGELOG.md", "REVIEW <a|b|c|d|e|f|g|h>", "Change nothing that already follows the rules"].every((k) => brief.includes(k)) ? "yes" : "no";
+  // the review turn: the entry added and the scratch file removed; the test and the README edit stay, the README one justified
+  writeFileSync(join(cl.d, "CHANGELOG.md"), LOG.replace("### Fixed\n\n", "### Fixed\n\n- Fixed calc.\n")); rmSync(join(cl.d, "scratch"), { recursive: true, force: true });
+  const clAfter = sr.selfReviewChecks(cl.d, cl.base, sr.treeStaged(cl.d, cl.base), "Fix calc", plan);
+  const reply = "Done.\nREVIEW a: fixed: entry added\nREVIEW b: fixed: removed scratch\nREVIEW c: justified: \nREVIEW e: justified: the README names the changed option\nLOKI_DONE";
+  out.sr_settled = sum(sr.settleItems(clBefore, clAfter, reply));
+  out.sr_no_turn_settle = sum(sr.settleItems(clBefore, null, null));
+  out.sr_parse = JSON.stringify([...sr.parseReviewLines("REVIEW a: ok: fine\n`REVIEW d: justified: matches style`\nREVIEW z: ok\nreview b: FIXED: x").entries()]);
+  out.sr_testfiles = ["src/de/tests.rs", "test/expect.js", "test/main.ts", "kotlinpoet/src/jvmTest/kotlin/a/CodeBlockTest.kt", "__tests__/base.js", "tests/test_x.py", "pkg/x_test.go", "src/a.spec.ts", "src/lib.rs", "lib/a.js", "src/contest.py", "docs/testing.md"].map((f) => sr.isTestFile(f) ? "t" : "s").join("");
+  out.sr_mode = [sr.selfReviewMode({}), sr.selfReviewMode({ LOKI_E10_SELF_REVIEW: "0" }), sr.selfReviewMode({ LOKI_E10_SELF_REVIEW: "always" }), sr.selfReviewMaxTurns({}), sr.selfReviewMaxTurns({ LOKI_E10_SELF_REVIEW_MAX_TURNS: "4" }), sr.selfReviewMaxTurns({ LOKI_E10_SELF_REVIEW_MAX_TURNS: "x" })].join(",");
+  out.sr_receipt = JSON.stringify([sr.selfReviewReceiptBlock({ self_review: { mode: "on", turn: null, items: [] } }), sr.selfReviewReceiptBlock({}), sr.selfReviewReceiptBlock(undefined)]);
+  // TG LOKI_E10_REVIEW_TURN_GUARD: the turn's edits are taken back only when a test that passes without them fails with them; the implement diff stays.
+  { const ts = await import(join(SRC, "e10ext/treeswap.ts")), rd = (d: string, f: string) => { try { return rf(join(d, f), "utf8"); } catch { return "<gone>"; } };
+    const runT = (d: string) => (t: { path: string }) => (rd(d, t.path).includes("bad") ? "fail" : "pass") as "pass" | "fail";
+    const tg = repo("tg-revert", { "lib.txt": "1\n", "tests/t_a.txt": "ok\n", "other.txt": "o\n" });
+    writeFileSync(join(tg.d, "lib.txt"), "2\n"); const pre = ts.snapshotDiff(tg.d, tg.base);
+    writeFileSync(join(tg.d, "tests/t_a.txt"), "ok\nbad hook\n"); writeFileSync(join(tg.d, "tests/t_new.txt"), "new\n"); rmSync(join(tg.d, "other.txt"));
+    const g1 = await sr.guardReviewTurn(tg.d, tg.base, pre, () => [{ path: "tests/t_a.txt" }], runT(tg.d));
+    out.tg_revert = `${g1?.reverted}|${g1?.broke.join(",")}|${g1?.paths.join(",")}|${rd(tg.d, "lib.txt").trim()}|${rd(tg.d, "tests/t_a.txt").trim()}|${rd(tg.d, "tests/t_new.txt").trim()}|${rd(tg.d, "other.txt").trim()}`;
+    const tb = repo("tg-both", { "lib.txt": "1\n", "tests/t_a.txt": "ok\n" });
+    writeFileSync(join(tb.d, "tests/t_a.txt"), "bad before\n"); const preB = ts.snapshotDiff(tb.d, tb.base); writeFileSync(join(tb.d, "tests/t_a.txt"), "bad after\n");
+    const g2 = await sr.guardReviewTurn(tb.d, tb.base, preB, () => [{ path: "tests/t_a.txt" }], runT(tb.d));
+    out.tg_both = `${g2?.reverted}|${rd(tb.d, "tests/t_a.txt").trim()}`;
+    out.tg_none = String(await sr.guardReviewTurn(tb.d, tb.base, ts.snapshotDiff(tb.d, tb.base), () => [{ path: "tests/t_a.txt" }], runT(tb.d)));
+    out.tg_note = sr.turnGuardNote(g1 ?? undefined).join("").startsWith("review turn reverted: tests/t_a.txt passed before the turn and failed after it") && sr.turnGuardNote(g2 ?? undefined).length === 0 ? "yes" : "no";
+    out.tg_knob = [sr.reviewTurnGuardOn({}), sr.reviewTurnGuardOn({ LOKI_E10_REVIEW_TURN_GUARD: "1" })].join(",");
+  }
+  const src = (f: string) => rf(join(SRC, f), "utf8");
+  out.sr_wired = src("engine10/stages/implement.ts").includes("if (selfReviewWanted(before, mode)) { const preTurn = reviewTurnGuardOn() ? snapshotDiff(ctx.repoDir, ctx.baseSha) : null; const r = await resumeForSelfReview(") && src("engine10/stages/implement.ts").includes("guard = preTurn && !signal.aborted ? await reviewTurnGuard(ctx, preTurn,") && src("engine10/stages/implement.ts").includes("if (!guard?.reverted && !r.session.killed") && src("engine10/stages/seal.ts").includes("for (const n of turnGuardNote(") && src("engine10/stages/implement.ts").includes("...(selfReview ? { self_review: selfReview } : {}),") && src("util/conflict_resume.ts").includes('resumeWith(ctx, { ...first, maxTurns }, firstSession, brief, "-rv")') && src("engine10/stages/seal.ts").includes("...selfReviewReceiptBlock(o.implement)") ? "yes" : "no"; }
+// SC LOKI_E10_SR_COVERAGE: stated-case and sibling-definition items, on synthetic fixtures for four loss shapes (a stated edge, a "same effect" sentence, an error reproduction, a sibling override), plus a clean minimal diff.
+{ const sr = await import(join(SRC, "features/self_review.ts")), { execFileSync: ex4 } = await import("node:child_process");
+  const repo = (name: string, files: Record<string, string>) => { const d = mk(name, files); const g = (...a: string[]) => ex4("git", ["-C", d, ...a], { stdio: "pipe" }).toString().trim(); g("init", "-q", "-b", "main"); g("config", "user.name", "sc"); g("config", "user.email", "sc@example.invalid"); g("add", "-A"); g("commit", "-q", "-m", "base"); return { d, base: g("rev-parse", "HEAD") }; };
+  const items = (r: { d: string; base: string }, task: string, env: Record<string, string | undefined> = process.env) => sr.selfReviewChecks(r.d, r.base, sr.treeStaged(r.d, r.base), task, {}, env).filter((i: { item: string }) => i.item === "cases" || i.item === "siblings").map((i: { item: string; status: string }) => `${i.item}=${i.status}`).join(",") || "none";
+  const PY = { "src/parse.py": "def parse_default(tok):\n    return int(tok)\n", "tests/test_parse.py": "def test_parse():\n    assert True\n" };
+  // 1. a stated "{-1}"-style edge: the reproduction block is covered, the "similar error when ... `{-1}`" sentence is not, until a test carries `{-1}`
+  const T1 = "# Negative defaults fail\n\n```\nparse_default('-1')\n```\n\nError: Found `-` but only numbers are allowed.\n\nSimilar error when wrapping it in `{-1}`.\n";
+  const e1 = repo("sc-edge", PY); writeFileSync(join(e1.d, "src/parse.py"), "def parse_default(tok):\n    return int(tok.strip())\n"); writeFileSync(join(e1.d, "tests/test_parse.py"), "def test_parse():\n    assert parse_default('-1') == -1\n");
+  out.sc_edge_cases = JSON.stringify(sr.statedCases(T1).map((c: { kind: string; tokens: string[] }) => `${c.kind}:${c.tokens.join("+")}`));
+  out.sc_edge = items(e1, T1); writeFileSync(join(e1.d, "tests/test_parse.py"), "def test_parse():\n    assert parse_default('-1') == -1\n    assert parse_default('{-1}') == -1\n"); out.sc_edge_after = items(e1, T1);
+  // 2. "same effect": a sentence with no code token is always flagged for the review turn, even when the test mentions HOME
+  const T2 = "# Relative HOME\n\nWith `HOME` set to a relative path the directories resolve against the working directory.\n\nA relative home from the password database, with HOME unset, has the same effect.\n";
+  const e2 = repo("sc-same", PY); writeFileSync(join(e2.d, "src/parse.py"), "def parse_default(tok):\n    return int(tok) or 0\n"); writeFileSync(join(e2.d, "tests/test_parse.py"), "def test_parse(monkeypatch):\n    monkeypatch.setenv('HOME', 'rel')\n");
+  out.sc_same = items(e2, T2);
+  // 3. a reproduction block with a TypeError: flagged until an added test calls the reproduced function
+  const T3 = "# Shortcut missing\n\n```js\nconst headers = new AxiosHeaders({'content-encoding': 'gzip'});\nheaders.getContentEncoding();\n// TypeError: headers.getContentEncoding is not a function\n```\n";
+  const JS = { "lib/headers.js": "function shortcuts(list) {\n  return list;\n}\nmodule.exports = { shortcuts };\n", "test/headers.test.js": "test('x', () => {});\n" };
+  const e3 = repo("sc-repro", JS); writeFileSync(join(e3.d, "lib/headers.js"), "function shortcuts(list) {\n  return list.concat(['Content-Encoding']);\n}\nmodule.exports = { shortcuts };\n"); writeFileSync(join(e3.d, "test/headers.test.js"), "test('x', () => { expect(1).toBe(1); });\n");
+  out.sc_repro = items(e3, T3); writeFileSync(join(e3.d, "test/headers.test.js"), "test('x', () => { expect(new AxiosHeaders({}).getContentEncoding()).toBe(undefined); });\n"); out.sc_repro_after = items(e3, T3);
+  // 4. a sibling override: the diff fixes Base.__deepcopy__, Root.__deepcopy__ (same name, another file) is flagged with file:line
+  const SIB = { "pkg/main.py": "class Base:\n    def __deepcopy__(self, memo):\n        return Base()\n", "pkg/root.py": "from .main import Base\n\n\nclass Root(Base):\n    def __deepcopy__(self, memo):\n        return Root()\n", "tests/test_copy.py": "def test_copy():\n    pass\n" };
+  const e4 = repo("sc-sib", SIB); writeFileSync(join(e4.d, "pkg/main.py"), "class Base:\n    def __deepcopy__(self, memo):\n        memo[id(self)] = new = Base()\n        return new\n"); writeFileSync(join(e4.d, "tests/test_copy.py"), "def test_copy():\n    assert True\n");
+  out.sc_sib = items(e4, "Deep-copying a self-referential model changes its graph.");
+  out.sc_sib_detail = (sr.selfReviewChecks(e4.d, e4.base, sr.treeStaged(e4.d, e4.base), "x", {}).find((i: { item: string }) => i.item === "siblings") as { detail: string }).detail;
+  // 5. a clean minimal diff: no stated case form, no sibling definition: both items ok, so no review turn starts
+  const e5 = repo("sc-clean", PY); writeFileSync(join(e5.d, "src/parse.py"), "def parse_default(tok):\n    return int(tok.strip())\n"); writeFileSync(join(e5.d, "tests/test_parse.py"), "def test_parse():\n    assert parse_default(' 1') == 1\n");
+  const cleanAll = sr.selfReviewChecks(e5.d, e5.base, sr.treeStaged(e5.d, e5.base), "Strip spaces before parsing a default.", {});
+  out.sc_clean = `${items(e5, "Strip spaces before parsing a default.")} | ${sr.selfReviewWanted(cleanAll, "on") ? "turn" : "no-turn"}`;
+  out.sc_off = items(e1, T1, { LOKI_E10_SR_COVERAGE: "0" });
+  out.sc_brief = sr.selfReviewBrief(e1.d, sr.selfReviewChecks(e1.d, e1.base, sr.treeStaged(e1.d, e1.base), T1, {})).includes("(f) stated cases:") ? "yes" : "no";
+  out.sc_parse = JSON.stringify([...sr.parseReviewLines("REVIEW f: fixed: added the {-1} case\nREVIEW g: justified: Root copies differently").entries()]); }
+// DE LOKI_E10_DOC_ENUM and WC LOKI_E10_WALL_CASES, on synthetic fixtures.
+{ const sr = await import(join(SRC, "features/self_review.ts")), { execFileSync: ex5 } = await import("node:child_process");
+  const repo = (name: string, files: Record<string, string>) => { const d = mk(name, files); const g = (...a: string[]) => ex5("git", ["-C", d, ...a], { stdio: "pipe" }).toString().trim(); g("init", "-q", "-b", "main"); g("config", "user.name", "de"); g("config", "user.email", "de@example.invalid"); g("add", "-A"); g("commit", "-q", "-m", "base"); return { d, base: g("rev-parse", "HEAD") }; };
+  const one = (r: { d: string; base: string }, key: string, task = "Add an option", env: Record<string, string | undefined> = process.env, outputs = {}, runDir?: string) => { const i = sr.selfReviewChecks(r.d, r.base, sr.treeStaged(r.d, r.base), task, outputs, env, runDir).find((x: { item: string }) => x.item === key) as { status: string; detail: string } | undefined; return i ? `${i.status}: ${i.detail}` : "none"; };
+  const RULE = { "lib/rules/color/index.mjs": "export const secondary = { ignore: ['inside-function'], ignoreProperties: [] };\nexport function check(o) { return optionsMatches(o, 'ignoreProperties'); }\n", "lib/rules/color/README.md": "# color\n\n## Optional secondary options\n\n### ignore: [\"inside-function\"]\n\n### ignoreProperties: []\n", "lib/rules/color/__tests__/index.mjs": "test('x', () => {});\n" };
+  const d1 = repo("de-1", RULE); writeFileSync(join(d1.d, "lib/rules/color/index.mjs"), "export const secondary = { ignore: ['inside-function'], ignoreProperties: [], ignoreFunctions: [] };\nexport function check(o) { return optionsMatches(o, 'ignoreProperties') || optionsMatches(o, 'ignoreFunctions'); }\n"); writeFileSync(join(d1.d, "lib/rules/color/__tests__/index.mjs"), "test('x', () => { expect(1).toBe(1); });\n");
+  out.de_flag = one(d1, "docs");
+  writeFileSync(join(d1.d, "lib/rules/color/README.md"), "# color\n\n## Optional secondary options\n\n### ignore: [\"inside-function\"]\n\n### ignoreProperties: []\n\n### ignoreFunctions: []\n"); out.de_after = one(d1, "docs");
+  const d2 = repo("de-2", { ...RULE, "lib/rules/color/README.md": "# color\n\nFlags named colors.\n" }); writeFileSync(join(d2.d, "lib/rules/color/index.mjs"), "export const secondary = { ignore: ['inside-function'], ignoreProperties: [], ignoreFunctions: [] };\nexport function check(o) { return optionsMatches(o, 'ignoreFunctions'); }\n");
+  out.de_not_enumerating = one(d2, "docs");
+  out.de_off = one(d1, "docs", "Add an option", { LOKI_E10_DOC_ENUM: "0" });
+  // WC: the stated cases go to the Wall as required cases, with a fire-marker file; once the Wall wrote tests, the cases item reads auto, not a token match
+  const TT = "# Negative defaults fail\n\n```\nparse_default('-1')\n```\n\nError: Found `-`.\n\nSimilar error when wrapping it in `{-1}`.\n";
+  const rd = join(T, "wc-run"); mkdirSync(rd, { recursive: true });
+  const req = sr.wallRequiredCases(rd, TT);
+  out.wc_lines = `${req.length} | ${req[1] ?? ""}`;
+  out.wc_marker = (() => { try { return rf(join(rd, "wall-required-cases.json"), "utf8"); } catch { return ""; } })().includes("REQUIRED CASE 2") ? "written" : "missing";
+  out.wc_off = String(sr.wallRequiredCases(join(T, "wc-off"), TT, { LOKI_E10_WALL_CASES: "0" }).length);
+  const PY = { "src/parse.py": "def parse_default(tok):\n    return int(tok)\n", "tests/test_parse.py": "def test_parse():\n    assert True\n" };
+  const w1 = repo("wc-1", PY); writeFileSync(join(w1.d, "src/parse.py"), "def parse_default(tok):\n    return int(tok.strip())\n"); writeFileSync(join(w1.d, "tests/test_parse.py"), "def test_parse():\n    assert parse_default('-1') == -1\n");
+  out.wc_wall = one(w1, "cases", TT, process.env, { wall: { files: ["tests/loki_wall_parse_test.py"] } }, rd).split(":")[0];
+  out.wc_no_wall = one(w1, "cases", TT, process.env, {}, rd).split(":")[0];
+  out.wc_wired = rf(join(SRC, "engine10/stages/wall.ts"), "utf8").includes("[...(unitSpec()?.acceptance ?? []), ...wallRequiredCases(ctx.runDir, task)]") && rf(join(SRC, "engine10/stages/implement.ts"), "utf8").includes("ctx.outputs(), process.env, ctx.runDir)") ? "yes" : "no"; }
+// CR LOKI_E10_CHANGELOG_REF: the reference form of existing entries, in the brief line and checked on the entry the diff adds.
+{ const cv = await import(join(SRC, "project_model/conventions.ts"));
+  const REF_LOG = "Change Log\n==========\n\n## Unreleased\n\n * Fix: Carriage returns are kept. (#2380)\n * Fix: The package slot is kept. (#2382)\n\n## Version 2.4.0\n\n * New: A thing. (#2300)\n * Fix: Another. (#2301)\n";
+  out.cr_style = JSON.stringify([cv.changelogRefStyle(REF_LOG), cv.changelogRefStyle("## Unreleased\n\n- a\n- b\n- c\n- d (#1)\n"), cv.changelogRefStyle("- x ([#650](https://github.com/o/r/pull/650))\n- y ([#651](https://github.com/o/r/pull/651))\n- z ([#652](https://github.com/o/r/issues/652))\n")?.cls]);
+  const crRepo = mk("cr", { "CONTRIBUTING.md": "Please add a row to CHANGELOG.md.\n", "CHANGELOG.md": REF_LOG, "src/a.kt": "x\n", "package.json": '{"name":"root"}', "packages/a/package.json": '{"name":"@acme/a"}', "packages/a/src/a.ts": "x\n" });
+  out.cr_brief = cv.releaseNoteBrief(crRepo, []).includes("entries reference the issue or PR like (#2380): use the number the task gives in that form, and never invent a number") ? "yes" : "no";
+  const conv = cv.releaseNoteConvention(crRepo)!, P = (lines: string[], task: string, env = {}) => cv.releaseNoteProblems(crRepo, conv, new Map([["CHANGELOG.md", lines]]), ["src/a.kt", "CHANGELOG.md"], task, env).join(" || ") || "-";
+  out.cr_checks = [P([" * Fix: Tabs are kept. (#12)"], "Tabs are lost (#12)"), P([" * Fix: Tabs are kept. (#999)"], "Tabs are lost (#12)"), P([" * Fix: Tabs are kept."], "Tabs are lost (#12)"), P([" * Fix: Tabs are kept."], "Tabs are lost"), P([" * Fix: Tabs are kept. (#999)"], "Tabs are lost"), P([" * Fix: Tabs are kept. (#999)"], "Tabs are lost (#12)", { LOKI_E10_CHANGELOG_REF: "0" }), P([" * Fix: Tabs are kept."], "Tabs are lost\n\n#1827 changed the test to expect it.")].join(" | ");
+  const csConv = { kind: "changeset", dir: ".changeset", example: null }, CS = (pkg: string) => cv.releaseNoteProblems(crRepo, csConv, new Map([[".changeset/x.md", ["---", `"${pkg}": patch`, "---", "", "Fixed."]]]), ["packages/a/src/a.ts", ".changeset/x.md"], "Fix a").join(" || ") || "-";
+  out.cr_changeset = [CS("@acme/a"), CS("@acme/b")].join(" | ");
+  const tcConv = { kind: "towncrier", dir: "changes", example: null }, TC = (f: string, task: string) => cv.releaseNoteProblems(crRepo, tcConv, new Map([[f, ["Fixed."]]]), ["src/a.kt", f], task).join(" || ") || "-";
+  const S = (l: string, allowed: string[] = []) => { const r = cv.stripInventedRefs(l, allowed); return `${r.line}{${r.removed.join(",")}}`; };
+  out.cr_strip = [S(" * Fix: `%S` args are kept. (#2383)"), S("- Fixed x ([#650](https://github.com/o/r/pull/650))"), S("- Fixed x ([#650](https://github.com/o/r/pull/650))", ["650"]), S("- Simplify x (:pr:`3024`)."), S("- See https://github.com/o/r/issues/77 for details"), S("- Fix GH-7 and #5, keep &#39;"), S("* Fix: tabs (#12)", ["12"]), S("* Fix: `trim()` keeps it. (#99)")].join(" | ");
+  const sf = join(crRepo, "CHANGELOG.md"), baseText = rf(sf, "utf8"); writeFileSync(sf, baseText.replace(" * Fix: Carriage returns are kept. (#2380)\n", " * Fix: Tabs are kept. (#2383)\n * Fix: Carriage returns are kept. (#2380)\n"));
+  process.env.LOKI_E10_CHANGELOG_REF = "0"; const offRm = cv.stripInventedRefsInFile(sf, baseText, "Tabs are lost (#12)"); delete process.env.LOKI_E10_CHANGELOG_REF;
+  const onRm = cv.stripInventedRefsInFile(sf, baseText, "Tabs are lost (#12)"), after = rf(sf, "utf8");
+  out.cr_strip_file = [JSON.stringify(offRm), JSON.stringify(onRm), after.includes(" * Fix: Tabs are kept.\n") && after.includes("(#2380)") && !after.includes("2383") ? "rewritten" : "bad"].join(" | ");
+  const isrc = rf(join(SRC, "engine10/stages/implement.ts"), "utf8"), ssrc = rf(join(SRC, "engine10/stages/seal.ts"), "utf8");
+  out.cr_strip_wired = isrc.includes("stripInventedReleaseRefs(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task)") && isrc.includes("{ changelog_refs_removed: refsRemoved }") && ssrc.includes("...releaseRefsReceiptBlock(o.implement)") ? "yes" : "no";
+  out.cr_towncrier = [TC("changes/12.bugfix.rst", "Fix it (#12)"), TC("changes/99.bugfix.rst", "Fix it (#12)"), TC("changes/+fix.bugfix.rst", "Fix it")].join(" | "); }
+// ON LOKI_E10_ORPHAN_RENAME and TN: a fragment numbered with a number no input gives is renamed to the repo's orphan form, or flagged with the orphan name to use.
+{ const cv = await import(join(SRC, "project_model/conventions.ts")), { existsSync: ex3 } = await import("node:fs");
+  const T0 = "Fix crash when the cache is empty", conv = { kind: "towncrier", dir: "changes", example: null };
+  const withOrphans = mk("on-1", tcFiles({ "changes/+old.feature.rst": "Added.\n", "changes/1604.bugfix.rst": "Fixed the crash.\n" }));
+  const r1 = cv.renameInventedFragment(withOrphans, conv, "changes/1604.bugfix.rst", T0);
+  out.on_rename = `${r1} | ${ex3(join(withOrphans, "changes/1604.bugfix.rst")) ? "old-kept" : "old-gone"} | ${ex3(join(withOrphans, "changes/+fix-crash-when-the-cache-is.bugfix.rst")) ? "new" : "no-new"}`;
+  const noOrphans = mk("on-2", tcFiles({ "changes/1604.bugfix.rst": "Fixed the crash.\n" }));
+  out.on_no_orphans = `${cv.renameInventedFragment(noOrphans, conv, "changes/1604.bugfix.rst", T0)} | ${ex3(join(noOrphans, "changes/1604.bugfix.rst")) ? "kept" : "gone"}`;
+  out.on_numbered_task = String(cv.renameInventedFragment(withOrphans, conv, "changes/7.feature.rst", "Fix it (#12)"));
+  process.env.LOKI_E10_ORPHAN_RENAME = "0"; const offRepo = mk("on-3", tcFiles({ "changes/+old.feature.rst": "Added.\n", "changes/1604.bugfix.rst": "x\n" })); out.on_off = String(cv.renameInventedFragment(offRepo, conv, "changes/1604.bugfix.rst", T0)); delete process.env.LOKI_E10_ORPHAN_RENAME;
+  out.on_flag = cv.releaseNoteProblems(noOrphans, conv, new Map([["changes/1604.bugfix.rst", ["Fixed the crash."]]]), ["pkg/mod.py", "changes/1604.bugfix.rst"], T0).join(" || ") || "-";
+  out.tn_brief = cv.releaseNoteBrief(noOrphans, []).includes("when the task gives none, use towncrier's orphan form changes/+<short-slug>.<type> with the same type and extension, and never invent a number") ? "yes" : "no"; }
 const w17 = mk("w17", tcFiles()); const r17 = tw(w17, "Fix crash when the cache is empty (#42)");
 out.tc_path = r17.path ?? `skipped:${r17.skipped}`; out.tc_text = r17.path ? rf(join(w17, r17.path), "utf8") : "";
-out.tc_no_issue = tw(mk("w18", tcFiles()), "Fix crash when the cache is empty").skipped ? "skipped" : "wrote";
+process.env.LOKI_E10_TOWNCRIER_NEW_ORPHAN = "0"; out.tc_no_issue = tw(mk("w18", tcFiles()), "Fix crash when the cache is empty").skipped ? "skipped" : "wrote"; delete process.env.LOKI_E10_TOWNCRIER_NEW_ORPHAN;
+out.tn_first_orphan = tw(mk("w18n", tcFiles()), "Fix crash when the cache is empty").path ?? "skipped";
+out.tn_disabled = tw(mk("w18d", tcFiles({ "pyproject.toml": "[tool.towncrier]\ndirectory = \"changes\"\norphan_prefix = \"\"\n" })), "Fix crash when the cache is empty").path ?? "skipped";
 out.tc_unclear = tw(mk("w19", tcFiles()), "Rework the cache layout for clarity (#43)").skipped ? "skipped" : "wrote";
 out.tc_dup = tw(mk("w20", tcFiles({ "changes/42.bugfix.rst": "Old.\n" })), "Fix crash when the cache is empty (#42)").skipped ? "skipped" : "wrote";
 out.tc_no_example = tw(mk("w21", { "pyproject.toml": '[tool.towncrier]\ndirectory = "changes"\n', "changes/.gitkeep": "", "pkg/mod.py": "x" }), "Fix crash when the cache is empty (#42)").skipped ? "skipped" : "wrote";
@@ -298,7 +501,7 @@ if command -v python3 >/dev/null 2>&1 && timeout 60 python3 -I -m venv "$T/tc-ve
     FW_REAL_TC="$T/real-tc"
 fi
 
-probe="$(bun "$T/probe.ts" "$SRC" "$T" "$CTX" 2>"$T/probe.err")"
+probe="$(LOKI_E10_SR_COVERAGE=1 LOKI_E10_DOC_ENUM=1 LOKI_E10_WALL_CASES=1 LOKI_E10_DOC_UPDATE_RULE=1 bun "$T/probe.ts" "$SRC" "$T" "$CTX" 2>"$T/probe.err")" # 11.141.0: these knobs ship off (A3.2); the probe tests them opted in
 [ -n "$probe" ] || { bad "probe produced no output: $(tail -5 "$T/probe.err")"; finish; exit $?; }
 get() { python3 -I -c 'import json,sys; v=json.loads(sys.argv[1]).get(sys.argv[2]); print(v)' "$probe" "$1"; }
 eqv() { local v; v="$(get "$1")"; [ "$v" = "$2" ] && ok "$3 ($1=$v)" || bad "$3 ($1: got '$v', want '$2')"; }
@@ -340,7 +543,31 @@ rn rn_changelogd 'changelog.d/20240101_fix.md' "L3 changelog.d detected"
 rn rn_newsfrag 'newsfragments/7.feature.rst' "L3 newsfragments detected"
 rn rn_changie '.changes/unreleased/Fixed-1.yaml' "L3 changie .changes/unreleased detected"
 eqv rn_none empty "L3 a repo with only CHANGELOG.md gets no fragment line"
+rn cl_required 'Release-note convention (changelog file, CHANGELOG.md)' "CL a contribution guide asking for a CHANGELOG.md entry names the changelog file"
+rn cl_required 'under its "Unreleased" section' "CL the line names the unreleased heading"
+rn cl_required 'newest entry: - Fixed a crash on empty input.' "CL the line quotes the first entry under it as the format example"
+rn cl_named 'changelog file, docs/changelog.md' "CL a PR-template checkbox naming docs/changelog.md picks that file over a root CHANGELOG.md"
+rn cl_named 'newest entry: * Fix: a thing. (#12)' "CL setext title plus markdown Unreleased heading: entry found"
+rn cl_rst 'under its "1.2.0 (unreleased)" section' "CL an rst changelog with an underlined '(unreleased)' title is recognised"
+eqv cl_forbid empty "CL a guide that says not to update the CHANGELOG gets no line"
+eqv cl_soft empty "CL an optional or suggested changelog line is not a requirement"
+eqv cl_pr_section empty "CL a PR-body 'Release Notes' section is not a changelog-file convention"
+eqv cl_no_unreleased empty "CL a changelog with no unreleased section gets no line"
+eqv cl_frozen empty "CL a changelog marked no longer maintained gets no line"
+eqv fs_deprecated_section present "FS a '### Deprecated' subsection under Unreleased does not make the log frozen"
+eqv fs_off empty "FS LOKI_E10_CHANGELOG_FROZEN_STRICT=0 restores the loose rule (a bare 'Deprecated' read as frozen)"
+eqv fs_file_deprecated empty "FS a head saying the file has been deprecated is still frozen"
+eqv cl_no_guide empty "CL an unreleased section with no guide asking for entries gets no line"
+eqv cl_off empty "CL LOKI_E10_CHANGELOG_CONVENTION=0 turns the changelog-file line off"
+eqv cl_on_again present "CL the changelog-file line is on by default"
+eqv cs_on "outside stated scope: README.md" "CS the changelog the brief asked for is in scope; an unplanned README edit is still flagged"
+eqv cs_off "outside stated scope: CHANGELOG.md|outside stated scope: README.md" "CS LOKI_E10_CHANGELOG_SCOPE=0 flags the changelog edit again"
+rn cl_precedence 'changeset, .changeset/' "CL a fragment convention (changesets) still wins over a changelog file"
+rn tx_example 'newest example: changes/12.bugfix.rst' "TX the towncrier example is a real fragment when every mtime ties"
+eqv tx_template_only none "TX a towncrier directory holding only its template names no example"
+rn tx_off 'newest example: changes/template.rst' "TX LOKI_E10_TOWNCRIER_EXAMPLE=0 restores the newest-file example"
 eqv prefix_stable yes "L3/L5 the rule prefix is byte-identical across two runs; the convention line sits after it, never inside it"
+eqv ud_rule yyyyyy "UD the rules ask to update existing docs that list what changed; =0 restores the v11.139.0 documentation line byte for byte; the legacy block is unchanged"
 eqv rules yyyyy "L5 FIXED_RULES carries the read-whole-function, preferred-fix, targeted-tests and release-note rules"
 eqv fw_path ".changeset/fix-wrong-total-when-the-invoice.md" "FW changeset: a fragment is written next to the repo's own, named from the title"
 eqv fw_front ok "FW changeset: front matter names the workspace package of the changed file (not the private root), double quotes as in the newest example"
@@ -375,11 +602,78 @@ eqv fw_env_error kept "FW tool: an environmental changeset error (no main branch
 eqv fw_tool_ok ok "FW tool: changeset status exit 0 marks the fragment validated"
 eqv tc_path "changes/42.bugfix.rst" "FW towncrier: <issue>.<type><ext> taken from the task number and the example's extension"
 eqv tc_text "Fix crash when the cache is empty." "FW towncrier: one-line body"
-eqv tc_no_issue skipped "FW towncrier: no issue number and no orphan convention writes nothing"
+eqv tc_no_issue skipped "FW towncrier: with LOKI_E10_TOWNCRIER_NEW_ORPHAN=0, no issue number and no orphan convention writes nothing (old rule)"
+eqv tn_first_orphan "changes/+fix-crash-when-the-cache-is.bugfix.rst" "TN a fix with no issue number gets towncrier's orphan fragment even when the repo has none yet"
+eqv tn_disabled skipped "TN a towncrier config that disables orphans (orphan_prefix = \"\") still gets no fragment"
 eqv tc_unclear skipped "FW towncrier: an unclear change type writes nothing"
 eqv tc_dup skipped "FW towncrier: a fragment for the same issue and type already exists"
 eqv tc_no_example skipped "FW towncrier: no example fragment to take the naming from writes nothing"
 eqv tc_orphan ok "FW towncrier: an orphan-style example gives a +slug fragment without an issue"
+eqv to_older_orphan "changes/+fix-crash-when-the-cache-is.bugfix.rst" "TO an orphan fragment older than the newest numbered one still makes the repo an orphan user"
+eqv to_cfg_prefix "changes/~fix-crash-when-the-cache-is.bugfix.rst" "TO orphan_prefix in the towncrier config names the fragment with that prefix (type from the task)"
+eqv to_off skipped "TO LOKI_E10_TOWNCRIER_ORPHAN=0 only trusts a newest orphan example (old rule)"
+eqv tr_skip '{"skipped":"towncrier: the task names no issue number and the repo does not use orphan fragments"}' "TR the writer's skip reason comes back for the receipt"
+eqv tr_entry_written null "TR a diff that already carries the changelog entry records no skip"
+eqv tr_entry_missing '{"skipped":"the changelog convention is not written automatically"}' "TR a changelog-file convention with no entry in the diff records why nothing was written"
+eqv tr_no_conv null "TR a repo with no release-note convention records nothing"
+eqv tr_off null "TR LOKI_E10_SCAFFOLD_TRACE=0 records no skip reason"
+eqv tr_block '[{"release_note_skipped":"why"},{},{}]' "TR the receipt carries release_note_skipped only when the writer skipped"
+rn de_flag 'flagged: docs that list what the change extends but not the new entry: lib/rules/color/README.md lists' "DE a rule README that lists the rule's options but not the new one is flagged"
+rn de_flag 'but not the new `ignoreFunctions`' "DE the flag names the new option the README lacks"
+rn de_after 'ok:' "DE once the README lists the new option the item is ok"
+rn de_not_enumerating 'ok:' "DE a doc that does not enumerate the options is never flagged"
+eqv de_off none "DE LOKI_E10_DOC_ENUM=0 adds no docs item"
+rn wc_lines '2 | REQUIRED CASE 2 (stated in the issue; write a test that fails before the fix and passes after it): Similar error when wrapping it in `{-1}`.' "WC the stated cases become REQUIRED acceptance lines for the Wall writer"
+eqv wc_marker written "WC the handoff writes the fire-marker file in the run dir"
+eqv wc_off 0 "WC LOKI_E10_WALL_CASES=0 hands nothing to the Wall"
+eqv wc_wall auto "WC with the cases handed and Wall tests written, the cases item reads auto (the Wall checks them, not a token match on the model's tests)"
+eqv wc_no_wall flagged "WC with no Wall run, the token match stays the fallback (the {-1} sentence is not covered)"
+eqv wc_wired yes "WC wiring: the Wall brief carries the required cases; implement passes the run dir to the self-check"
+eqv sc_edge_cases '["block:parse_default","sentence:{-1}"]' "SC the extractor keeps a code block followed by its error and a 'similar error when' sentence with its code token"
+eqv sc_edge "cases=flagged,siblings=ok" "SC a stated '{-1}' edge with no test carrying it is flagged"
+eqv sc_edge_after "cases=ok,siblings=ok" "SC once an added test carries the stated '{-1}' edge, the item is ok"
+eqv sc_same "cases=flagged,siblings=ok" "SC a 'has the same effect' sentence with no code token is always flagged for the review turn"
+eqv sc_repro "cases=flagged,siblings=ok" "SC a reproduction block with a TypeError is flagged until an added test calls the reproduced function"
+eqv sc_repro_after "cases=ok,siblings=ok" "SC an added test calling getContentEncoding covers the reproduction"
+eqv sc_sib "cases=ok,siblings=flagged" "SC a sibling override of the changed method in another file is flagged"
+rn sc_sib_detail 'pkg/root.py:5 (__deepcopy__)' "SC the sibling flag names the other definition by file:line and name"
+eqv sc_clean "cases=ok,siblings=ok | no-turn" "SC a clean minimal diff: both items ok and no review turn"
+eqv sc_off none "SC LOKI_E10_SR_COVERAGE=0 adds neither item"
+eqv sc_brief yes "SC the review brief names the stated-case and sibling items when they are present"
+eqv sc_parse '[["cases",{"verdict":"fixed","reason":"added the {-1} case"}],["siblings",{"verdict":"justified","reason":"Root copies differently"}]]' "SC REVIEW f and g reply lines parse into the new items"
+eqv cr_style '[{"cls":"paren","example":"(#2380)"},null,"link"]' "CR the reference form most existing entries use is found (paren, markdown link); a log whose entries mostly carry none has no form"
+eqv cr_brief yes "CR the changelog brief line names the entries' reference form and forbids an invented number"
+eqv cr_checks "- | the entry cites #999, which the task does not give || the entry has no reference to #12 in the form the existing entries use ((#2380)) | the entry has no reference to #12 in the form the existing entries use ((#2380)) | - | the entry cites #999, which the task does not give | - | -" "CR an entry with the task's number passes; a number the task does not give and a missing reference are flagged; with no task number a plain entry passes; a number the body only mentions is not required; =0 checks nothing"
+eqv cr_changeset "- | .changeset/x.md names package @acme/b, which the change does not touch (changed: @acme/a)" "CR a changeset for a package the change does not touch is flagged"
+eqv cr_towncrier "- | changes/99.bugfix.rst is numbered 99, but the task gives #12 | -" "CR a towncrier fragment numbered differently from the task's issue is flagged; an orphan fragment passes"
+eqv cr_strip ' * Fix: `%S` args are kept.{2383} | - Fixed x{650} | - Fixed x ([#650](https://github.com/o/r/pull/650)){} | - Simplify x.{3024} | - See for details{77} | - Fix and, keep &#39;{7,5} | * Fix: tabs (#12){} | * Fix: `trim()` keeps it.{99}' "CR strip: every reference form whose number the task never gives is removed ((#N), markdown link, rst role, URL, GH-N, bare #N); a given number, an HTML entity and a code call's () stay"
+eqv cr_strip_file '[] | ["2383"] | rewritten' "CR strip in file: only the line the run added loses its invented #2383; the base entry keeps (#2380); =0 changes nothing"
+eqv cr_strip_wired yes "CR strip wiring: implement strips invented references after the review turn and records changelog_refs_removed; seal puts it on the receipt"
+eqv on_rename "changes/1604.bugfix.rst -> changes/+fix-crash-when-the-cache-is.bugfix.rst | old-gone | new" "ON a fragment numbered 1604 with no number in the task is renamed to the repo's orphan form"
+eqv on_no_orphans "null | kept" "ON a repo with no orphan fragment of its own: nothing is renamed"
+eqv on_numbered_task null "ON a task that gives a number: no rename (the mis-number check flags it instead)"
+eqv on_off null "ON LOKI_E10_ORPHAN_RENAME=0 renames nothing"
+eqv on_flag "changes/1604.bugfix.rst is numbered 1604, a number the task never gives; rename it to the orphan form changes/+<short-slug>.bugfix.rst" "ON the self-check flags an invented fragment number with the orphan name for the review turn"
+eqv tn_brief yes "TN the towncrier brief line names the orphan form for a task with no number and forbids an invented number"
+eqv sr_clean "release_note=ok,stray_files=ok,test=ok,format=ok,scope=ok,docs=ok,cases=ok,siblings=ok" "SR a correct minimal diff (source plus its test, no rule broken) passes every item"
+eqv sr_clean_turn no-turn "SR no churn: a correct minimal diff starts no review turn, so the tree is left untouched and the check costs nothing"
+eqv sr_clean_always turn "SR LOKI_E10_SELF_REVIEW=always runs the turn even on a clean diff"
+eqv sr_flags "release_note=flagged,stray_files=flagged,test=flagged,format=ok,scope=flagged,docs=ok,cases=ok,siblings=ok" "SR flags a missing required changelog entry, a stray file in a new directory, a source change with no test and an edit outside the planned scope"
+eqv sr_flag_turn turn "SR a flagged item starts the one review turn"
+eqv sr_brief yes "SR the review brief carries the contribution rules, the flagged items, the REVIEW reply format and the no-churn rule"
+eqv sr_settled "release_note=fixed,stray_files=fixed,test=unresolved,format=ok,scope=justified,docs=ok,cases=ok,siblings=ok" "SR settling: a flag the after-turn check no longer finds is fixed; a persisting flag is justified only with a stated reason, else unresolved"
+eqv sr_no_turn_settle "release_note=flagged,stray_files=flagged,test=flagged,format=ok,scope=flagged,docs=ok,cases=ok,siblings=ok" "SR with no turn (too little time) the flags stay flagged on the receipt"
+eqv sr_parse '[["release_note",{"verdict":"ok","reason":"fine"}],["format",{"verdict":"justified","reason":"matches style"}],["stray_files",{"verdict":"fixed","reason":"x"}]]' "SR REVIEW reply lines parse by item (backticks and case tolerated, unknown items ignored)"
+eqv sr_testfiles "ttttttttssss" "SR the test detector covers Rust tests.rs, a top-level test/ dir, __tests__/, JVM *Test sources, Python, Go and JS layouts, and not source or docs"
+eqv sr_mode "on,off,always,12,4,12" "SR knob: on by default, =0 off, always; the turn cap (cost cap) is 12 unless LOKI_E10_SELF_REVIEW_MAX_TURNS sets a positive integer"
+eqv sr_receipt '[{"self_review":{"mode":"on","turn":null,"items":[]}},{},{}]' "SR the receipt carries self_review only when the stage recorded it"
+eqv tg_revert "true|tests/t_a.txt|other.txt,tests/t_a.txt,tests/t_new.txt|2|ok|<gone>|o" "TG a review turn that breaks a test passing without it is taken back on its own paths only (edit restored, added file removed, deleted file back); the implement edit stays"
+eqv tg_both "false|bad after" "TG a test that also fails without the turn keeps the turn"
+eqv tg_none null "TG a turn that changed nothing runs no test"
+eqv tg_note yes "TG the receipt line names the test and that the pre-turn diff was kept; a kept turn adds no line"
+eqv tg_knob "false,true" "TG knob: off by default until measured, LOKI_E10_REVIEW_TURN_GUARD=1 on"
+eqv sr_wired yes "SR wiring: implement runs the bounded -rv resume only when wanted and records self_review; seal puts it on the receipt; TG snapshots before the turn, guards it, keeps the pre-turn result on a revert and names it on the receipt"
+eqv tr_wired yes "TR wiring: the scaffold hook returns the record, the machine keeps the skip, seal puts it on the receipt"
 eqv sn_pick "The loader now skips unreadable files instead of aborting the whole scan" "FW summary: the maintainer-style sentence is picked over narration and markers"
 eqv sn_chatter empty "FW summary: test-status and sign-off chatter yields nothing"
 eqv sn_restate empty "FW summary: a sentence that restates the title yields nothing"
@@ -432,15 +726,24 @@ else
     bad "e2e haiku: no run events"; printf '%s\n' "$OUT" | tail -30 | sed 's/^/    | /'
 fi
 
-run_e2e default
+# acc-156: the CLI-default model (LOKI_DEFAULT_SESSION_MODEL=provider) is not a small executor, so it gets no pack
+run_e2e default LOKI_DEFAULT_SESSION_MODEL=provider
 if [ -f "$RUNDIR/events.jsonl" ]; then
-    case "$(cat "$T/default.prompt.implement0" 2>/dev/null)" in *"Code that matters"*) bad "e2e default model: the prompt carries a pack" ;; "") bad "e2e default model: no implement prompt captured" ;; *) ok "e2e default model: no pack in the implement prompt" ;; esac
-    v="$(ev implement '"src/invoice.ts" in d.get("brief_files", []) and "context_pack" not in d')"; [ "$v" = True ] && ok "e2e default model: brief_files recorded, no context_pack" || bad "e2e default model: record wrong ($v)"
-    v="$(ev seal 'd.get("context", {}).get("context_recall")')"; [ "$v" = 1 ] && ok "e2e default model: seal event carries context_recall 1" || bad "e2e default model: seal context_recall was $v"
+    case "$(cat "$T/default.prompt.implement0" 2>/dev/null)" in *"Code that matters"*) bad "e2e provider default model: the prompt carries a pack" ;; "") bad "e2e provider default model: no implement prompt captured" ;; *) ok "e2e provider default model: no pack in the implement prompt" ;; esac
+    v="$(ev implement '"src/invoice.ts" in d.get("brief_files", []) and "context_pack" not in d')"; [ "$v" = True ] && ok "e2e provider default model: brief_files recorded, no context_pack" || bad "e2e provider default model: record wrong ($v)"
+    v="$(ev seal 'd.get("context", {}).get("context_recall")')"; [ "$v" = 1 ] && ok "e2e provider default model: seal event carries context_recall 1" || bad "e2e provider default model: seal context_recall was $v"
     st="$(cd "$REPO" && bash "$ROOT/bin/loki" stats --outcomes --json 2>/dev/null)"
     v="$(python3 -I -c 'import json,sys; c=json.loads(sys.argv[1])["context_recall"]; print(c["median"], c["n"])' "$st" 2>&1)"; [ "$v" = "1 1" ] && ok "loki stats --outcomes --json reports median context recall ($v)" || bad "loki stats --outcomes --json context_recall: $v"
 else
-    bad "e2e default model: no run events"; printf '%s\n' "$OUT" | tail -30 | sed 's/^/    | /'
+    bad "e2e provider default model: no run events"; printf '%s\n' "$OUT" | tail -30 | sed 's/^/    | /'
+fi
+# acc-156: a bare run now starts on Loki's default session model (sonnet), a small executor, so it gets the pack like --session-model sonnet
+run_e2e lokidefault
+if [ -f "$RUNDIR/events.jsonl" ]; then
+    has "e2e Loki default model: the implement prompt carries the context pack" "$(cat "$T/lokidefault.prompt.implement0" 2>/dev/null)" "Code that matters"
+    v="$(ev implement '"src/invoice.ts" in d.get("brief_files", []) and "context_pack" in d')"; [ "$v" = True ] && ok "e2e Loki default model: brief_files and context_pack recorded" || bad "e2e Loki default model: record wrong ($v)"
+else
+    bad "e2e Loki default model: no run events"; printf '%s\n' "$OUT" | tail -30 | sed 's/^/    | /'
 fi
 
 prep_changeset() { # a public package that keeps changesets (the fixture's own manifest is private)

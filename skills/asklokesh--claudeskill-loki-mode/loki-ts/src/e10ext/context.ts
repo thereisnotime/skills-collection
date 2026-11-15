@@ -5,6 +5,11 @@
 import { isOff } from "../council/role_agents.ts";
 import { readRepoMapCache, repoCacheDir, repoKey } from "../engine10/cache.ts";
 import type { RepoMap } from "../engine10/repomap.ts";
+/** PLAN-HINTS LOKI_E10_PLAN_HINTS (default on, =0 opts out): the plan's steps and files are a hint, never the scope. The task states the cases; the plan can miss one
+ *  (dev2 tera: the plan covered a top-level -1 and left `[-1]` and `{a: -1}`, which the issue states). The brief says so where "Follow this plan" used to stand, including
+ *  that any file the fix needs may be edited. Fire marker: implement records plan_hints: true when a plan was given. */
+export const planHintsOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_PLAN_HINTS"] ?? "").trim()) /* on by default since 11.141.3 (dev2 2-seed A3.2), =0 opts out */;
+export const PLAN_HINT_LEAD = "A plan from an earlier session (a hint, not the scope: the task decides what to change; cover every case the task states even where the plan leaves it out, and edit any file the fix needs):";
 import { loadRepoMap } from "../engine10/sizing.ts";
 import { FINISH_LINE, type RunContext, type TestMap, type TestRef } from "../engine10/types.ts";
 import { unitBrief } from "../features/speed/unit_mode.ts";
@@ -28,6 +33,12 @@ export { FINISH_LINE }; // defined in engine10/types.ts, a leaf module, so confl
 // checks against base, head and the task and seal lists in the receipt (pinned_test_updates). Every other protection stays.
 export const PINNED_UPDATE_LINE = "UPDATED TEST";
 const PINNED_RULE = "- Exception: when the task names an existing test file or asks to change tests, change only what it asks. An existing assertion that pins the OLD behavior the issue explicitly asks to change is not a spec conflict: change its expected value to the behavior the issue states, change nothing else in that test, and before the last line of your reply write one line per such change: `UPDATED TEST <path>:<line>: <old expectation> -> <new expectation>; issue: \"<the issue sentence that asks for the new behavior>\"`. Never delete a test, add skip, xfail or only, widen a tolerance, or touch a test unrelated to the behavior the issue names; any other existing test that contradicts the task is a spec conflict: cite it.";
+// UD LOKI_E10_DOC_UPDATE_RULE (default on, =0 opts out): the documentation rule asks the model to keep existing docs that enumerate what it changed in step, instead
+// of "write no documentation". The failure: both Loki arms left a rule's README, which lists every option, without the option the change added, while every raw arm
+// updated it. =0 restores DOC_RULE_V139 byte for byte; either text is a constant, so the rules prefix stays cache-stable.
+export const DOC_RULE_V139 = "- Write no documentation unless the task explicitly asks for it, except the release-note fragment a repository convention listed below requires. Never write documentation, changelog or README text that announces a behavior the code does not have, even to make a test pass: if the task needs code that is not in this repository, finish with LOKI_SPEC_CONFLICT.";
+export const DOC_RULE_UPDATE = "- Write no new documentation pages unless the task asks for them, except the release-note fragment a repository convention listed below requires. Do update existing docs that list what you changed: when you add or change an option, flag, method, rule or name that a README or doc page in the repository already lists, add or fix its entry there, written like the entries around it. Never write documentation, changelog or README text that announces a behavior the code does not have, even to make a test pass: if the task needs code that is not in this repository, finish with LOKI_SPEC_CONFLICT.";
+const DOC_RULE = DOC_RULE_UPDATE;
 export const FIXED_RULES = [
   "You are the Loki 10 implement stage, doing the complete task described below in this repository. Do whatever a senior engineer would do to finish it correctly: read, change and test as needed across any files the task requires.",
   "Rules:",
@@ -39,11 +50,14 @@ export const FIXED_RULES = [
   "- Do not edit test, build, lint or type-check config (vitest, jest, vite, tsconfig, eslint) or a lockfile unless the task asks for it. If a listed command cannot start because of that config, leave the config alone, say so in your reply, and continue without that check.",
   "- Never leave a long-lived server running.",
   "- Never kill processes.",
-  "- Write no documentation unless the task explicitly asks for it, except the release-note fragment a repository convention listed below requires. Never write documentation, changelog or README text that announces a behavior the code does not have, even to make a test pass: if the task needs code that is not in this repository, finish with LOKI_SPEC_CONFLICT.",
+  DOC_RULE,
   "- Do not commit or push.",
   "- If you add a new third-party registry dependency, list it in .loki/supply-declared.json as a JSON array of {ecosystem,name,version_spec,registry}, leaving out workspace, path, git and local packages.",
   FINISH_LINE,
 ].join("\n");
+/** FIXED_RULES with the v11.139.0 documentation rule (LOKI_E10_DOC_UPDATE_RULE=0). */
+export const FIXED_RULES_DOC_V139 = FIXED_RULES.replace(DOC_RULE_UPDATE, DOC_RULE_V139);
+export const docUpdateRuleOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_DOC_UPDATE_RULE"] ?? "").trim()) /* on by default since 11.141.3 (dev2 2-seed A3.2), =0 opts out */;
 /** The old rules text (LOKI_E10_PINNED_TEST_UPDATE=0): byte-identical to v11.139.0. */
 export const LEGACY_FIXED_RULES = [
   "You are the Loki 10 implement stage, doing the complete task described below in this repository. Do whatever a senior engineer would do to finish it correctly: read, change and test as needed across any files the task requires.",
@@ -63,7 +77,7 @@ export const LEGACY_FIXED_RULES = [
 ].join("\n");
 export const pinnedTestUpdateEnabled = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_PINNED_TEST_UPDATE"] ?? "").trim());
 /** The rules block the implement and fix briefs lead with: FIXED_RULES by default, the v11.139.0 text with the knob off. Either way a constant, so the prefix stays cache-stable. */
-export const fixedRules = (env: NodeJS.ProcessEnv = process.env): string => (pinnedTestUpdateEnabled(env) ? FIXED_RULES : LEGACY_FIXED_RULES);
+export const fixedRules = (env: NodeJS.ProcessEnv = process.env): string => (pinnedTestUpdateEnabled(env) ? (docUpdateRuleOn(env) ? FIXED_RULES : FIXED_RULES_DOC_V139) : LEGACY_FIXED_RULES);
 
 const MAX_FILES = 20;
 const MAX_TESTS = 10;
@@ -98,7 +112,7 @@ export function briefRecord(ctx: RunContext, d: ContextDeps, model?: string): Br
   // E4: existing assertions whose expected value is the wrong value the issue reports. On by default; LOKI_E10_DEFECT_PIN=0 opts out.
   const pins = !isOff(process.env["LOKI_E10_DEFECT_PIN"]) ? findDefectPins(ctx.repoDir, task).slice(0, 5) : [];
   const text = [
-    files.length ? `Relevant files:\n${files.join("\n")}` : "",
+    files.length ? `Relevant files:\n${files.join("\n")}` : "", // kept byte-identical (the L021 Opus golden and the exemplar lookup read it); PLAN-HINTS says "edit any file the fix needs" in the plan lead
     sigs ? `Key signatures (read the files for bodies):\n${sigs}` : "",
     pack ? pack.text : "",
     interps.length ? `Detected test interpreter (no test file to run yet; use exactly this executable, never a guessed one): ${interps.join(", ")}` : "",

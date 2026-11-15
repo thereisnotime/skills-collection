@@ -41,7 +41,7 @@ export const EVENT_TYPES = [
   "tests.restored", "test.result", "test.scoped_out", "test.skipped_on_base", "fix.round", "already.satisfied", "spec.conflict",
   "session.group_reaped",
   "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
-  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback", "intent.revised", "already.attested", "cancel_requested", "cancel_effective", "loop.repeat", "deps.install", "scaffold.applied", "sysedit.kept", "sysedit.undone", "attempts.selected", "nrd.completed",
+  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback", "intent.revised", "already.attested", "cancel_requested", "cancel_effective", "loop.repeat", "deps.install", "scaffold.applied", "watchdog.silent", "sysedit.kept", "sysedit.undone", "attempts.selected", "nrd.completed",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 /** One line of events.jsonl. All keys required; stage is null for run-level events; readers tolerate unknown `type` values. */
@@ -99,7 +99,7 @@ export interface SessionResult {
   stderrTail?: string;
 }
 export interface SessionRunner { run(opts: SessionRunOptions): Promise<SessionResult> } // implemented by session.ts (E-07)
-export type RunnerName = "pytest" | "unittest" | "vitest" | "jest" | "npm" | "bun" | "node" | "go" | "cargo" | "maven" | "gradle" | "javac" | "dotnet" | "mocha"; // mocha: only verify's targeted fallback (R5) makes a mocha ref; runner detection never lists it
+export type RunnerName = "pytest" | "unittest" | "vitest" | "jest" | "npm" | "bun" | "node" | "go" | "cargo" | "maven" | "gradle" | "javac" | "dotnet" | "mocha" | "ava"; // mocha, ava: only verify's targeted fallbacks (R5, AVA) make such a ref; runner detection never lists it
 /** A test file and the runner that executes it (mixed repos run each runner separately). */
 export interface TestRef { runner: RunnerName; path: string /* relative to repoDir */ }
 export interface TestMap { runners: RunnerName[]; tests: TestRef[]; }
@@ -173,6 +173,8 @@ export interface Receipt {
   diff_sha256: string;
   wall: { files: { path: string; sha256: string }[]; passed: boolean | null };
   checks: ReceiptCheck[];
+  wall_oracle?: { cost_usd: number | null; duration_s: number | null }; cascade?: { fired: boolean; from?: string | null; to?: string | null }; // CASCADE-V0 receipt facts
+  model_source?: "explicit" | "default" | "provider"; // acc-156: who chose `model` (a flag or env, Loki's DEFAULT_SESSION_MODEL, or the Claude CLI's own default)
   implement?: { exit: "external"; patch_sha256: string }; // CW-12 B3: present only when no Loki session wrote the code; the receipt names no implementing model
   not_proven: string[]; not_applicable?: string[]; // FC-SEAL-NA-AS-UNPROVEN: informational notes (package without tests, no app to boot, not selected by risk tier); never part of any verdict
   unit_spec?: { sha256: string }; // #317b: present only for a unit run; the sha256 of its canonical spec (id, items, acceptance, writeSet, base)
@@ -182,6 +184,9 @@ export interface Receipt {
   route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on.
   named_unchanged?: { symbol: string; path: string; line: number; reason: string | null }[]; // R2 LOKI_E10_NAMED_SITES: each named site the diff left unchanged, with the run's reason (null: none given, which caps VERIFIED); omitted (hash unchanged) when none
   pinned_test_updates?: import("../util/test_guard.ts").PinnedTestUpdate[]; // Z2 LOKI_E10_PINNED_TEST_UPDATE: each existing test updated to the issue's stated behavior; omitted (hash unchanged) when none
+  self_review?: { mode: string; turn: string | null; items: { item: string; status: string; detail: string }[] }; // SR LOKI_E10_SELF_REVIEW: each pre-delivery check and how it was resolved; omitted when off or the implement stage did not end done
+  changelog_refs_removed?: string[]; // CR LOKI_E10_CHANGELOG_REF: each issue or PR reference the task never gives, removed from the release note the run added ("<path>: #N"); omitted when none
+  release_note_skipped?: string; // TR LOKI_E10_SCAFFOLD_TRACE: why the release-note fragment writer wrote nothing on a repo with a convention; omitted (hash unchanged) otherwise
   no_regression?: string[]; // LOKI_E10_NRD: keep-case differential lines; omitted (hash unchanged) when none ran
   tournament?: string[]; // LOKI_E10_TOURNAMENT: one line per candidate, per probe disagreement, and the decision; omitted (hash unchanged) when no tournament ran
   attempts?: string[]; // LOKI_E10_ATTEMPTS: one line per implement attempt and the selection reason; omitted (hash unchanged) when no extra attempt ran
@@ -195,6 +200,10 @@ export interface Receipt {
   review?: { provider: string | null; vendor_differs: boolean };
   /** T2: the counted outcome for METRICS: "yes" | "no" | "inconclusive". */
   mutation_outcome?: "yes" | "no" | "inconclusive";
+  /** AWE-2: on a "yes" proof only, each proving test file's own base-run output lines (redacted, local paths cut); omitted otherwise. Display only (proof card, PR body). */
+  mutation_before?: { file: string; lines: string[] }[];
+  /** AWE-3: repo conventions the run followed (the repo's formatter on rewritten files, the release note added); omitted when none. Display only. */
+  conventions?: { formatted?: { tool: string; files: string[] }[]; release_note?: string };
   /** FC-21b: set only when implement was stopped at its time limit; omitted otherwise so other receipts stay byte-stable. */
   /** E5: each implement or fix session the harness stopped at its Haiku turn or token cap, or a fix with no product edit by turn 8 ("fix round 1: no_product_edit limit 8 at turn 8, 31000 new tokens"). Omitted when none fired. */
   session_caps?: string[];
@@ -239,7 +248,7 @@ export interface Receipt {
 export type PushArgs =
   | { cmd: "push-pr"; repoDir: string; branch: string; title: string; bodyFile: string; draft: boolean }
   | { cmd: "comment"; runId: string; prUrl: string; file: string }
-  | { cmd: "status"; sha: string; state: "pending" | "success" | "failure"; description: string }
+  | { cmd: "status"; sha: string; state: "pending" | "success" | "failure" | "error"; description: string }
   | { cmd: "issue-comment"; issueRef: string; bodyFile: string; update?: boolean };
 export interface PushEnv { _LOKI_ORIGIN_PINNED: "1"; _LOKI_PINNED_ORIGIN: string; }
 export function pushArgv(a: PushArgs): string[] {

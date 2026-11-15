@@ -61,12 +61,22 @@
 #      compare dirname equality only (drop the descendant clause); the workspace-member case fails.
 #  NRM4. commit_filter.ts taskWantsLockChange: delete the lockfile-conflict and reinstall-fix clauses; 'resolve the lockfile merge conflict' drops. Loosen the conflict clause to bare `conflict`; 'resolve the merge conflict in the parser' ships.
 #  NRM3. commit_filter.ts dropSet: ignore the task (drop the taskWantsLockChange clause); the task-aware lockfile check fails.
+#  GB1. commit_filter.ts dropSet: drop `|| art.has(f)`; the build-artifact check fails (web/dist, build/, *.pyc, *.tsbuildinfo and the ignored log ship).
+#  GB2. commit_filter.ts buildArtifacts: skip the dirTracked check (always drop under an output dir); the tracked dist/ case fails.
+#  RD1. commit_filter.ts regenDrops: `return [];` first; the RD check fails (the doc only a check run rewrote ships).
+#  SD1. commit_filter.ts commitUnsealedWork: drop `...regenWip.filter(...)` from churn; the SD WIP commit leg commits the snapshot and the cache file.
+#  SD2. commit_filter.ts regenDrops: delete `if (st === "A") return true;`; the SD drop leg keeps the components cache file.
+#  SD3. commit_filter.ts guardRegenDrops: `if (true) return { dropped: picked, kept: [] };`; the SD guard leg drops the cache a test needs.
+#  SD4. seal.ts targetedBreak: `return false;` in place of `return ran === 0;`; the SD drop leg reads nothing-ran as no break.
+#  DN1. commit_filter.ts needDrops: `return [];` first; the DN check fails (the reformatted generated file and the drive-by suppression edit ship).
+#  RO1. commit_filter.ts dropSet: `if (false) for (const f of runOutputs(` ; the RO check fails (nested .loki, test-results, JUnit reports ship) and so does GB's =0 leg.
 #  SG4. commit_filter.ts commitUnsealedWork: remove the churn block; the WIP commit carries pnpm-lock.yaml again.
 #  SG5. check_result.ts commandFor: drop the rootProjectsBreakSite null; the workspace command runs from packages/a and fails (No projects were found).
 #  SG6. failures.ts idNamesFile: return id.includes(f) only; the root-run failure leg fails (the project-prefixed id names no file).
 #  SG7. commit_filter.ts commitUnsealedWork: drop the rmSync loop; the run-created lockfile stays untracked after the checkout. taskWantsLockChange: re-add the bare `lock` noun; 'refresh the page when the lock icon is clicked' ships its lockfile.
 #  NRM2. repo_profile.ts detectFormatters: drop the biome entry; the formatter check fails.
 #  J1. repo_profile.ts runFormattersRecord: drop the base-clean comparison; the J1 formatter leg formats b.py and fails.
+#  FF1. repo_profile.ts pickRunnable: `return fm;` first (never try a fallback); the FF leg formats nothing in both repos and fails.
 #  J2. commit_filter.ts commitUnsealedWork: exempt Wall files from the churn reset again; the J2 WIP commit leg commits loki_wall_w.test.ts by default.
 #  10. verify.ts sameErrors: excuse every known-red id whatever its first error; the delivery check fails.
 #  11. loki-ts/src/engine10/machine.ts: break after one Wall-only round whatever wallSignature says; the
@@ -82,7 +92,8 @@
 #  18. verify.ts errorsById: keep one error line per id (last wins) instead of the sorted multiset; or let a FAIL line take the
 #      next FAIL line as its error; the delivery check fails (the test.each regression reads as the same error).
 #  19. verify.ts attribute call: pass `suite` without the preRed.sameError gate (ids only); mono3 unnamed is delivered with p1 excused.
-#  20. verify.ts: excuse collateral same-error checks at once (no fix round first); mono3 same runs 0 fix rounds.
+#  20. verify.ts: with LOKI_E10_COLLATERAL_BASELINE=0, excuse collateral same-error checks at once (no fix round first); mono3 same0 runs 0 fix rounds.
+#  20f. repo_profile.ts collateralOnBaseline: return true whenever the test file is unedited (no baseline comparison); mono3 changed is delivered with p1 excused.
 #  20b. machine.ts: drop the onlyCollateralRed re-verify; mono3 conflict ends SPEC_CONFLICT.
 #  20c. verify.ts collateralSame: take preRed.knownRed (ids only) instead of sameError; mono3 changed is delivered with p1 excused.
 #  20d. repo_profile.ts attributeFullSuite: drop sameAsBase (ids only); real vitest p8 is delivered (both versions).
@@ -466,6 +477,102 @@ const d = (task) => dropSet(process.env.LK, [{ st: "M", f: "pnpm-lock.yaml" }], 
 console.log(["bump lodash to 4.17.21", "refresh the lock file", "pin lodash to 4.17.20", "regenerate the lockfile", "fix CVE-2024-4067 by updating the lockfile", "update the dependencies of the api", "upgrade the express package", "regenerate pnpm-lock.yaml", "resolve the lockfile merge conflict", "reinstall to fix the lockfile", "add a login button", "update the readme", "refresh the page when the lock icon is clicked", "sync the lock screen timer", "resolve the merge conflict in the parser", "reinstall the app to fix the login", "fix the lockfile-unrelated parser bug", undefined].map(d).join(","));
 ' 2>&1)"
 [ "$LKT" = "ship,ship,ship,ship,ship,ship,ship,ship,ship,ship,drop,drop,drop,drop,drop,drop,drop,drop" ] && ok "commit filter: a lockfile-only change ships when the task bumps or updates a dependency, names a CVE or the lockfile, or fixes a lockfile conflict; unrelated tasks drop it" || bad "task-aware lockfile drop gave: $LKT"
+# GB LOKI_E10_BUILD_ARTIFACT_DROP: a generated or build file the run added is left out (ignored path, bytecode, a dist/build/target dir at the root or beside a
+# manifest), unless the task names it or the repo tracks that output dir at base (a committed dist/ is kept).
+GB="$T/gbdrop"; mkdir -p "$GB/src" "$GB/dist" "$GB/web" "$GB/docs" && git -C "$GB" init -q -b main && git -C "$GB" config user.name rs && git -C "$GB" config user.email rs@example.invalid
+printf '*.log\n' > "$GB/.gitignore"; printf '[project]\nname = "g"\n' > "$GB/pyproject.toml"; printf 'x = 1\n' > "$GB/src/a.py"; printf 'kept\n' > "$GB/dist/keep.js"; printf '{"name":"web"}\n' > "$GB/web/package.json"; printf 'd\n' > "$GB/docs/index.md"; mkdir -p "$GB/lib.egg-info"; printf 'Name: lib\n' > "$GB/lib.egg-info/PKG-INFO"
+git -C "$GB" add -A . && git -C "$GB" commit -q -m base
+GBR="$(GB="$GB" ROOT="$ROOT" BASE="$(git -C "$GB" rev-parse HEAD)" bun --no-env-file --config=/dev/null -e '
+const { dropSet, buildArtifactNotes } = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts");
+const A = (...fs) => fs.map((f) => ({ st: "A", f })), d = (staged, task) => dropSet(process.env.GB, staged, null, process.env, undefined, undefined, process.env.BASE, task).filter((x) => x.st !== "L").map((x) => x.f).sort().join(",") || "-";
+const all = [...A("src/a.pyc", "web/tsconfig.tsbuildinfo", "build/lib/a.py", "web/dist/index.js", "dist/new.js", "run.log", "docs/build/notes.md", "tests/test_a.py", "src/b.py", "lib.egg-info/new.txt", "src/__pycache__/a.cpython-312.pyc"), { st: "M", f: "dist/keep.js" }];
+const off = () => { process.env.LOKI_E10_BUILD_ARTIFACT_DROP = "0"; try { return d(all, "fix the parser"); } finally { delete process.env.LOKI_E10_BUILD_ARTIFACT_DROP; } };
+console.log([d(all, "fix the parser"), d(A("web/dist/index.js", "src/b.py"), "regenerate web/dist/index.js"), off(), buildArtifactNotes(process.env.GB, ["run.log"], process.env.BASE, "fix").join()].join(" | "));
+' 2>&1)"
+[ "$GBR" = "build/lib/a.py,run.log,src/__pycache__/a.cpython-312.pyc,src/a.pyc,web/dist/index.js,web/tsconfig.tsbuildinfo | - | run.log,src/__pycache__/a.cpython-312.pyc | generated or build file left out of the commit: run.log" ] && ok "GB commit filter: bytecode, a tsbuildinfo, an ignored log and untracked build/ or dist/ output beside a manifest are left out; a committed dist/ (new and modified) or egg-info/, docs/build without a manifest, tests and source ship; a task naming the file keeps it; =0 opts out (the log is still left out by RO); the drop is noted ($GBR)" || bad "GB build-artifact drop gave: $GBR"
+# RO LOKI_E10_RUN_OUTPUT_DROP: output the run's own commands write (nested .loki/, test-results/, coverage/ anywhere, caches, JUnit reports, logs) never ships;
+# a tracked output dir and a task naming the file keep it.
+mkdir -p "$GB/fixtures/coverage" && printf '{}\n' > "$GB/fixtures/coverage/data.json" && git -C "$GB" add -A . && git -C "$GB" commit -q -m fixtures
+ROR="$(GB="$GB" ROOT="$ROOT" BASE="$(git -C "$GB" rev-parse HEAD)" bun --no-env-file --config=/dev/null -e '
+const { dropSet } = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts");
+const A = (...fs) => fs.map((f) => ({ st: "A", f })), d = (staged, task) => dropSet(process.env.GB, staged, null, process.env, undefined, undefined, process.env.BASE, task).filter((x) => x.st !== "L").map((x) => x.f).sort().join(",") || "-";
+const all = A("web/.loki/logs/run.txt", "test-results/.last-run.json", "docs/coverage/x.json", "junit.xml", "src/report.junit.xml", ".pytest_cache/v/cache", "fixtures/coverage/new.json", "src/c.py", "tests/test_c.py");
+const off = () => { process.env.LOKI_E10_RUN_OUTPUT_DROP = "0"; try { return d(all, "fix the parser"); } finally { delete process.env.LOKI_E10_RUN_OUTPUT_DROP; } };
+console.log([d(all, "fix the parser"), d(A("junit.xml", "src/c.py"), "write the junit.xml report"), off()].join(" | "));
+' 2>&1)"
+[ "$ROR" = ".pytest_cache/v/cache,docs/coverage/x.json,junit.xml,src/report.junit.xml,test-results/.last-run.json,web/.loki/logs/run.txt | - | -" ] && ok "RO commit filter: nested .loki/, test-results/, coverage/ anywhere, caches and JUnit reports the run created are left out; a tracked coverage dir, source and tests ship; a task naming the file keeps it; =0 opts out ($ROR)" || bad "RO run-output drop gave: $ROR"
+# DN LOKI_E10_DIFF_NEED: deliver only what the fix needs. A formatting-only change (generated route tree reformatted, quotes and trailing commas) and a lint-suppression-only
+# edit in a file outside the fix are left out; a real change, Python indentation (meaningful), an in-scope suppression edit, a task asking to reformat, and a task-named file stay.
+DNR="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const cf = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts");
+const F = {
+  "src/routeTree.gen.ts": { base: "export const routes = {a: \"x\", b: \"y\"}\n", head: "export const routes = {\n  a: '\''x'\'',\n  b: '\''y'\'',\n};\n" },
+  "src/fix.ts": { base: "export const n = 1\n", head: "export const n = 2\n" },
+  "pkg/block.py": { base: "if a:\n    x = 1\ny = 2\n", head: "if a:\n    x = 1\n    y = 2\n" },
+  "pkg/quotes.py": { base: "x = '\''a'\''\n", head: "x = \"a\"\n" },
+  "tools/other.py": { base: "import os  # noqa: F401\n", head: "import os\n" },
+  "pkg/inscope.py": { base: "import sys  # noqa: F401\n", head: "import sys\n" },
+};
+const st = Object.keys(F).map((f) => ({ st: "M", f })), rd = (f) => F[f], outside = ["tools/other.py", "src/routeTree.gen.ts", "pkg/quotes.py", "pkg/block.py"];
+const d = (task, env = { LOKI_E10_DIFF_NEED: "1" }) => cf.needDrops(st, task, rd, outside, env).map((x) => `${x.f}=${x.why === "formatting-only change" ? "fmt" : "supp"}`).join(",") || "-";
+console.log([d("Fix the count"), d("Please reformat the routes"), d("Fix the count", { LOKI_E10_DIFF_NEED: "0" }), d("Fix the count in src/routeTree.gen.ts"), cf.needDropNote({ f: "tools/other.py", why: "lint-suppression-only change outside the fix" })].join(" | "));
+' 2>&1)"
+[ "$DNR" = 'src/routeTree.gen.ts=fmt,pkg/quotes.py=fmt,tools/other.py=supp | tools/other.py=supp | - | pkg/quotes.py=fmt,tools/other.py=supp | lint-suppression-only change outside the fix left out of the delivered diff: tools/other.py' ] && ok "DN commit filter: a formatting-only change and a suppression-only edit outside the fix are left out; a real change, Python indentation, an in-scope suppression edit, a reformat task and a task-named file stay; =0 drops nothing ($DNR)" || bad "DN diff-need drop gave: $DNR"
+grep -q 'const drop = \[...drop0, ...regen, ...need\];' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && grep -q '...need.map(needDropNote)' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && ok "DN wiring: the commit stage drops and names what the fix does not need" || bad "DN wiring missing in seal.ts"
+# RD LOKI_E10_REGEN_DROP: a file only a verify run rewrote leaves the delivered diff; one a model stage also wrote, one the task names, and a regenerated doc whose
+# changed lines carry a task keyword (regenerated in step with the change) stay; =0 drops nothing.
+RDR="$(RD="$T/regen-run" ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const cf = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts"), rd = process.env.RD;
+cf.noteRegenerated(rd, "verify", ["docs/system.md", "src/enc.go", "docs/encode.md", "docs/named.md"]);
+cf.noteRegenerated(rd, "implement", ["src/enc.go"]);
+const lines = { "docs/system.md": ["-run(\"/usr/bin/echo\")", "+run(\"/bin/echo\")"], "docs/encode.md": ["+  base64url_encode the value"], "docs/named.md": ["+x"], "src/other.go": ["+y"] };
+const st = ["docs/system.md", "docs/encode.md", "docs/named.md", "src/enc.go", "src/other.go"].map((f) => ({ st: "M", f }));
+const task = "Add a `base64url_encode` operator; also refresh docs/named.md";
+const d = (env = { LOKI_E10_REGEN_DROP: "1" }) => cf.regenDrops(rd, st, task, (f) => lines[f] ?? [], env).map((x) => x.f).join(",") || "-";
+console.log([JSON.stringify(cf.regeneratedPaths(rd)), d(), d({ LOKI_E10_REGEN_DROP: "0" }), cf.regenDropNote("docs/system.md")].join(" | "));
+' 2>&1)"
+[ "$RDR" = '["docs/encode.md","docs/named.md","docs/system.md"] | docs/system.md | - | rewritten only by Loki'"'"'s own check run, not by the change, and left out of the commit: docs/system.md' ] && ok "RD commit filter: a file only a verify run rewrote (a machine-specific doc) is left out; a file a model stage also wrote, a task-named file and a doc regenerated in step with the change stay; =0 drops nothing; the drop is noted ($RDR)" || bad "RD regenerated-file drop gave: $RDR"
+grep -q '(name === "verify" && regenDropOn()) ? treeSnapshot(ctx.repoDir) : null' "$ROOT/loki-ts/src/engine10/machine.ts" && grep -q 'if (regenDropOn()) noteRegenerated(ctx.runDir, name,' "$ROOT/loki-ts/src/engine10/machine.ts" && grep -q 'const drop = \[...drop0, ...regen, ...need\];' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && grep -q '...regen.map(({ f }) => regenDropNote(f))' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && ok "RD wiring: the machine snapshots verify runs and records their writes; the commit stage drops and names the regenerated files" || bad "RD wiring missing in machine.ts or seal.ts"
+# SD stray check-written files (acc-170, RD now on by default, =0 opts out). (a) A NEW file only a check run wrote leaves the diff unless the task names its
+# exact path or file name; a plain task word in it ("components") no longer keeps it. (b) The guard puts the picked paths back to base on disk, reruns the
+# targeted tests, and restores and keeps them byte for byte when a test needs one. (c) targetedBreak runs only targeted checks, and reads "breaks" when
+# none could run. (d) The run-end WIP commit honors the same drop set, so a path left out at commit cannot come back on a FAILED run.
+SDR="$(SD="$T/sd-run" ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const cf = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts"), seal = await import(process.env.ROOT + "/loki-ts/src/engine10/stages/seal.ts"), rd = process.env.SD;
+cf.noteRegenerated(rd, "verify", ["testdata/api_components__load", "testdata/named__load"]);
+const task = "Schema components with a nil Items panic; the fixture testdata/named__load shows it";
+const st = [{ st: "A", f: "testdata/api_components__load" }, { st: "A", f: "testdata/named__load" }];
+const lines = () => ["+components: {}"];
+const out = [cf.regenDrops(rd, st, task, lines, { LOKI_E10_REGEN_DROP: "1" }).map((x) => x.f).join(","), cf.regenDrops(rd, st, task, lines, {}).map((x) => x.f).join(","), cf.regenDrops(rd, st, task, lines, { LOKI_E10_REGEN_DROP: "0" }).map((x) => x.f).join(",") || "-"];
+const ctx = (checks) => ({ repoDir: rd, outputs: () => ({ verify: { checks } }) });
+const run = (pass, fail, seen) => (ms) => ({ run: (d, refs) => { seen.push(refs.map((r) => r.runner + ":" + r.path).join()); return { pass, fail }; } });
+const seen = []; const checks = [{ name: "vitest:test/a.test.ts", result: "pass" }, { name: "full suite: npm", result: "pass" }, { name: "lint:eslint", result: "pass" }, { name: "vitest:test/b.test.ts", result: "fail" }];
+out.push([seal.targetedBreak(ctx(checks), run(1, 0, seen)), seal.targetedBreak(ctx(checks), run(0, 1, [])), seal.targetedBreak(ctx(checks), run(0, 0, [])), seal.targetedBreak(ctx([]), run(0, 1, []))].join(","), seen.join(";"));
+console.log(out.join(" | "));
+' 2>&1)"
+[ "$SDR" = "testdata/api_components__load | testdata/api_components__load | - | false,true,true,false | vitest:test/a.test.ts" ] && ok "SD drop: a new file only a check run wrote leaves the diff even when a plain task word (components) is in it, a file the task names by path stays, on by default, =0 drops nothing; targetedBreak runs only the passing targeted test, reads a fail as breaks, reads nothing-ran as breaks (fail safe) and no targeted test as no break" || bad "SD drop/targetedBreak: $SDR"
+SG="$T/sd-guard"; mkdir -p "$SG/__snapshots__" "$SG/testdata" && git -C "$SG" init -q -b main && git -C "$SG" config user.name rs && git -C "$SG" config user.email rs@example.invalid
+printf 'exports[`a`] = 1;\n' > "$SG/__snapshots__/a.snap"; printf 'x\n' > "$SG/app.ts"; git -C "$SG" add -A . && git -C "$SG" commit -q -m base; BASE_G="$(git -C "$SG" rev-parse HEAD)"
+sd_guard() { # sd_guard <needs: none|cache>: dirty the snapshot, add a cache file, run the guard; print kept | dropped | snap | cache
+    git -C "$SG" checkout -q "$BASE_G" -- .; printf 'exports[`a`] = 1;\nexports[`b`] = 2;\n' > "$SG/__snapshots__/a.snap"; printf 'cache\n' > "$SG/testdata/c__load"
+    SGD="$SG" B="$BASE_G" NEED="$1" ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const cf = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts"), fs = await import("node:fs"), d = process.env.SGD;
+const g = cf.guardRegenDrops(d, process.env.B, [{ st: "M", f: "__snapshots__/a.snap" }, { st: "A", f: "testdata/c__load" }], () => process.env.NEED === "cache" && !fs.existsSync(d + "/testdata/c__load"));
+const snap = fs.readFileSync(d + "/__snapshots__/a.snap", "utf8").includes("`b`") ? "snap-head" : "snap-base", cache = fs.existsSync(d + "/testdata/c__load") ? "cache-kept" : "cache-gone";
+console.log([g.kept.map((x) => x.f).join(",") || "-", g.dropped.map((x) => x.f).join(",") || "-", snap, cache].join(" | "));' 2>&1
+}
+SG1="$(sd_guard none)"; SG2="$(sd_guard cache)"
+[ "$SG1" = "- | __snapshots__/a.snap,testdata/c__load | snap-base | cache-gone" ] && [ "$SG2" = "__snapshots__/a.snap,testdata/c__load | - | snap-head | cache-kept" ] && ok "SD guard: with no targeted test broken the picked snapshot goes back to base and the cache file is removed on disk; when a test needs one of them, both are restored byte for byte and kept" || bad "SD guard: [$SG1] [$SG2]"
+WR="$T/sd-wip"; mkdir -p "$WR/__snapshots__" && git -C "$WR" init -q -b main && git -C "$WR" config user.name rs && git -C "$WR" config user.email rs@example.invalid
+printf 'exports[`a`] = 1;\n' > "$WR/__snapshots__/a.snap"; printf 'a\n' > "$WR/app.ts"; git -C "$WR" add -A . && git -C "$WR" commit -q -m base; BASE_R="$(git -C "$WR" rev-parse HEAD)"
+git -C "$WR" checkout -q -B loki/e10-wiprd "$BASE_R"; printf 'b\n' > "$WR/app.ts"; printf 'exports[`a`] = 1;\nexports[`z`] = 9;\n' > "$WR/__snapshots__/a.snap"; mkdir -p "$WR/testdata"; printf 'cache\n' > "$WR/testdata/c__load"
+mkdir -p "$WR/.loki/runs/e10-wiprd"; printf '{"paths":["__snapshots__/a.snap","testdata/c__load"]}\n' > "$WR/.loki/runs/e10-wiprd/regenerated.json"
+W="$WR" B="$BASE_R" ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const { commitUnsealedWork } = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts");
+commitUnsealedWork(true, process.env.W, process.env, "e10-wiprd", { base_sha: process.env.B, task: "fix the parser bug" });' >/dev/null 2>&1
+SDW="$(git -C "$WR" diff --name-only "$BASE_R" HEAD | tr '\n' ' ')| $(git -C "$WR" status --porcelain -- . ':!.loki' | tr '\n' ' ')"
+[ "$SDW" = "app.ts | " ] && ok "SD WIP commit: on a FAILED run the WIP commit leaves out the check-rewritten snapshot and the check-written cache file, and the tree is clean for the checkout back" || bad "SD WIP commit: [$SDW]"
+grep -q 'const regenG = guardRegenDrops(ctx.repoDir, ctx.baseSha, regen0, () => targetedBreak(ctx)), regen = regenG.dropped;' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && grep -q '...regenG.kept.map(({ f }) => regenKeptNote(f))' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && ok "SD wiring: the commit stage guards RD's picks and names the kept ones on the receipt" || bad "SD wiring missing in seal.ts"
 printf '#!/bin/sh\nfor f in "$@"; do printf "formatted\\n" >> "$f"; done\n' > "$LK/node_modules-biome.sh"; mkdir -p "$LK/node_modules/.bin"; cp "$LK/node_modules-biome.sh" "$LK/node_modules/.bin/biome"; rm "$LK/node_modules-biome.sh"; chmod +x "$LK/node_modules/.bin/biome"
 printf '{}\n' > "$LK/biome.json"
 FMT="$(LK="$LK" ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
@@ -498,6 +605,33 @@ const off = formatChangedRecord(d, [{ st: "M", f: "a.py" }], new Set(), { ...pro
 out.push(off.formatted.length, rd("a.py").includes("BAD"), String(off.records[0]?.error ?? "").startsWith("formatter not runnable: ruff"));
 console.log(out.join(" | "));' 2>&1)"
 [ "$FVR" = 'a.py+c.py | x = ok | true | c = ok | ruff | true | [{"file":"b.py","why":"base text is not formatter-clean"}] | 0 | true | true' ] && ok "J1 formatter: the repo venv's ruff formats the base-clean modified file and the new file, leaves a file already unformatted on base alone with the reason, and the record names the venv binary; =0 spawns the bare ruff (not on PATH), formats nothing and records why" || bad "J1 formatter gave: $FVR"
+# FF LOKI_E10_FORMAT_FALLBACK (default on, =0 opts out): the formatter resolves like verify's linter, fallbacks included. Neither repo has a ruff the resolved command can start:
+# (uvrun) uv.lock plus a `uv` whose `uv run -- ruff` exits 2 (ruff not in the task venv); (bare) no venv, no uv, no ruff on PATH. A fake `uvx` runs ruff. Both use `uvx ruff format`,
+# format the base-clean file and the new file, leave the file unformatted on base alone, and record the fallback; =0 formats nothing.
+FF="$T/fmtfb"; rm -rf "$FF"; mkdir -p "$FF/bin"
+printf '#!/bin/sh\n[ "$1" = ruff ] || exit 3; shift\n[ "$1" = format ] || exit 2; shift\nif [ "$1" = --stdin-filename ]; then perl -pe "s/BAD/ok/g"; exit 0; fi\nfor f in "$@"; do perl -pi -e "s/BAD/ok/g" "$f"; done\n' > "$FF/bin/uvx"; chmod +x "$FF/bin/uvx"
+for kind in uvrun bare; do
+    R="$FF/$kind"; mkdir -p "$R"; git init -q -b main "$R"
+    printf '[tool.ruff]\nline-length = 88\n' > "$R/pyproject.toml"; printf 'x = 1\n' > "$R/a.py"; printf 'y = BAD\n' > "$R/b.py"
+    [ "$kind" = uvrun ] && { printf 'version = 1\n' > "$R/uv.lock"; mkdir -p "$FF/uvbin"; printf '#!/bin/sh\necho "error: Failed to spawn: ruff" >&2\nexit 2\n' > "$FF/uvbin/uv"; chmod +x "$FF/uvbin/uv"; }
+    git -C "$R" add -- . && git -C "$R" -c user.name=f -c user.email=f@x commit -q -m base
+    printf 'x = BAD\n' > "$R/a.py"; printf 'y = BAD\nz = BAD\n' > "$R/b.py"; printf 'c = BAD\n' > "$R/c.py"
+done
+FFP="$FF/bin:$FF/uvbin:/usr/bin:/bin"
+FFR="$(FF="$FF" ROOT="$ROOT" PATH="$FFP" "$(command -v bun)" --no-env-file --config=/dev/null -e '
+const { formatChangedRecord } = await import(process.env.ROOT + "/loki-ts/src/e10ext/commit_filter.ts"), fs = await import("node:fs"), cp = await import("node:child_process");
+const st = [{ st: "M", f: "a.py" }, { st: "M", f: "b.py" }, { st: "A", f: "c.py" }], out = [];
+for (const kind of ["uvrun", "bare"]) {
+  const d = process.env.FF + "/" + kind, base = cp.execFileSync("git", ["-C", d, "rev-parse", "HEAD"]).toString().trim(), rd = (f) => fs.readFileSync(d + "/" + f, "utf8");
+  const r = formatChangedRecord(d, st, new Set(), { ...process.env }, base), rec = r.records[0] ?? {};
+  out.push(`${kind}: ${r.formatted.join("+")} ${rd("b.py").includes("BAD")} ${rec.cmd} ${rec.fallback ? "fallback" : "none"} ${JSON.stringify(rec.skipped)}`);
+  fs.writeFileSync(d + "/a.py", "x = BAD\n");
+  const off = formatChangedRecord(d, [{ st: "M", f: "a.py" }], new Set(), { ...process.env, LOKI_E10_FORMAT_FALLBACK: "0" }, base);
+  out.push(`${kind} off: ${off.formatted.length} ${rd("a.py").includes("BAD")}`);
+}
+console.log(out.join(" | "));' 2>&1)"
+[ "$FFR" = 'uvrun: a.py+c.py true uvx ruff format fallback [{"file":"b.py","why":"base text is not formatter-clean"}] | uvrun off: 0 true | bare: a.py+c.py true uvx ruff format fallback [{"file":"b.py","why":"base text is not formatter-clean"}] | bare off: 0 true' ] && ok "FF formatter: when uv run (no ruff in the venv) or a bare ruff cannot start, the linter's uvx fallback formats the base-clean and new files, the file unformatted on base stays untouched, the fallback is recorded; =0 formats nothing ($FFR)" || bad "FF formatter fallback gave: $FFR"
+grep -q 'return lintMissingDiscloseOn(env) ? toolFallbacks(repoDir, tool, env) : \[\];' "$ROOT/loki-ts/src/engine10/stages/verify.ts" && grep -q 'toolFallbacks(repoDir, "ruff", env).map' "$ROOT/loki-ts/src/runner/repo_profile.ts" && ok "FF wiring: verify's linter and the commit-stage formatter share util/check_result.ts toolFallbacks" || bad "FF wiring: the linter and the formatter do not share toolFallbacks"
 grep -q 'fmtRec = formatChangedRecord(ctx.repoDir, staged, dropped, process.env, ctx.baseSha), fmt = fmtRec.formatted;' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && grep -q 'const format = fmtRec.records.length ? { format: fmtRec.records } : {};' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && ok "J1 wiring: the commit stage formats with the base commit and records the formatter pass on its data" || bad "J1 wiring: the commit stage does not pass the base or record the formatter pass"
 
 # A workspace whose package vitest config merges the root config, and the root config sets `projects` (zod): `cd packages/a && npx vitest run <file>` never starts
@@ -596,7 +730,7 @@ for i in 1 2 3 4; do
 done
 git -C "$M3" init -q -b main && git -C "$M3" config user.name rs && git -C "$M3" config user.email rs@example.invalid
 git -C "$M3" add -A . && git -C "$M3" commit -q -m base
-for leg in same conflict changed unnamed; do cp -R "$M3" "$T/mono3-$leg"; done
+for leg in same same0 conflict changed unnamed; do cp -R "$M3" "$T/mono3-$leg"; done
 m3() { # m3 <leg> <task> <snippet> [VAR=value...]: one run, then one summary line per fact
     local leg="$1" task="$2" snip="$3"; shift 3
     local d="$T/mono3-$leg"
@@ -621,9 +755,13 @@ PY
 }
 got() { printf '%s\n' "$M3S" | grep -qx "$1"; }
 m3 same "$NAMED" 'export const del = (p: string): string => `DELETE ${p}`;'
-got 'fix_rounds 1' && got 'pre_red p1,p2' && got 'capped p1,p2' && got 'verdict PARTIAL' && printf '%s\n' "$M3OUT" | grep -Eq '^Outcome:[[:space:]]+PARTIAL' \
-    && ok "mono3 same: base-red page tests that import the named api.ts feed one fix round, then are pre-existing; delivered PARTIAL naming them (rc $M3RC)" \
+got 'fix_rounds 0' && got 'pre_red p1,p2' && got 'capped ' && got 'verdict PARTIAL' && printf '%s\n' "$M3OUT" | grep -Eq '^Outcome:[[:space:]]+PARTIAL' \
+    && ok "mono3 same (COLLATERAL-BASELINE on): base-red page tests that import the named api.ts, unedited with their paired pages unchanged and equal to the intake baseline, are pre-existing at once: no fix round, no COLLATERAL_RED cap (rc $M3RC)" \
     || { bad "mono3 same: $(printf '%s\n' "$M3S" | tr '\n' ' ') (rc $M3RC)"; printf '%s\n' "$M3OUT" | tail -8 | sed 's/^/    | /'; }
+m3 same0 "$NAMED" 'export const del = (p: string): string => `DELETE ${p}`;' LOKI_E10_COLLATERAL_BASELINE=0
+got 'fix_rounds 1' && got 'pre_red p1,p2' && got 'capped p1,p2' && got 'verdict PARTIAL' && printf '%s\n' "$M3OUT" | grep -Eq '^Outcome:[[:space:]]+PARTIAL' \
+    && ok "mono3 same0 (LOKI_E10_COLLATERAL_BASELINE=0): the same tests feed one fix round, then are pre-existing; delivered PARTIAL naming them as capped (rc $M3RC)" \
+    || { bad "mono3 same0: $(printf '%s\n' "$M3S" | tr '\n' ' ') (rc $M3RC)"; printf '%s\n' "$M3OUT" | tail -8 | sed 's/^/    | /'; }
 m3 conflict "$NAMED" 'export const del = (p: string): string => `DELETE ${p}`;' E2E_STUB_FIX=conflict
 got 'pre_red p1,p2' && got 'verdict PARTIAL' && ok "mono3 conflict: a fix-round conflict over those same failures is re-verified and delivered PARTIAL, not SPEC_CONFLICT (rc $M3RC)" \
     || { bad "mono3 conflict: $(printf '%s\n' "$M3S" | tr '\n' ' ') (rc $M3RC)"; printf '%s\n' "$M3OUT" | tail -8 | sed 's/^/    | /'; }

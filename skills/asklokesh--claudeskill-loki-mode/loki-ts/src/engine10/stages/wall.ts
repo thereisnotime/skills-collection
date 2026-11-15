@@ -1,8 +1,10 @@
 // E-15: Wall author (ENGINE.md 4). One provider session, cwd a fresh temp dir holding only task.md and repomap.txt (never sees the code), writes loki_wall_* tests, copied into the repo (never on abort/kill/timeout, E-54) and
 // sealed under <runDir>/wall/ (sha256 each); wall.sealed before Implement; clean base-tree pass short-circuits to already_satisfied. E-64: skipped outright on the small-task lean path (plan.ts logs the same decision).
+import { wallOnLeanOn } from "../../util/wall_knobs.ts";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { goPackagePath } from "../../runner/repo_profile.ts";
+import { wallRequiredCases } from "../../features/self_review.ts";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { type RunContext, type RunnerName, type Stage, type StageResult, type TestMap, type TestRef, taskBlock } from "../types.ts";
 import { clauseDroppedNote, extractClauses, untaggedClauses, type ClauseSet } from "../../util/spec_file.ts";
@@ -14,7 +16,7 @@ import { hasRelevantTests, isTinyGreenfield, WALL_TINY_BOUND, loadRepoMap, named
 import { sha256, wallGreenOnBaseOf } from "./seal.ts"; import { publishSealed, removeHoldout, sealStageDir, stashHoldout, wallHoldoutRatio } from "../../util/holdout.ts";
 import { clauseEvidenceBlock, evidenceOf, ingestWallCases, wallCasesBrief, wallCasesRunner, withUnreproducedEvidence, type WallEvidence } from "../../util/wall_cases.ts"; import { commandFor } from "./verify.ts"; import { guessRunner, harnessRunners, missingStackTool, projectInterpreter, type EngineTestMap } from "../testmap.ts";
 import type { ProjectApi } from "../../project_model/api.ts"; import { loadProjectApi } from "../../project_model/resolve.ts";
-import { sealedWallDir, assertionFailure, type ReportedErrors, baseJobs, classify, plannedGoDir, goPackageBrief, goPackageClash, corroboratePass, corroborateGoPassSync, goRunner, harnessSkipCode, classifyCheck, mapPool, NO_RUNNER_REASON, notRunReason, plainTestEnv, spawnCollect, spawnGroupSync, stripAnsi } from "../../util/check_result.ts";
+import { proofExcerpt, sealedWallDir, assertionFailure, reportedNeedsSource, type ReportedErrors, baseJobs, classify, plannedGoDir, goPackageBrief, goPackageClash, corroboratePass, corroborateGoPassSync, goRunner, harnessSkipCode, classifyCheck, mapPool, NO_RUNNER_REASON, notRunReason, plainTestEnv, spawnCollect, spawnGroupSync, stripAnsi } from "../../util/check_result.ts";
 import { conventionViolation, conventionsBrief, dotenvFileRead, outOfRepoReask, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions, rustArities, rustCallClash, vacuousCheck } from "../../project_model/conventions.ts"; // FC-23
 
 import { dotnetTestProject } from "../../util/stack_tools.ts";
@@ -33,16 +35,18 @@ export { classify, notRunReason, pytestCollectionIsRed } from "../../util/check_
 // One process per file, through verify's own interpreter resolution (E-98a) so a missing `python` is never misread as a failing test. env is explicit, matching verify.ts's runOnce (its default PATH lookup can otherwise resolve a
 // snapshot from process start, not the live env).
 export class RealBaseTestRunner implements BaseTestRunner {
-  lastNotRunFiles: NotRunRow[] = [];
+  lastNotRunFiles: NotRunRow[] = []; lastFailLines: Record<string, string[]> = {}; // AWE-2: each failing file's own output lines (proofExcerpt), read by the proof card; never a verdict input
   constructor(private readonly api?: ProjectApi | null, private readonly timeoutMs: number = BASE_RUN_TIMEOUT_MS, private readonly extraEnv: Record<string, string> = {}, private readonly trustSystem = false, private readonly reported: ReportedErrors = { observed: [], wanted: [] }) {} // trustSystem: the repo declares no Python environment, so the system interpreter IS its interpreter and its base result counts (seal.ts failThenPass; the Wall path never sets it). FC-01: undefined = load the repo's cached Project Model per run
+  /** The same runner with `env` added to its extra env (mutation_proof.ts editableBaseEnv). */
+  withEnv(env: Record<string, string>): RealBaseTestRunner { return new RealBaseTestRunner(this.api, this.timeoutMs, { ...this.extraEnv, ...env }, this.trustSystem, this.reported); }
   run(repoDir: string, files: TestRef[]): { pass: number; fail: number; not_run: number; assertFail: number } {
-    this.lastNotRunFiles = [];
+    this.lastNotRunFiles = []; this.lastFailLines = {};
     let pass = 0, fail = 0, not_run = 0, assertFail = 0; const not_run_files: NotRunRow[] = []; const api = this.api === undefined ? loadProjectApi(repoDir) : this.api; for (const f of files) {
       const { cmd, args, interpreter, cwd } = commandFor(f, repoDir, api);
       const r = spawnGroupSync(cmd, f.runner === "pytest" ? [...args, "-rfE"] : args, { cwd, timeoutMs: Math.max(1000, this.timeoutMs), env: { ...plainTestEnv(), ...this.extraEnv } }); // FC-69: plain env in, ANSI stripped out; group-kill launcher reaps a grandchild runner
       const status = r.status, out = stripAnsi(r.output), base = classify(f, status, out, repoDir, this.trustSystem ? undefined : interpreter);
       const result = base === "not_run" && status === 0 && f.runner === "go" && interpreter !== "system" && corroborateGoPassSync(classifyCheck({ kind: "test", ok: true, out, ...goRunner(cmd, args) }), out, cmd, args.filter((a, k) => a !== "-run" && args[k - 1] !== "-run"), { cwd, env: plainTestEnv() }).result === "pass" ? "pass" : base; // same Go exit 0 corroboration as runEach, synchronous
-      if (result === "pass") pass++; else if (result === "fail") { fail++; if (assertionFailure(f.runner, out, this.reported, this.reported.observed.length ? (() => { try { return readFileSync(join(repoDir, f.path), "utf8"); } catch { return ""; } })() : "")) assertFail++; } else { not_run++; not_run_files.push({ file: f.path, reason: notRunReason(status, interpreter), ...(interpreter === "system" ? { interpreter } : {}) }); }
+      if (result === "pass") pass++; else if (result === "fail") { fail++; this.lastFailLines[f.path] = proofExcerpt(out, [repoDir, (() => { try { return realpathSync(repoDir); } catch { return repoDir; } })()]); if (assertionFailure(f.runner, out, this.reported, reportedNeedsSource(this.reported) ? (() => { /* REPORTED-KIND: an observed type alone needs the test source too (pyjwt read src "" and never counted) */ try { return readFileSync(join(repoDir, f.path), "utf8"); } catch { return ""; } })() : "")) assertFail++; } else { not_run++; not_run_files.push({ file: f.path, reason: notRunReason(status, interpreter), ...(interpreter === "system" ? { interpreter } : {}) }); }
     }
     this.lastNotRunFiles = not_run_files; return { pass, fail, not_run, assertFail };
   }
@@ -121,7 +125,7 @@ export function wallRoute(ctx: Pick<RunContext, "repoDir" | "externalPatch" | "t
   const packageTests = existingTests.filter((t) => (api?.packageRootOf(t.path) ?? engineMap?.testPackages?.[t.path] ?? ".") === targetRoot);
   const focus = namedFiles(task, repoMap);
   const runners: RunnerName[] = testMap ? harnessRunners(engineMap?.packageRunners?.[targetRoot] ?? (packageTests.length ? [...new Set(packageTests.map((t) => t.runner))] : testMap.runners), repoMap?.files ?? [], process.env, ctx.repoDir, focus) : [];
-  return { sz, runners, api, targetRoot, lean: !ctx.externalPatch && planMode() !== "always" && smallTaskPath(sz.size, hasRelevantTests(task, repoMap, testMap, ctx.tests.impacted)) === "lean" };
+  return { sz, runners, api, targetRoot, lean: !ctx.externalPatch && planMode() !== "always" && !(wallEnabled() && wallOnLeanOn()) && smallTaskPath(sz.size, hasRelevantTests(task, repoMap, testMap, ctx.tests.impacted)) === "lean" };
 }
 /** The exec-spec call execSpecWall makes, built from the same inputs; intake passes it to prefetchExecSpec so the generator call overlaps the baseline run. */
 export const execSpecCall = (ctx: Pick<RunContext, "repoDir" | "runId" | "sessions">, task: string, runners: RunnerName[], existingTests: string[], signal: AbortSignal): Parameters<typeof execSpecAuthor>[0] =>
@@ -173,7 +177,7 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   const model = retry?.model ?? wallFirstModel(sz.size), iterationId = `${ctx.runId}-wall${retry?.suffix ?? ""}`; // COST-11
   const session = await ctx.sessions.run({
     stage: "wall",
-    brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv), unitSpec()?.acceptance ?? [], relative(ctx.repoDir, targetDir), clauseSet, evidence, isTinyGreenfield(sz.size, task, testMap)) + wallCasesBrief(runners) + goPackageBrief(ctx.repoDir, targetDir, runners, srcTexts, (d) => goPackagePath(readText, ctx.repoDir, d)) + (retry?.note ? `\n\n${retry.note}` : ""), // CCR-06: "" unless LOKI_E10_WALL_CASES=1 on a Python repo
+    brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv), [...(unitSpec()?.acceptance ?? []), ...wallRequiredCases(ctx.runDir, task)], relative(ctx.repoDir, targetDir), clauseSet, evidence, isTinyGreenfield(sz.size, task, testMap)) + wallCasesBrief(runners) + goPackageBrief(ctx.repoDir, targetDir, runners, srcTexts, (d) => goPackagePath(readText, ctx.repoDir, d)) + (retry?.note ? `\n\n${retry.note}` : ""), // CCR-06: "" unless LOKI_E10_WALL_CASES=1 on a Python repo
     // E-45: pinned cheaper model; development tier because the planning tier yields to the LOKI_SESSION_MODEL=opus pin.
     tier: "development",
     model,

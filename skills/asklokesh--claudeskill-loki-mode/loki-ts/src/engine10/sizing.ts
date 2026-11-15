@@ -1,4 +1,5 @@
 // E-45 cost path: deterministic task sizing (no model call) and knobs; missing intake inputs size "normal". E-64: the small-task lean path (skip Plan+Wall) and the sonnet-then-escalate model cascade.
+import { cascadeV0On } from "../util/wall_knobs.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { readRepoMapCache, repoCacheDir, repoKey } from "./cache.ts";
@@ -10,8 +11,22 @@ import { escapeRegex } from "../util/regex_escape.ts";
 /** Repo-map files whose basename appears in the task as an exact token (not inside a longer name like myindex.ts or index.tsx; a trailing sentence period is fine); no keyword scoring, tune from eval data. */
 export function namedFiles(task: string, map: RepoMap | null): string[] {
   const text = task.toLowerCase();
-  return (map?.files ?? []).filter((f) => new RegExp(`(?<![\\w.-])${escapeRegex(basename(f).toLowerCase())}(?![\\w-]|\\.\\w)`).test(text));
+  const hit = (map?.files ?? []).filter((f) => new RegExp(`(?<![\\w.-])${escapeRegex(basename(f).toLowerCase())}(?![\\w-]|\\.\\w)`).test(text));
+  if (!namedExactOn()) return hit;
+  // NAMED-EXACT: a basename every mention of which sits inside a spelled path ("frontend/src/app/(dashboard)/search/page.tsx") names only the files those paths
+  // spell, whether or not they exist yet; a bare mention ("fix page.tsx") keeps naming every file with that basename. FireLater#24: "page.tsx" named 54 files.
+  // One anchored match per whitespace-separated token that holds a slash: the old global scan restarted at every offset, which made a long slash-free run (a 99 KB PRD's
+  // comment block) quadratic (CI timed the L009 99 KB PRD legs out from acc-154 on). Tokens are cut at characters a path never holds, so every spelled path is still found.
+  const spelled = text.split(/[^\w@.()[\]\/-]+/).filter((t) => t.includes("/")).flatMap((t) => { const m = /^(?:\.\/)?((?:[\w@.()[\]-]+\/)+[\w@.()[\]-]+\.\w+)$/.exec(t.replace(/[.,;:)\]]+$/, "")); return m ? [m[1]!] : []; });
+  return hit.filter((f) => {
+    const b = basename(f).toLowerCase();
+    if (new RegExp(`(?<![\\w./-])${escapeRegex(b)}(?![\\w-]|\\.\\w)`).test(text)) return true; // a bare mention
+    const lf = f.toLowerCase();
+    return spelled.some((t) => basename(t) === b && (lf === t || lf.endsWith(`/${t}`) || t.endsWith(`/${lf}`)));
+  });
 }
+/** NAMED-EXACT (LOKI_E10_NAMED_EXACT, default on, =0 opts out): see namedFiles. */
+export const namedExactOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_NAMED_EXACT"] ?? "").trim());
 
 /** P12-46: "large" = names more than LARGE_NAMED_FILES distinct non-test files (namedDistinct: "fix index.ts" in a monorepo of nine index.ts is one), or several independent deliverables by structure (features/decompose.ts deliverables); never lean, and an issue ref goes to the MASS-2 split (commands/issues_run.ts startIssueEpic). A large unit never runs in parallel. */
 export type TaskSize = "small" | "normal" | "large"; export const LARGE_NAMED_FILES = 8;
@@ -80,7 +95,7 @@ const knob = (v: string | undefined, words: string[]): boolean => words.includes
 export const planMode = (env = process.env): "auto" | "always" | "never" =>
   knob(env.LOKI_E10_PLAN, ["0", "off", "never", "false"]) ? "never" : knob(env.LOKI_E10_PLAN, ["1", "on", "always", "true"]) ? "always" : "auto";
 /** EVAL-2026-11-05-3: the single-attempt Wall session lost to no Wall (merge-ready 9/20 vs 11/20, 1 false VERIFIED vs 0, higher cost per merge-ready), so it is OFF unless LOKI_E10_WALL=1/on/true opts in. The code stays reachable for a parallel-attempt selector. */
-export const wallEnabled = (env = process.env): boolean => knob(env.LOKI_E10_WALL, ["1", "on", "true"]);
+export const wallEnabled = (env = process.env): boolean => knob(env.LOKI_E10_WALL, ["1", "on", "true"]) || (cascadeV0On(env) && !knob(env.LOKI_E10_WALL, ["0", "off", "false"])); // CASCADE-V0: the oracle needs the Wall
 /** W1-S3: Wall session cap, 90s small / 180s normal; LOKI_E10_WALL_LIMIT_S overrides (clamped to 300; garbage, zero or negative falls back). */
 export const wallLimitS = (size: TaskSize, env = process.env): number => {
   const raw = env.LOKI_E10_WALL_LIMIT_S, n = Number(raw), dflt = size === "small" ? 90 : 180;

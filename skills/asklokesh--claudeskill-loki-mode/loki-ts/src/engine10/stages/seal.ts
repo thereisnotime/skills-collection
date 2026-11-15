@@ -1,5 +1,6 @@
 // E-10: commit and Seal (docs/v10/ENGINE.md sections 4, 9). Writes receipt.json and receipt.md, computes receipt_sha256, and signs natively with node:crypto Ed25519 (A-121; no python, no
 // `cryptography`). The key is the A-120 local key, created on first use. An empty token means UNSIGNED, never presented as attested.
+import { loadProjectApi } from "../../project_model/resolve.ts";
 import { isOff } from "../../council/role_agents.ts";
 import { capFenceVerdict, fenceNotes, readFenceRecord } from "../../util/config_fence.ts";
 import { sanitizeReason } from "../../util/redact.ts";
@@ -7,18 +8,20 @@ import { specReceiptBlock } from "../../util/spec_file.ts"; import { triageRecei
 import { createHash } from "node:crypto"; import { execFileSync } from "node:child_process"; import { unitSpecReceiptBlock } from "../../features/speed/unit_mode.ts";
 import { chmodSync, existsSync, readdirSync, linkSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path"; import { aiTrailers } from "../pr_body.ts";
-import { mutationEnabled, mutationProof, mutationStrict } from "../../util/mutation_proof.ts";
-import { RealBaseTestRunner, loadTaskText } from "./wall.ts"; import { defectPinEdits, defectPinNote, pinDroppedNotes, pinnedUpdateNotes, type PinnedTestUpdate } from "../../util/test_guard.ts";
+import { mutationEnabled, mutationProof, mutationStrict, type ProofBefore } from "../../util/mutation_proof.ts";
+import { RealBaseTestRunner, loadTaskText } from "./wall.ts"; import { defectPinEdits, defectPinNote, pinDroppedNotes, pinnedUpdateNotes, weakenExcuse, type PinnedTestUpdate } from "../../util/test_guard.ts";
 import { assertDeltaNotes } from "../../e10ext/assert_delta.ts"; import { runnerConfigNotes } from "../../features/runner_config.ts";
 import { discardIfSatisfied } from "../../e10ext/discard.ts";
-import { dropSet, formatChangedRecord, parseStaged } from "../../e10ext/commit_filter.ts";
-import { crossPackageTestEdits, crossPackageTestNote, flagOutsideScope, scopeTestDropEnabled } from "../../e10ext/scope.ts";
+import { buildArtifactNotes, dropSet, formatChangedRecord, guardRegenDrops, needDropNote, needDrops, parseStaged, regenDropNote, regenDrops, regenKeptNote } from "../../e10ext/commit_filter.ts";
+import { releaseRefsReceiptBlock, type SelfReviewRecord, selfReviewReceiptBlock, turnGuardNote } from "../../features/self_review.ts";
+import { crossPackageTestEdits, crossPackageTestNote, flagOutsideScope, outsideScope, scopeTestDropEnabled } from "../../e10ext/scope.ts";
 import { canonicalJson, collectToolchain, kidOf, loadSigningKey, signReceipt } from "../../util/receipt_signer.ts";
 import { appendReceiptFact, recordRunVerdict } from "../../util/pr_lessons.ts"; import { getVersion } from "../../version.ts";
 import { sealEvidence } from "../../features/visual_evidence.ts";
 import { isTestFile } from "../testmap.ts"; import { EXEC_SPEC_TELEMETRY_FILE } from "../../features/exec_spec.ts";
 import { crossReview, minVerdict, modelReviewRan, reviewExtraLimitS, reviewReceipt } from "./xreview.ts";
-import { STAGE_BUDGETS, type RunnerName, type Obj, type Receipt, type ReceiptCheck, type RunContext, type Stage, type StageName, type StageResult, type Verdict } from "../types.ts";
+import { cascadeV0On } from "../../util/wall_knobs.ts";
+import { STAGE_BUDGETS, type RunnerName, type Obj, type Receipt, type ReceiptCheck, type RunContext, type Stage, type StageName, type StageResult, type TestRef, type Verdict } from "../types.ts";
 import { buildRouteBlock, routeNotProven, routePrLine, routeReceiptLines } from "../../runner/router/route_block.ts";
 import { loadRouteRecord } from "../../runner/router/route_record.ts";
 import { ranModel, receiptBlock, recordRun } from "../../runner/router/cost_preview.ts";
@@ -34,7 +37,7 @@ import { patchReceipt } from "../../features/patch_protocol.ts";
 import { collapseNotProven } from "../../util/term_width.ts";
 import { consultNotes, neverStopNotes } from "../../features/opus_consult.ts"; import { namedUnchangedNote, namedUnchangedOf } from "../../util/conflict_resume.ts";
 import { tournamentReceiptBlock } from "../../features/tournament.ts"; import { attemptsReceiptBlock } from "../../features/attempts.ts"; import { nrdReceiptBlock, settleNrd } from "../../features/no_regression.ts";
-import { type SafeGitKeep, safeGitRun } from "../../util/safe_git.ts"; import { addedSymlinkNotes, splitDeclaredAdvisories } from "../../util/base_guard.ts"; import { readPlanScope } from "../../util/run_cap.ts"; import { toolchainDropNotes } from "../../util/lock_ecosystems.ts"; import { fragmentNoticeLine, misplacedNamedNotes } from "../../project_model/conventions.ts"; import { declaresPythonEnv } from "../../util/python.ts"; import { testFileWeakened } from "../../util/test_guard.ts";
+import { commitHookBypassOn, type SafeGitKeep, safeGit, safeGitRun } from "../../util/safe_git.ts"; import { addedSymlinkNotes, splitDeclaredAdvisories } from "../../util/base_guard.ts"; import { readPlanScope } from "../../util/run_cap.ts"; import { toolchainDropNotes } from "../../util/lock_ecosystems.ts"; import { conventionsBlock, fragmentNoticeLine, misplacedNamedNotes, releaseNoteSkipBlock } from "../../project_model/conventions.ts"; import { declaresPythonEnv } from "../../util/python.ts"; import { testFileWeakened } from "../../util/test_guard.ts";
 const SYSTEM_INTERP = "tests ran on the system interpreter", SYSTEM_INTERP_SUFFIX = " (the repo declares no Python dependencies, so this is its interpreter; informational, does not cap)"; // verify.ts writes the note
 
 export const SIGNING_UNAVAILABLE = "receipt signing unavailable (no usable signing key: invalid key or unwritable ~/.loki/keys)", AGENT_ONLY_REASON = "only agent-authored tests executed (no agent-independent proof)", WALL_GREEN_ON_BASE_REASON = "Wall green on base: no Wall test discriminates the change"; // TEN-GATES-02
@@ -44,6 +47,13 @@ export const sha256 = (s: string | Buffer): string => createHash("sha256").updat
 const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
 export const EXTERNAL_MODEL_LABEL = "external (no Loki implement session)", EXTERNAL_DIFF_NOT_ISOLATED = "Wall author not filesystem-isolated from the external diff", EXTERNAL_NO_WALL = "external diff sealed with no Wall file that ran; the only checks are the repo's existing tests"; // CW-12 B2/B3
 const externalRun = (o: Partial<Record<StageName, Record<string, unknown>>>): boolean => o.implement?.exit === "external";
+/** LINT-MISSING-DISCLOSE: lint checks (lint:*) that read not_run because their tool could not be started by any means verify tried (skip_code tool_not_on_path). Off with
+ *  LOKI_E10_LINT_MISSING_DISCLOSE=0. A linter that ran and reported violations is a failed check and is never in this list; neither is a test runner that is missing. */
+export const LINT_MISSING_NOTE = "linter not installed, not run (disclosed, does not cap)";
+export function missingLintChecks(vraw: readonly Obj[], env: NodeJS.ProcessEnv = process.env): string[] {
+  if (/^(0|off|false|no)$/i.test((env["LOKI_E10_LINT_MISSING_DISCLOSE"] ?? "").trim())) return [];
+  return vraw.filter((c) => String(c.name ?? "").startsWith("lint:") && c.result === "not_run" && c.skip_code === "tool_not_on_path").map((c) => String(c.name));
+}
 export const LEAN_NO_SYMBOL = "no passing check references a changed symbol and no Wall file ran";
 export const NO_FAIL_THEN_PASS = "no test shown to fail on the base commit and pass on the change";
 /** Wall-off verdict (EVAL-2026-11-05-3): an agent-authored or edited test is proof only when the HARNESS shows it fails on the base commit with the head's test bytes and passes on the change (util/mutation_proof.ts, the same base-worktree run T2 uses). An edited file's own base version must be green on the base first, so a pre-existing red file never reads as discriminating. */
@@ -57,15 +67,20 @@ async function codeSymbols(ctx: RunContext, rawDiff: string[], head: string): Pr
   return { all: d.exitCode === 0 ? changedSymbols(d.stdout, (p) => readFileSync(join(ctx.repoDir, p), "utf8")) : [], onBase }; // ENCLOSING-DECL: the committed head is the worktree here
 }
 /** The fail-then-pass base runner. Every file it runs already passed on the head under this same interpreter, so a base assertion failure under it is a like-for-like difference: trustSystem is on even when the repo declares a Python environment (4 of 4 more-itertools runs read inconclusive without it). */
-export const baseProofRunner = (ms: number, reported: ReportedErrors = { observed: [], wanted: [] }): RealBaseTestRunner => new RealBaseTestRunner(undefined, ms, {}, true, reported); // reported: the errors the issue quotes (reportedErrors), a base failure raising exactly one counts like an assertion
-async function failThenPass(ctx: RunContext, vraw: Obj[], pctx: ProvenanceCtx, head: string, cs: { all: string[]; onBase: Set<string> }, task: string, rewritten: ReadonlySet<string> = new Set()): Promise<{ ok: boolean; line: string; files: string[] }> {
+/** PROOF-PROJECT-API (LOKI_E10_PROOF_PROJECT_API, default on, =0 opts out): the fail-then-pass proof runs each test with the real repo's Project Model. RealBaseTestRunner
+ *  otherwise reads the model from the temporary base worktree, which has no .loki/, so in a multi-package repo a frontend vitest file ran from the repo root
+ *  (no vitest there) and the proof read "inconclusive (the Wall command did not execute to a result)". Package roots are repo-relative, so they hold in the worktree. */
+export const proofProjectApiOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_PROOF_PROJECT_API"] ?? "").trim());
+export const baseProofRunner = (ms: number, reported: ReportedErrors = { observed: [], wanted: [] }, repoDir?: string): RealBaseTestRunner => new RealBaseTestRunner(repoDir && proofProjectApiOn() ? loadProjectApi(repoDir) : undefined, ms, {}, true, reported); // PROOF-PROJECT-API: the Project Model of the real repo (the base worktree has no .loki/), so a package's test runs in its package dir; // reported: the errors the issue quotes (reportedErrors), a base failure raising exactly one counts like an assertion
+async function failThenPass(ctx: RunContext, vraw: Obj[], pctx: ProvenanceCtx, head: string, cs: { all: string[]; onBase: Set<string> }, task: string, rewritten: ReadonlySet<string> = new Set()): Promise<{ ok: boolean; line: string; files: string[]; before?: ProofBefore[] }> {
   const files = [...new Set(vraw.filter((c) => isExecutedProof(c as { result?: unknown; n?: unknown }) && checkProvenance(String(c.name ?? ""), pctx) === "agent_authored").map((c) => String(c.name).slice(String(c.name).indexOf(":") + 1)))];
   if (files.length === 0) return { ok: false, line: "", files: [] };
-  const mp = await mutationProof({ repoDir: ctx.repoDir, baseSha: ctx.baseSha, runDir: ctx.runDir, wallFiles: files.map((path) => ({ path })), checks: vraw as { name: string }[], runner: (ms: number) => baseProofRunner(ms, reportedErrors(task)), headSha: head, requireAssertion: true, baseMustPass: files.filter((f) => pctx.modifiedFiles?.includes(f)) });
+  const mp = await mutationProof({ repoDir: ctx.repoDir, baseSha: ctx.baseSha, runDir: ctx.runDir, wallFiles: files.map((path) => ({ path })), checks: vraw as { name: string }[], runner: (ms: number) => baseProofRunner(ms, reportedErrors(task), ctx.repoDir), headSha: head, requireAssertion: true, baseMustPass: files.filter((f) => pctx.modifiedFiles?.includes(f)) });
   const symbols = cs.all.filter((s) => cs.onBase.has(s) || new RegExp(`(?<![\\w$])${s.replace(/[$]/g, "\\$")}(?![\\w$])`).test(task)); // a symbol the base already has (a modified one), or one the task itself asks to add: a test that only names a function the change invented proves nothing about the change
   const read = (p: string): string => { try { return execFileSync("git", ["-C", ctx.repoDir, "show", `${head}:${p}`], { encoding: "utf8", maxBuffer: 16 << 20, timeout: 20_000 }); } catch { return ""; } };
   const failed = (mp.outcome === "yes" ? mp.failed ?? [] : []).filter((f) => symbolGap(symbols, [read(f)]).length === 0); // an assertion failure on base, in a file that names a symbol this change declares or modifies
-  return { ok: failed.some((f) => !rewritten.has(f)), line: failed.length > 0 ? `${mp.line} (${failed.join(", ")})` : mp.line, files: failed }; // E4: a test file whose pinned assertion was rewritten fails on the base, which shows the pin was real, but it is never the proof itself
+  const proofFiles = failed.filter((f) => !rewritten.has(f)), before = (mp.before ?? []).filter((b) => proofFiles.includes(b.file)); // AWE-2: output lines only for the files that are the proof
+  return { ok: proofFiles.length > 0, line: failed.length > 0 ? `${mp.line} (${failed.join(", ")})` : mp.line, files: failed, ...(before.length ? { before } : {}) }; // E4: a test file whose pinned assertion was rewritten fails on the base, which shows the pin was real, but it is never the proof itself
 }
 export const UNEXERCISED_PUBLIC = "no agent-independent passing test calls these added public functions";
 /** The receipt's exec_spec block from <runDir>/exec-spec.json (features/exec_spec.ts): the stage's seconds and its generator session's dollars, so a scored run can weigh what the spec cost. */
@@ -135,14 +150,32 @@ export { canonicalJson, kidOf, loadSigningKey, signReceipt }; // moved to util/r
 // Worker side (token withheld, the agent already has exec): the seal add keeps the repo's content drivers, and the seal commit also keeps the user's hooks and commit signing, so pre-commit scanners
 // and "require signed commits" still apply. safeGitRun strips the token from the env either way.
 const g = (ctx: RunContext) => (a: string[]): Promise<{ out: string; code: number }> => git(ctx, a);
-async function git(ctx: RunContext, args: string[], keep: SafeGitKeep = {}): Promise<{ out: string; code: number }> {
-  const r = await safeGitRun(ctx.repoDir, args, { timeoutMs: 20000, ...keep });
-  return { out: r.stdout, code: r.exitCode };
+async function git(ctx: RunContext, args: string[], keep: SafeGitKeep = {}, timeoutMs = 20000): Promise<{ out: string; code: number; err: string }> {
+  const r = await safeGitRun(ctx.repoDir, args, { timeoutMs, ...keep });
+  return { out: r.stdout, code: r.exitCode, err: String(r.stderr ?? "") };
 }
+/** COMMIT-HOOK-BYPASS (LOKI_E10_COMMIT_HOOK_BYPASS, default on, =0 opts out): a repo's own commit hooks (commitlint on the message, lint-staged, a
+ *  prepare-commit-msg prompt) are written for people, and one a run's build installed (msw: `pnpm run build` ran simple-git-hooks, then commitlint
+ *  rejected "loki: ...") must never fail the delivery. When the commit with the user's hooks fails, the index and the staged files go back to the
+ *  verified tree and the commit is retried once with hooks off (signing kept). A pass on that retry proves a hook was the cause, and the receipt says so. */
+/** The last few non-empty lines of a git error, for the receipt (bounded, one line). */
+export const gitErrorLine = (err: string): string => err.split("\n").map((l) => l.trim()).filter(Boolean).slice(-4).join(" | ").slice(0, 400) || "no error output";
+export const hookBypassNote = (err: string): string => `the repo's own commit hook rejected Loki's commit (${gitErrorLine(err)}); committed with hooks off, signing kept (LOKI_E10_COMMIT_HOOK_BYPASS)`;
 
 /** MARK-1: the receipt path relative to the repo, for the Loki-Receipt trailer; falls back to the standard run location. */
 const receiptRel = (ctx: RunContext): string => { const r = relative(ctx.repoDir, join(ctx.runDir, "receipt.json")); return r.startsWith("..") || isAbsolute(r) ? `.loki/runs/${ctx.runId}/receipt.json` : r; };
 
+/** acc-170 guard: reruns the targeted tests verify passed (never a full suite or lint; at most 6, about 20 s in all) on the current tree. True when one fails,
+ *  or when none of them could run to a result (fail safe: the caller then keeps what it was about to drop); false when none exist. */
+const REGEN_GUARD_MAX = 6, REGEN_GUARD_MS = 20_000;
+export function targetedBreak(ctx: RunContext, runner: (ms: number) => { run(dir: string, files: TestRef[]): { pass: number; fail: number } } = (ms) => new RealBaseTestRunner(undefined, ms)): boolean {
+  const checks = (Array.isArray(ctx.outputs().verify?.checks) ? (ctx.outputs().verify!.checks as Obj[]) : []).filter((c) => c.result === "pass" && typeof c.name === "string" && /^[a-z]+:[^ ]/.test(c.name as string) && !/^(?:lint|full suite|typecheck|build|holdout|patch|turn):/.test(c.name as string));
+  const refs = [...new Map(checks.map((c) => { const n = String(c.name), i = n.indexOf(":"); return [n.slice(i + 1), { runner: n.slice(0, i) as RunnerName, path: n.slice(i + 1) }] as const; })).values()].slice(0, REGEN_GUARD_MAX);
+  if (!refs.length) return false;
+  const t0 = Date.now(); let ran = 0;
+  for (const r of refs) { const left = REGEN_GUARD_MS - (Date.now() - t0); if (left < 1000) break; const x = runner(left).run(ctx.repoDir, [r]); if (x.fail > 0) return true; if (x.pass > 0) ran++; }
+  return ran === 0;
+}
 /** Section 4 Commit: `git add -A` minus .loki/, Wall files and stray lockfiles, commit `loki: <title>` with a Loki-Run trailer. An empty diff commits nothing (head stays at base). */
 /** Z2: the receipt block of the tests implement updated to the issue's stated behavior; {} (key omitted, hash unchanged) when none. */
 const pinnedUpdatesOf = (implement: Obj | undefined): PinnedTestUpdate[] => (Array.isArray(implement?.pinned_test_updates) ? (implement!.pinned_test_updates as PinnedTestUpdate[]) : []);
@@ -156,7 +189,12 @@ export const commitStage: Stage = {
     if ((await git(ctx, ["add", "-A", "--", "."], { repoDrivers: true })).code !== 0) return { status: "failed", data: {}, reason: "git add failed" };
     const sd = await git(ctx, ["diff", "--cached", "--name-status", "--no-renames", "-z", ctx.baseSha]); if (sd.code !== 0) return { status: "failed", data: {}, reason: "git diff against base failed" };
     const staged = parseStaged(sd.out);
-    const drop = dropSet(ctx.repoDir, staged, ctx.outputs().intake?.preexisting_dirty, process.env, ctx.outputs().intake?.install_created, ctx.outputs().intake?.preexisting_untracked_blobs, ctx.baseSha, str(ctx.outputs().intake?.task) ?? undefined);
+    const drop0 = dropSet(ctx.repoDir, staged, ctx.outputs().intake?.preexisting_dirty, process.env, ctx.outputs().intake?.install_created, ctx.outputs().intake?.preexisting_untracked_blobs, ctx.baseSha, str(ctx.outputs().intake?.task) ?? undefined);
+    const regen0 = regenDrops(ctx.runDir, staged.filter(({ f }) => !drop0.some((d) => d.f === f)), str(ctx.outputs().intake?.task) ?? "", (f) => { try { return safeGit(ctx.repoDir, ["diff", "--no-color", "-U0", ctx.baseSha!, "--", f]).split("\n").filter((l) => /^[+-](?![+-]{2})/.test(l)); } catch { return []; } }); // RD
+    const regenG = guardRegenDrops(ctx.repoDir, ctx.baseSha, regen0, () => targetedBreak(ctx)), regen = regenG.dropped; // acc-170: the picked paths go to base on disk, the targeted tests rerun, and a path a test needs is restored and kept
+    const rest = staged.filter(({ f }) => !drop0.some((d) => d.f === f) && !regen.some((d) => d.f === f));
+    const need = needDrops(rest, str(ctx.outputs().intake?.task) ?? "", (f) => { let base: string | null = null, head: string | null = null; try { base = safeGit(ctx.repoDir, ["show", `${ctx.baseSha}:./${f}`], { maxBuffer: 64 << 20 }); } catch { /* new on this run */ } try { head = readFileSync(join(ctx.repoDir, f), "utf8"); } catch { /* gone */ } return { base, head }; }, (() => { try { return outsideScope(ctx.outputs(), rest); } catch { return null; } })()); // DN
+    const drop = [...drop0, ...regen, ...need];
     const sat = await discardIfSatisfied((a) => git(ctx, a), ctx.baseSha, ctx.outputs(), staged, new Set(drop.filter(({ st }) => st === "L").map(({ f }) => f)), ctx.repoDir); if (sat) return sat; // D50-F1
     if (drop.length > 0 && (await git(ctx, ["--literal-pathspecs", "reset", "-q", ctx.baseSha, "--", ...drop.map(({ f }) => f)])).code !== 0) return { status: "failed", data: {}, reason: "git reset failed" }; // A-104b: reset to the run base (not HEAD) so a path committed in implement leaves the diff too; literal, so ":(top)x" is a filename
     // J3 LOKI_E10_SCOPE_TEST_DROP: a test-only edit in a package the change does not touch goes back to base (index and tree), with a NOT PROVEN note; source files are never touched
@@ -168,13 +206,22 @@ export const commitStage: Stage = {
     }
     const dropped = new Set([...drop.map(({ f }) => f), ...xpkg]), fmtRec = formatChangedRecord(ctx.repoDir, staged, dropped, process.env, ctx.baseSha), fmt = fmtRec.formatted; // TEN-QUALITY-16: only the run's own kept files; J1: the resolved binary, base-clean files only, recorded
     if (fmt.length > 0) await git(ctx, ["--literal-pathspecs", "add", "--", ...fmt], { repoDrivers: true }); // re-stage what the repo's formatter rewrote
-    const notes = [...xpkg.map(crossPackageTestNote), ...flagOutsideScope(ctx.outputs(), staged.filter(({ f }) => !dropped.has(f)), ctx.runDir, ctx.repoDir), ...toolchainDropNotes(ctx.repoDir, drop.filter(({ st }) => st === "A").map(({ f }) => f), ctx.baseSha)]; // D76: advisory, nothing is reverted
+    const notes = [...xpkg.map(crossPackageTestNote), ...flagOutsideScope(ctx.outputs(), staged.filter(({ f }) => !dropped.has(f)), ctx.runDir, ctx.repoDir), ...toolchainDropNotes(ctx.repoDir, drop.filter(({ st }) => st === "A").map(({ f }) => f), ctx.baseSha), ...buildArtifactNotes(ctx.repoDir, drop.filter(({ st }) => st === "A").map(({ f }) => f), ctx.baseSha, str(ctx.outputs().intake?.task) ?? undefined), ...regen.map(({ f }) => regenDropNote(f)), ...regenG.kept.map(({ f }) => regenKeptNote(f)), ...need.map(needDropNote)]; // D76: advisory, nothing is reverted
     const format = fmtRec.records.length ? { format: fmtRec.records } : {};
     if ((await git(ctx, ["diff", "--cached", "--quiet"])).code === 0) return { status: "completed", data: { committed: false, scope_notes: notes, ...format } };
     const title = (str(ctx.outputs().intake?.title) ?? `run ${ctx.runId}`).split("\n")[0]!.slice(0, 72);
-    const c = await git(ctx, ["commit", "-q", "-m", `loki: ${title}`, "-m", [`Loki-Run: ${ctx.runId}`, ...aiTrailers({ runId: ctx.runId, provider: ctx.provider, model: externalRun(ctx.outputs()) ? EXTERNAL_MODEL_LABEL : ctx.model, receiptRel: receiptRel(ctx) })].join("\n")], { repoDrivers: true, userHooks: true });
-    if (c.code !== 0) return { status: "failed", data: {}, reason: "git commit failed" };
-    return { status: "completed", data: { committed: true, head_sha: (await git(ctx, ["rev-parse", "HEAD"])).out.trim(), scope_notes: notes, ...format } };
+    const msg = ["-m", `loki: ${title}`, "-m", [`Loki-Run: ${ctx.runId}`, ...aiTrailers({ runId: ctx.runId, provider: ctx.provider, model: externalRun(ctx.outputs()) ? EXTERNAL_MODEL_LABEL : ctx.model, receiptRel: receiptRel(ctx) })].join("\n")];
+    const verified = (await git(ctx, ["write-tree"])).out.trim(), kept = staged.filter(({ f, st }) => !dropped.has(f) && st !== "D").map(({ f }) => f); // the tree verify judged, before any hook can restage it
+    const c = await git(ctx, ["commit", "-q", ...msg], { repoDrivers: true, userHooks: true }, 120000); // a repo pre-commit hook (lint-staged) can take longer than 20 s
+    let hookNote: string[] = [];
+    if (c.code !== 0 && commitHookBypassOn() && /^[0-9a-f]{40,64}$/.test(verified)) {
+      await git(ctx, ["read-tree", verified]); // a hook that ran a formatter and restaged leaves the index changed: put the verified tree back
+      for (let i = 0; i < kept.length; i += 200) await git(ctx, ["checkout-index", "-f", "--", ...kept.slice(i, i + 200)], { repoDrivers: true }); // and the run's own files in the tree, never a dropped (user) file
+      const c2 = await git(ctx, ["-c", "core.hooksPath=/dev/null", "commit", "-q", ...msg], { repoDrivers: true, userHooks: true });
+      if (c2.code !== 0) return { status: "failed", data: { commit_error: gitErrorLine(c2.err || c.err) }, reason: "git commit failed" };
+      hookNote = [hookBypassNote(c.err)];
+    } else if (c.code !== 0) return { status: "failed", data: { commit_error: gitErrorLine(c.err) }, reason: "git commit failed" };
+    return { status: "completed", data: { committed: true, head_sha: (await git(ctx, ["rev-parse", "HEAD"])).out.trim(), scope_notes: [...notes, ...hookNote], ...(hookNote.length ? { hooks_bypassed: true } : {}), ...format } };
   },
 };
 
@@ -286,19 +333,20 @@ export const sealStage: Stage = {
     // A-119 (EXP-0001): a delete, rename (--no-renames shows D plus A) or weakening edit of a pre-existing test file is NOT VERIFIED; an added case is not.
     const rawDiff = diffOk ? diff.stdout.split("\0").filter(Boolean) : [], pctx: ProvenanceCtx = { addedFiles: rawDiff.flatMap((m, i) => (i % 2 === 0 && m.trim().split(" ").pop() === "A" && rawDiff[i + 1] ? [rawDiff[i + 1]!] : [])), wallFiles: Array.isArray(o.wall?.files) ? (o.wall.files as Obj[]).map((f) => String(f.path)) : [], modifiedFiles: rawDiff.flatMap((m, i) => (i % 2 === 0 && m.trim().split(" ").pop() !== "A" && rawDiff[i + 1] && isTestFile(rawDiff[i + 1]!) ? [rawDiff[i + 1]!] : [])) }, checks = checksOf(o.verify?.checks, pctx, preRedChecks, repoSkipped); // TEN-GATES-02: A = added in this run
     const weakTests: string[] = [];
-    for (let i = 0; i + 1 < rawDiff.length; i += 2) { const st = rawDiff[i]!.trim().split(" ").pop() ?? ""; if (st !== "A" && isTestFile(rawDiff[i + 1]!) && testFileWeakened(ctx.repoDir, ctx.baseSha, head, rawDiff[i + 1]!, st)) weakTests.push(rawDiff[i + 1]!); } // an edit that only adds cases or tightens assertions is kept and uncapped (EXP-0001)
+    for (let i = 0; i + 1 < rawDiff.length; i += 2) { const st = rawDiff[i]!.trim().split(" ").pop() ?? ""; if (st !== "A" && isTestFile(rawDiff[i + 1]!) && testFileWeakened(ctx.repoDir, ctx.baseSha, head, rawDiff[i + 1]!, st, loadTaskText(ctx, str(o.intake?.task) ?? undefined))) weakTests.push(rawDiff[i + 1]!); } // an edit that only adds cases or tightens assertions is kept and uncapped (EXP-0001)
     const rcNotes = diffOk ? [...runnerConfigNotes(ctx.repoDir, ctx.baseSha, head, rawDiff.filter((_, i) => i % 2 === 1), signal), ...addedSymlinkNotes(rawDiff, str(o.plan?.plan)), ...misplacedNamedNotes(str(o.intake?.task) ?? "", rawDiff, ctx.repoDir, head)] : []; // D86 FC-09: runner config or a file it loads changed
     // Class C: an advisory for a change the plan declared, or a link a passing Wall requires, is disclosed (suffix below), never a cap; any undeclared change keeps capping.
     const vraw = Array.isArray(o.verify?.checks) ? (o.verify.checks as Obj[]) : []; const decl = splitDeclaredAdvisories([...rcNotes, ...verifyNotProven], { repoDir: ctx.repoDir, runDir: ctx.runDir, baseSha: ctx.baseSha, rawDiff, planFiles: readPlanScope(ctx.runDir), wallPaths: wallRel, task: str(o.intake?.task) ?? "", head, wallPassedN: o.verify?.wall_passed === true && vraw.some((c) => c.result === "pass" && typeof c.n === "number" && c.n > 0 && wallRel.some((w) => String(c.name).endsWith(`:${w}`) || String(c.name).includes(w))) });
     const sysInfo = verifyNotProven.includes(SYSTEM_INTERP) && !declaresPythonEnv(ctx.repoDir, head) ? SYSTEM_INTERP : null; // HONEST-VERIFIED: no dependency manifest means the system interpreter is the project's own, so a pass on it is a pass (informational, never a cap)
     const disclosedSet = new Set(decl.disclosed), capRc = rcNotes.filter((n) => !disclosedSet.has(n)), capVerify = verifyNotProven.filter((n) => !disclosedSet.has(n) && n !== sysInfo); const DECLARED_SUFFIX = " (declared by the plan or required by the passing Wall; disclosed, does not cap)";
     const grp = sealGroup(ctx.runDir, receiptSha256 as never); // D61-13: inert without group/manifest.json
-    const live = checks.filter((c) => !(c.result === "fail" && preRedChecks.includes(c.name)) && c.repo_skipped !== true), executed = hasExecutedProof(vraw), strictProof = process.env["LOKI_EXOGENOUS_PROOF"] !== "0", noWall = !(Array.isArray(o.wall?.files) && o.wall.files.length > 0);
+    const lintGone = missingLintChecks(Array.isArray(o.verify?.checks) ? (o.verify.checks as Obj[]) : []); // LINT-MISSING-DISCLOSE: a linter that could not be started by any means is disclosed, never a cap
+    const live = checks.filter((c) => !(c.result === "fail" && preRedChecks.includes(c.name)) && c.repo_skipped !== true && !lintGone.includes(c.name)), executed = hasExecutedProof(vraw), strictProof = process.env["LOKI_EXOGENOUS_PROOF"] !== "0", noWall = !(Array.isArray(o.wall?.files) && o.wall.files.length > 0);
     const ftpGate = strictProof && noWall && diffOk && !externalRun(o) && o.intake?.already_satisfied !== true && o.implement?.exit !== "already_done" && weakTests.length === 0 && !live.some((c) => c.result === "fail") && mutationEnabled(); // only a run that could still read VERIFIED pays for the base-tree runs; a check red on the base too (pre_red) is not this change failing, exactly as verdictOf reads it (FireLater#24 s1: a red frontend suite on base shut this gate, so the new backend tests never earned their fail-then-pass proof and a clean slice read PARTIAL)
     // E4 defect pin: a pure value replacement of an existing assertion that pins the wrong value the issue reports is listed as "value change (defect pin)", not weakened. It never counts as proof (an edited pre-existing test is agent-authored).
     const pinEdits = diffOk ? rawDiff.flatMap((m, i) => { const st = m.trim().split(" ").pop() ?? ""; const f = rawDiff[i + 1]; return i % 2 === 0 && st === "M" && f && isTestFile(f) && !weakTests.includes(f) ? defectPinEdits(ctx.repoDir, ctx.baseSha, head, f, loadTaskText(ctx, str(o.intake?.task) ?? undefined)) : []; }) : [];
     const pinFiles = new Set(pinEdits.map((e) => e.file));
-    let ftpMemo: Promise<{ ok: boolean; line: string; files: string[] }> | null = null; const ftp = (): Promise<{ ok: boolean; line: string; files: string[] }> => (ftpMemo ??= codeSymbols(ctx, rawDiff, head).then((cs) => failThenPass(ctx, vraw, pctx, head, cs, loadTaskText(ctx, str(o.intake?.task) ?? undefined), pinFiles)));
+    let ftpMemo: Promise<{ ok: boolean; line: string; files: string[]; before?: ProofBefore[] }> | null = null; const ftp = (): Promise<{ ok: boolean; line: string; files: string[]; before?: ProofBefore[] }> => (ftpMemo ??= codeSymbols(ctx, rawDiff, head).then((cs) => failThenPass(ctx, vraw, pctx, head, cs, loadTaskText(ctx, str(o.intake?.task) ?? undefined), pinFiles)));
     const exoProof = hasExogenousProof(vraw, pctx), proof = !strictProof ? executed : !noWall ? exoProof : exoProof || (ftpGate && (await ftp()).ok); // FC-16: executed n>0 pass from verify's raw checks (a Wall green on base proves only a claim, inside verdictOf); TEN-GATES-02 (D104): that pass must be agent-independent (LOKI_EXOGENOUS_PROOF=0 opts out)
     const pinLift = !isOff(process.env["LOKI_E10_DEFECT_PIN"]); // on by default, =0 opts out: lifts the cap only for the exact pinned file:line of a pure value replacement; the rewritten file never counts as proof and the receipt note is always on
     const pinDropped = pinDroppedNotes(verifyNotProven, pinEdits, pinLift);
@@ -313,8 +361,8 @@ export const sealStage: Stage = {
     const verdict1: Verdict = supplyVerdict(verdict0, supply);
     const xr = await crossReview(ctx, verdict1, head, signal), verdict2 = minVerdict(verdict1, xr); // B4: opt-in second-provider review, downgrade only
     // T2: mutation proof always runs after VERIFIED. "no" (Wall passed without the fix) warns; it downgrades to PARTIAL only with LOKI_MUTATION_STRICT=1 AND a plan-declared behavior change (never a harness heuristic). "yes" and inconclusive never change the verdict.
-    const mp0 = verdict2 === "VERIFIED" && mutationEnabled() ? await mutationProof({ repoDir: ctx.repoDir, baseSha: ctx.baseSha, runDir: ctx.runDir, wallFiles: Array.isArray(o.wall?.files) ? (o.wall.files as { path: string }[]) : [], checks: Array.isArray(o.verify?.checks) ? (o.verify.checks as { name: string }[]) : [], runner: (ms: number) => new RealBaseTestRunner(undefined, ms) }) : null;
-    const ftpRes = await (ftpMemo as Promise<{ ok: boolean; line: string; files: string[] }> | null), mp = ftpRes?.ok && verdict2 === "VERIFIED" && noWall ? { outcome: "yes" as const, line: ftpRes.line } : mp0; // Wall off: the fail-then-pass run is the receipt's proof line
+    const mp0 = verdict2 === "VERIFIED" && mutationEnabled() ? await mutationProof({ repoDir: ctx.repoDir, baseSha: ctx.baseSha, runDir: ctx.runDir, wallFiles: Array.isArray(o.wall?.files) ? (o.wall.files as { path: string }[]) : [], checks: Array.isArray(o.verify?.checks) ? (o.verify.checks as { name: string }[]) : [], runner: (ms: number) => new RealBaseTestRunner(proofProjectApiOn() ? loadProjectApi(ctx.repoDir) : undefined, ms) }) : null; // PROOF-PROJECT-API
+    const ftpRes = await (ftpMemo as Promise<{ ok: boolean; line: string; files: string[]; before?: ProofBefore[] }> | null), mp = ftpRes?.ok && verdict2 === "VERIFIED" && noWall ? { outcome: "yes" as const, line: ftpRes.line, ...(ftpRes.before ? { before: ftpRes.before } : {}) } : mp0; // Wall off: the fail-then-pass run is the receipt's proof line
     const fenceRec = fenceNotes(readFenceRecord(ctx.runDir), executed); // E1: what the config write fence restored, and any allowlist a spec conflict earned (caps below VERIFIED)
     const arbCap = Array.isArray(o.wall?.arbitrated) && (o.wall!.arbitrated as unknown[]).length > 0 && (verdict2 === "VERIFIED" || verdict2 === "ALREADY_SATISFIED"), mutCap = mp?.outcome === "no" && mutationStrict() && o.plan?.behavior_change === true, verdict3a: Verdict = capFenceVerdict(mutCap || arbCap ? "PARTIAL" : verdict2, fenceRec); // an arbitrated replacement passed only syntactic validators and two referees, so it never carries a success verdict; FC-69: a Wall test that did not execute is disclosed (not_proven), never a verdict downgrade (CTO ruling; D95 THIN)
     const namedOpen = namedUnchangedOf(ctx.repoDir, ctx.baseSha, o.implement); // R2 LOKI_E10_NAMED_SITES: named sites the final diff leaves unchanged; an unexplained one caps VERIFIED below
@@ -355,16 +403,17 @@ export const sealStage: Stage = {
       const tc = tcs?.[t] as Obj | undefined; const mine = assertDeltaNotes(ctx.repoDir, ctx.baseSha, head, t, str(o.intake?.task) ?? "", cnt(tc?.b), cnt(tc?.h));
       if (!mine || mine.length !== vl.length || mine.some((n) => !vl.includes(n))) for (const v of vl) dropped.add(v);
     }
+    for (let i = 0; i + 1 < rawDiff.length; i += 2) { const st = rawDiff[i]!.trim().split(" ").pop() ?? "", f = rawDiff[i + 1]!; if (st === "M" && isTestFile(f) && !weakTests.includes(f)) { const why = weakenExcuse(ctx.repoDir, ctx.baseSha, head, f, loadTaskText(ctx, str(o.intake?.task) ?? undefined)); if (why) notProven.add(`edited test kept uncapped (${why}): ${f}`); } } // FL24-WEAK: an excuse is always on the receipt, never silent
     for (const e of pinEdits) notProven.add(defectPinNote(e));
     for (const v of pinDropped) dropped.add(v);
     if (verdict !== "VERIFIED") for (const f of uncoveredAfterLimit) notProven.add(`changed, untested after limit: ${f}`);
-    for (const c of checks) if (c.result === "not_run" && c.repo_skipped !== true) notProven.add(`not run: ${c.name}`); for (const n of repoSkipped) notProven.add(`${SKIPPED_BY_REPO}: ${n}`); // FC-ZERO-ON-BASE: zero on the pristine base too, file untouched: one informational line
+    for (const c of checks) if (c.result === "not_run" && c.repo_skipped !== true) notProven.add(lintGone.includes(c.name) ? `${LINT_MISSING_NOTE}: ${c.name}` : `not run: ${c.name}`); for (const n of repoSkipped) notProven.add(`${SKIPPED_BY_REPO}: ${n}`); // FC-ZERO-ON-BASE: zero on the pristine base too, file untouched: one informational line
     for (const f of strs(o.verify?.flaky)) notProven.add(`flaky test: ${f}`);
     for (const n of verifyNotProven) if (!dropped.has(n)) notProven.add(disclosedSet.has(n) ? n + DECLARED_SUFFIX : n === sysInfo ? n + SYSTEM_INTERP_SUFFIX : n);
     for (const n of rcNotes) notProven.add(disclosedSet.has(n) ? n + DECLARED_SUFFIX : n); for (const n of decl.extra ?? []) notProven.add(n);
     for (const n of fenceRec.notProven) notProven.add(n);
     for (const n of pinnedUpdateNotes(pinnedUpdatesOf(o.implement))) notProven.add(n); // Z2: a reported test update the harness could not check
-    for (const n of [...strs(o.commit?.not_proven), ...strs(o.commit?.scope_notes)]) notProven.add(n); // D58: scope_notes = edits flagged outside stated scope (never reverted) or scope undetermined; separate key so they never force FAILED
+    for (const n of [...strs(o.commit?.not_proven), ...strs(o.commit?.scope_notes), ...(o.commit?.failed === true ? [`git commit failed: ${str(o.commit?.commit_error) ?? "no error recorded"}`] : [])]) notProven.add(n); // D58: scope_notes = edits flagged outside stated scope (never reverted) or scope undetermined; separate key so they never force FAILED
     for (const id of strs(o.verify?.pre_red)) notProven.add(`pre red: ${id}`); // A-112: listed, never downgrades (not via verifyNotProven)
     if (typeof o.verify?.baseline_line === "string" && strs(o.verify?.pre_red).length) notProven.add(o.verify.baseline_line); // REPOMEM: the one-line pre-existing vs introduced split; listed only when a baseline failure was excused, never downgrades
     for (const n of strs(o.verify?.not_excused)) notProven.add(n); // why a failing full-suite check was not excused as pre-existing; the check already blocks, this only names the rule
@@ -374,6 +423,7 @@ export const sealStage: Stage = {
     if (externalRun(o) && !(Array.isArray(o.wall?.files) && o.wall.files.length > 0)) notProven.add(EXTERNAL_NO_WALL); // FC-EXTERNAL-SEAL-WITHOUT-WALL-VERIFIED
     if (externalRun(o)) notProven.add(EXTERNAL_DIFF_NOT_ISOLATED); // CW-12 B2: the Wall author runs on disk beside the external diff until cw01 confinement covers it
     for (const t of strs(o.implement?.tests_reverted)) notProven.add(`reverted test edit: ${t}`);
+    for (const n of turnGuardNote((o.implement?.self_review as SelfReviewRecord | undefined)?.turn_guard)) notProven.add(n); // TG: a review turn taken back for breaking a test that passed before it
     { const sc = o.implement?.scaffold as { path?: unknown } | undefined; if (typeof sc?.path === "string") notProven.add(fragmentNoticeLine(sc.path)); } // L3 fragment writer: a disclosure, never a verdict input
     if (ctx.provider !== "claude") notProven.add("kill blocking not enforced");
     // Section 7: model_override_applied lives on run.started, which outputs() never carries.
@@ -433,6 +483,9 @@ export const sealStage: Stage = {
       time,
       provider: ctx.provider,
       model: externalRun(o) ? EXTERNAL_MODEL_LABEL : ctx.model, // CW-12 B3: no Loki session wrote this code, so no implementing model is named
+      ...(strs(o.wall?.iteration_ids).length ? { wall_oracle: { cost_usd: ctx.cost.read(ctx.repoDir, strs(o.wall?.iteration_ids)).usd, duration_s: typeof o.wall?.duration_s === "number" ? o.wall.duration_s : null } } : {}), // CASCADE-V0: the oracle's own price and time, per run
+      ...(cascadeV0On() ? { cascade: (() => { const c = ((o.implement?.attempts ?? {}) as Obj).cascade as Obj | undefined; return c ? { fired: true, from: str(c.from) ?? null, to: str(c.to) ?? null } : { fired: false }; })() } : {}), // CASCADE-V0: whether it escalated, from which model to which
+      ...(!externalRun(o) && /^(explicit|default|provider)$/.test(process.env.LOKI_SESSION_MODEL_SOURCE ?? "") ? { model_source: process.env.LOKI_SESSION_MODEL_SOURCE as "explicit" | "default" | "provider" } : {}), // acc-156: who chose the model (explicit flag or env, Loki's default, or the CLI's own default)
       ...(externalRun(o) ? { implement: { exit: "external" as const, patch_sha256: str(o.implement?.patch_sha256) ?? "" } } : {}),
       resumed: o.intake?.resumed === true,
       events_sha256: sha256(existsSync(eventsPath) ? readFileSync(eventsPath) : ""),
@@ -440,10 +493,10 @@ export const sealStage: Stage = {
       log_seal: true, toolchain: collectToolchain(), loki_version: getVersion(), // TEN-GATES-22: tool versions that ran the checks, absent tools null; covered by receipt_sha256. loki_version keys the replay of an identical rerun (util/pr_lessons.ts knownVerdict)
       ...receiptBlock(process.env, cost.usd, cost.unmetered === true, totalS),
       ...(reviewReceipt(ctx.provider, xr).review ? { review: reviewReceipt(ctx.provider, xr).review } : {}),
-      ...(mp ? { mutation_proof: mp.line, mutation_outcome: mp.outcome } : {}),
+      ...(mp ? { mutation_proof: mp.line, mutation_outcome: mp.outcome, ...(mp.outcome === "yes" && mp.before?.length ? { mutation_before: mp.before } : {}) } : {}), ...conventionsBlock(o), // AWE-2/AWE-3: display-only keys, omitted when absent so other receipts stay byte-stable; verdictOf never reads them
       ...(routeBlock ? { route: routeBlock } : {}),
       ...(supply.block ? { supply: supply.block } : {}),
-      ...pinnedUpdatesBlock(o.implement), ...(namedOpen.length ? { named_unchanged: namedOpen.map((s) => ({ symbol: s.symbol, path: s.path, line: s.line, reason: s.why })) } : {}), ...specReceiptBlock(process.env), ...triageReceiptBlock(o.intake), ...unitSpecReceiptBlock(process.env), ...intentRevisionsBlock(ctx.intentRevisions), ...seededCorpusBlock(), ...sealAccuracyBlock(rawDiff.filter((_, i) => i % 2 === 1), checks, ctx.model), ...contextCoverageBlock(o.implement, rawDiff, ctx.repoDir), ...tournamentReceiptBlock(o.implement), ...attemptsReceiptBlock(o.implement), ...nrdReceiptBlock(o.implement), // GAME10-03; L022 context recall and precision
+      ...pinnedUpdatesBlock(o.implement), ...releaseNoteSkipBlock(o.implement), ...selfReviewReceiptBlock(o.implement), ...releaseRefsReceiptBlock(o.implement), ...(namedOpen.length ? { named_unchanged: namedOpen.map((s) => ({ symbol: s.symbol, path: s.path, line: s.line, reason: s.why })) } : {}), ...specReceiptBlock(process.env), ...triageReceiptBlock(o.intake), ...unitSpecReceiptBlock(process.env), ...intentRevisionsBlock(ctx.intentRevisions), ...seededCorpusBlock(), ...sealAccuracyBlock(rawDiff.filter((_, i) => i % 2 === 1), checks, ctx.model), ...contextCoverageBlock(o.implement, rawDiff, ctx.repoDir), ...tournamentReceiptBlock(o.implement), ...attemptsReceiptBlock(o.implement), ...nrdReceiptBlock(o.implement), // GAME10-03; L022 context recall and precision
     };
 
     for (const l of sealContract(ctx.repoDir, body, rawDiff, checks, process.env, o.intake?.contract_snapshot as ContractSnapshot | undefined)) notProven.add(l); // D65-SPEC: additive receipt.contract, LOKI_CONTRACT=1 only

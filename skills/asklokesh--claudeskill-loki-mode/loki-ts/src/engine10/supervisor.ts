@@ -2,9 +2,9 @@
 import { routeStartLine } from "../runner/router/route_block.ts";
 import { execFileSync, spawnSync } from "node:child_process"; import { currentBranch, restoreBranch } from "../e10ext/stop_restore.ts";
 import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
-import { redactEventData } from "../util/redact.ts"; import { localBranchNote, resolveRunCapS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
+import { redactEventData } from "../util/redact.ts"; import { deadlineCapS, localBranchNote, resolveRunCapS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
 import { terminalWidth } from "../util/term_width.ts";
-import { diffStat, runHead, formatRunSummary, handoffSection, readRiskSummary, writeHandoff, withNextLine, withRiskLine, nextOf, resultOf, summaryObject, useColor } from "../util/run_summary.ts"; // OC-OUTPUT, RISKTIER
+import { diffStat, runHead, formatRunSummary, handoffSection, readRiskSummary, writeHandoff, withNextLine, withFoldLine, withRiskLine, nextOf, resultOf, summaryObject, useColor } from "../util/run_summary.ts"; // OC-OUTPUT, RISKTIER
 import { commitUnsealedWork, guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
 import { kidOf, loadSigningKey } from "./stages/seal.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -21,7 +21,7 @@ import { budgetNext, capNote, groupEnv, parseCapUsd, priorSpend, resolveCap, SUB
 import { fetchIssueToFile } from "./fetch_issue.ts";
 import { fetchTrackerIssueToFile, parseTrackerRef } from "../features/tracker_intake.ts";
 import { formatHeartbeatLine, formatStageLine, spendSoFar, formatSummary, preModelTiming, EXIT, exitCodeOf, outcomeOf, reasonOf, type Outcome } from "./output.ts";
-import { LiveLine } from "../e10ext/liveline.ts";
+import { CandidateView, LiveLine } from "../e10ext/liveline.ts";
 import { SAFE_BUN_FLAGS, envWithPwd, killGroup, spawnDetached, spawnWorker, ulimitArgv } from "../runner/worker_proc.ts";
 import { askIntent } from "../util/intent_card.ts";
 import { assertPreflight, PreflightError } from "./preflight.ts"; import { noteRefusal, noteRefusalFromEvents, type PreflightBlocker } from "../util/funnel.ts";
@@ -32,7 +32,7 @@ import { runIdentity } from "../util/run_identity.ts";
 import type { PrContext } from "./stages/pr.ts";
 import { type EventEnvelope, type PushEnv, type StageName, type Verdict, backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, envCapS, pushArgv, STAGE_BUDGETS } from "./types.ts";
 import { baseLine, finishRunBranch } from "../util/base_guard.ts";
-import { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, runIntent, summaryCache, summaryTier, summaryTokens, unmergedLokiWorkNote, type PolicyGate } from "../util/run_outputs.ts";
+import { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, runIntent, summaryCache, summaryTokens, unmergedLokiWorkNote, type PolicyGate } from "../util/run_outputs.ts";
 
 export { backstopS, BACKSTOP_GRACE_S }; // re-exported: callers import the backstop math from here, its home before r4
 import { createStuckWatch, stuckMinutes } from "../util/slack_events.ts";
@@ -40,7 +40,47 @@ import { encodeEstimate, startText } from "../runner/router/cost_preview.ts";
 export const START_LINE = "Loki 10 engine";
 export const TAMPER_NOT_PROVEN = "event log modified outside the engine";
 async function slackEvent(...a: Parameters<typeof import("../util/slack_events.ts").notifyEvent>): Promise<void> { try { await (await import("../util/slack_events.ts")).notifyEvent(...a); } catch { /* best-effort */ } }
-const SUPERVISOR_ONLY = new Set(["run.started", "run.completed", "tamper.detected", "run.resumed", "pr.opened", "log.sealed", "deep.started", "already.attested", "capability.recorded"]); // types only the supervisor may write; same types from the worker are dropped
+const SUPERVISOR_ONLY = new Set(["watchdog.silent", "run.started", "run.completed", "tamper.detected", "run.resumed", "pr.opened", "log.sealed", "deep.started", "already.attested", "capability.recorded"]); // types only the supervisor may write; same types from the worker are dropped
+/** WATCHDOG (LOKI_E10_WATCHDOG_SILENT_S, default 120; 0 turns it off): after this many seconds with no worker event, the supervisor records one watchdog.silent
+ *  event, and another each further interval of silence, with the last stage and event type and the names (executable basenames, never arguments) of every
+ *  process under the supervisor. A silence the worker's own heartbeats cannot report (a step outside any session, or a blocked event loop) then names its step. */
+export const watchdogSilentS = (env: NodeJS.ProcessEnv = process.env): number => { const raw = (env["LOKI_E10_WATCHDOG_SILENT_S"] ?? "").trim(); if (raw === "") return 120; const v = Number(raw); return Number.isFinite(v) && v >= 0 ? v : 120; };
+export function silenceWatch(intervalS: number, startMs: number): { event: (stage: string | null, type: string, nowMs: number) => void; due: (nowMs: number) => { stage: string | null; lastType: string; silentS: number } | null } {
+  let last = startMs, stage: string | null = null, lastType = "run.started", next = startMs + intervalS * 1000;
+  return {
+    event: (st, ty, now) => { last = now; next = now + intervalS * 1000; if (st) stage = st; lastType = ty; },
+    due: (now) => { if (intervalS <= 0 || now < next) return null; next = now + intervalS * 1000; return { stage, lastType, silentS: Math.round((now - last) / 1000) }; },
+  };
+}
+/** Executable basenames of every process under `rootPid` (ps pid, ppid and comm only: no argument ever leaves the process table), at most 40. Empty on any error. */
+export function descendantNames(rootPid: number): string[] {
+  try {
+    const rows = spawnSync("ps", ["-A", "-o", "pid=,ppid=,comm="], { encoding: "utf8", timeout: 5000 }).stdout.split("\n").map((l) => /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(l)).filter((m): m is RegExpExecArray => !!m).map((m) => ({ pid: Number(m[1]), ppid: Number(m[2]), name: m[3]!.trim().split("/").pop() ?? "" }));
+    const out: string[] = []; let frontier = [rootPid];
+    for (let depth = 0; frontier.length && depth < 12; depth++) { const kids = rows.filter((r) => frontier.includes(r.ppid)); out.push(...kids.map((k) => k.name)); frontier = kids.map((k) => k.pid); }
+    return out.slice(0, 40);
+  } catch { return []; }
+}
+/** DEEP-POST (LOKI_E10_DEEP_POST, default on; =0 restores the worker posting its own result, which cannot authenticate): see stages/deep.ts deepPost. */
+export const deepPostOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_DEEP_POST"] ?? "").trim());
+/** The poster's argv from the deep worker's: the same runtime and CLI, subcommand deep-post, then run id, the worker pid and the pinned origin. Null when the worker argv has no deep-worker subcommand. */
+export function deepPostArgv(deepArgv: readonly string[], origin: string, pid: number): string[] | null {
+  const k = deepArgv.indexOf("deep-worker"), runId = k >= 0 ? deepArgv[k + 1] : undefined;
+  return k > 0 && runId ? [...deepArgv.slice(0, k), "deep-post", runId, String(pid), origin] : null;
+}
+/** E-48 + DEEP-POST: spawns the detached deep worker (withheld credentials) and, unless LOKI_E10_DEEP_POST=0, the poster beside it with the supervisor's own env.
+ *  Records capability.recorded and deep.started for the worker, then deep.started for the poster (last, so deepPid follows the process that ends last). Returns NOT PROVEN lines. */
+export function spawnDeep(deepArgv: readonly string[], origin: string, o: { workerEnv: NodeJS.ProcessEnv; env: NodeJS.ProcessEnv; repoDir: string; append: (e: { type: string; data: Record<string, unknown> }) => void; spawn?: typeof spawnDetached }): string[] {
+  const spawn = o.spawn ?? spawnDetached, out: string[] = [];
+  let argv: string[] | null = null; try { argv = ulimitArgv([...deepArgv, origin], o.workerEnv); } catch (e) { out.push(`deep verify not spawned: ${(e as Error).message}`); }
+  const poster = deepPostOn(o.env), deepEnv = poster ? { ...o.workerEnv, LOKI_E10_DEEP_POSTER: "1" } : o.workerEnv, [cmd, ...dArgs] = argv ?? [], pid = argv && cmd ? spawn(cmd, dArgs, { cwd: o.repoDir, env: deepEnv }) : null;
+  if (!pid) { if (argv) out.push("deep verify not spawned"); return out; }
+  o.append({ type: "capability.recorded", data: { stages: [stageCapability("deep", deepEnv, argv ?? [])] } }); o.append({ type: "deep.started", data: { pid } });
+  if (!poster) return out;
+  const pArgv = deepPostArgv(deepArgv, origin, pid), ppid = pArgv ? spawn(pArgv[0]!, pArgv.slice(1), { cwd: o.repoDir, env: o.env }) : null;
+  if (ppid) o.append({ type: "deep.started", data: { pid: ppid, poster: true } }); else out.push("deep verify result poster not spawned: loki/deep-verify stays pending");
+  return out;
+}
 const VERDICTS = new Set<string>(["VERIFIED", "PARTIAL", "ALREADY_SATISFIED", "SPEC_CONFLICT", "FAILED"]);
 const ALIVE_BEAT_MS = 15_000;
 const SESSION_EXITS = new Set(["done", "already_done", "spec_conflict", "killed", "error"]);
@@ -161,7 +201,8 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   if (opts.resume) { log.verify(); log.sealLog(); } // resume checkpoint: signs the log up to and including run.resumed, so a hard kill of the resumed part stays resumable from here
   const stuck = createStuckWatch(stuckMinutes(env), Date.now(), (f) => { // PG-24: one alert per silence, stderr always, Slack when configured
     process.stderr.write(`engine10: no event for ${stuckMinutes(env)} min; last stage ${f.stage} at ${f.lastEventAt}; ${f.action}\n`); void slackEvent(env, "stuck", f); });
-  writeAliveBeat(aliveDir); const beat = setInterval(() => { writeAliveBeat(aliveDir); stuck.tick(Date.now()); }, ALIVE_BEAT_MS); beat.unref(); // cheap heartbeat for quiet stages (a long verify emits no events)
+  const quiet = silenceWatch(watchdogSilentS(env), Date.now()); // WATCHDOG (dev4 gitoxide: 854 s inside implement with no event at all): a recorded event per silence, naming the processes running then
+  writeAliveBeat(aliveDir); const beat = setInterval(() => { writeAliveBeat(aliveDir); stuck.tick(Date.now()); const w = quiet.due(Date.now()); if (w) log.append("watchdog.silent", w.stage as StageName, { silent_s: w.silentS, last_event: w.lastType, processes: descendantNames(process.pid) }); }, ALIVE_BEAT_MS); beat.unref(); // cheap heartbeat for quiet stages (a long verify emits no events)
   const workerEnv: NodeJS.ProcessEnv = { ...env }; // withholdGithubTokens mutates its argument: always a copy, never env itself
   withholdGithubTokens(workerEnv); if (opts.resume) workerEnv.LOKI_E10_RESUME = "1";
   // T3: the worker has no terminal; only the supervisor can ask the LOKI_CONFIRM question.
@@ -173,7 +214,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   let spawnArgv: string[] = opts.workerArgv; try { spawnArgv = ulimitArgv(opts.workerArgv, workerEnv); } catch { /* spawnWorker refuses the same input */ } log.append("capability.recorded", null, { stages: workerStages().map((st) => stageCapability(st, envWithPwd(workerEnv, opts.repoDir), spawnArgv)) }); // GAME10-05a: worker stages are read from the env and argv spawnWorker is given; pr is recorded by recordSpawnEnv at its own spawn
   let sealed: Record<string, unknown> | null = null; const origBranch = opts.restoreBranch !== undefined ? opts.restoreBranch : currentBranch(opts.repoDir), sessionGroups = new Set<number>(); // session children are detached (own group), so the worker's group kill misses them
   const worker = await spawnWorker(opts.workerArgv, workerEnv, opts.repoDir, backstopMs, escalateMs, (line) => {
-    const e = log.ingest(line); if (e) stuck.event(String(e.stage ?? "unknown"), Date.now());
+    const e = log.ingest(line); if (e) { stuck.event(String(e.stage ?? "unknown"), Date.now()); quiet.event(e.stage ?? null, e.type, Date.now()); }
     if (e?.type === "session.started" && typeof e.data.pgid === "number") sessionGroups.add(e.data.pgid); if (e?.type === "receipt.sealed") { sealed = e.data; log.checkpoint(e.data["receipt_sha256"]); }
     if (e?.type === "variant" && e.data.intent_confirm === true && workerEnv.LOKI_INTENT_TTY === "1") {
       void askIntent(String(e.data.card ?? ""), join(opts.repoDir, ".loki", "runs", opts.runId));
@@ -208,7 +249,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
       log.append("pr.opened", "pr", { url: out.url, draft: out.draft, existing: out.existing });
       await opts.status?.({ prUrl: out.url }); await slackEvent(env, "pr_opened", { repo: githubRepoFromUrl(origin) ?? undefined, issue: String(opts.started?.["issue_ref"] ?? ""), prUrl: out.url, outcome: verdict }); // D51-A4
       // E-48: deep verify (stages/deep.ts) runs detached, never keeping the supervisor alive; deep.started records the pid so it is never orphaned untracked.
-      if (opts.deepArgv) { let argv: string[] | null = null; try { argv = ulimitArgv([...opts.deepArgv, origin], workerEnv); } catch (e) { notProven.push(`deep verify not spawned: ${(e as Error).message}`); } const [cmd, ...dArgs] = argv ?? [], pid = argv && cmd ? spawnDetached(cmd, dArgs, { cwd: opts.repoDir, env: workerEnv }) : null; if (pid) { log.append("capability.recorded", "deep", { stages: [stageCapability("deep", workerEnv, argv ?? [])] }); log.append("deep.started", "deep", { pid }); } else if (argv) notProven.push("deep verify not spawned"); }
+      if (opts.deepArgv) notProven.push(...spawnDeep(opts.deepArgv, origin, { workerEnv, env, repoDir: opts.repoDir, append: (d) => log.append(d.type as never, "deep", d.data) }));
     }
   }
   const allEvents = readEvents(log.path), folded = fold(allEvents), lokiRoot = join(opts.repoDir, ".loki"), costUsd = runCostUsd(allEvents, log.tampered, lokiRoot), wallS = (Date.now() - t0) / 1000; // one read, reused for cost and the Slack summary; unknown cost stays null
@@ -292,6 +333,15 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   let localReason: import("../util/one_line_goal.ts").LocalReason | null = null, origBranch: string | null = null; try { origBranch = safeGit(repoDir, ["symbolic-ref", "-q", "--short", "HEAD"]).trim() || null; } catch { /* detached HEAD: landNext falls back to main */ }
   if (!noPr && sealPatch === null) { const pp = await olg.publishPlan(readOriginUrl(repoDir), () => import("./preflight.ts").then((m) => m.ghReady(process.env as Record<string, string>))); localReason = pp.reason; noPr = pp.noPr; const note = olg.publishNote(pp.reason); if (note) process.stderr.write(`${note}\n`); }
   { const rec = await (await import("../util/run_outputs.ts")).startRecovery(repoDir, task, noPr, { fresh }); if (rec !== null) return rec; } // RECOVERY: an interrupted publish for this same task resumes (a TTY is offered the choice) instead of starting over
+  // acc-156: a claude run whose user named no model starts on DEFAULT_SESSION_MODEL (util/claude_model.ts) as a session pin, exactly as `--session-model <it>` would,
+  // instead of the Claude CLI's own account default (Opus on many plans). The choice and why go on the start line and the receipt (LOKI_SESSION_MODEL_SOURCE).
+  let modelWhy: string | null = null;
+  if (provider === "claude") {
+    let ch: import("../util/claude_model.ts").SessionModelChoice;
+    try { ch = (await import("../util/claude_model.ts")).chooseSessionModel(process.env); } catch (err) { process.stderr.write(`engine10: ${err instanceof Error ? err.message : String(err)}\n`); return 2; }
+    if (ch.pin) process.env.LOKI_SESSION_MODEL = ch.pin;
+    process.env.LOKI_SESSION_MODEL_SOURCE = ch.source; modelWhy = ch.why;
+  }
   const runId = `e10-${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}-${Math.random().toString(16).slice(2, 6)}`;
   const runDir = join(repoDir, ".loki", "runs", runId);
   const cap = resolveCap(maxCost, repoDir); if ("error" in cap) { process.stderr.write(`engine10: ${cap.error}\n`); return 2; }
@@ -324,12 +374,13 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   const routeStart = routeStartLine(process.env, provider); // FC-35: printed before any stage, so it states the pre-plan state only (route.json does not exist yet). R1-15: null unless LOKI_ROUTER is on, so the start line is byte-identical otherwise
   const costEst = encodeEstimate(process.env, repoDir, undefined, model); if (costEst) env.LOKI_E10_COST_ESTIMATE = costEst; // 11.3.0 T1: null under LOKI_COST_PREVIEW=0
   const downgrades = modelDowngrades(provider); // D86 L1: any downgrade is printed here and recorded on run.started (key only when non-empty, receipt hashes stay stable)
-  if (!json) process.stdout.write(`${START_LINE}, ${baseLine(repoDir)}, ${capNote(cap.usd, cap.source)}${downgrades.length ? `; downgrade: ${downgrades.map((d) => `${d.stage} ${d.model} (${d.reason})`).join(", ")}` : ""}${routeStart ? `; ${routeStart}` : ""}${costEst ? `; ${startText(JSON.parse(costEst), cap.usd)}` : ""}\n`); if (verbose && !json && cap.source === "subscription") process.stdout.write(`${SUBSCRIPTION_NOTE}\n`); // D48: one start line naming the engine; provider, model and run id are in the receipt
+  if (!json) process.stdout.write(`${START_LINE}, ${baseLine(repoDir)}, ${capNote(cap.usd, cap.source)}${modelWhy ? `, model ${model} (${modelWhy})` : ""}${downgrades.length ? `; downgrade: ${downgrades.map((d) => `${d.stage} ${d.model} (${d.reason})`).join(", ")}` : ""}${routeStart ? `; ${routeStart}` : ""}${costEst ? `; ${startText(JSON.parse(costEst), cap.usd)}` : ""}\n`); if (verbose && !json && cap.source === "subscription") process.stdout.write(`${SUBSCRIPTION_NOTE}\n`); // D48: one start line naming the engine; provider, model and run id are in the receipt
   if (costEst && process.env.LOKI_COST_CONFIRM === "1" && process.stdin.isTTY && !json && !(await (await import("../commands/issues_run.ts")).askYesNo("Proceed with this run? [y/N] "))) { process.stdout.write("Run cancelled before start (LOKI_COST_CONFIRM).\n"); return 1; }
   const capLine = !json ? [disclosureLine(provider), unenforceableNote(provider, cap.usd)].filter(Boolean).join("\n") : null; if (capLine) process.stdout.write(`${capLine}\n`); // LM-004: one line when the provider lacks a guarantee claude has; claude prints nothing extra
   const t0 = Date.now();
   const eventsPath = join(repoDir, eventsRelPath(runId));
-  const liveSeen: EventEnvelope[] = [], live = (e: EventEnvelope): void => { liveSeen.push(e); // stage lines carry the run spend so far (same summaryCost as the final Cost line)
+  const cand = new CandidateView({ repoDir, columns: terminalWidth() }); // AWE-1: verbose mode shows the candidate diff and check ticks too
+  const liveSeen: EventEnvelope[] = [], live = (e: EventEnvelope): void => { liveSeen.push(e); cand.onEvent(e, (l) => { process.stdout.write(`${l.join("\n")}\n`); }); // stage lines carry the run spend so far (same summaryCost as the final Cost line)
     const clockS = (Date.parse(e.ts) - t0) / 1000;
     const d = e.data;
     if (e.type.startsWith("stage.") && e.type !== "stage.started") {
@@ -345,7 +396,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     if (verbose && !json && existsSync(eventsPath)) { clearInterval(tailTimer); stopTail = tail(eventsPath, live, { intervalMs: 250 }); }
   }, 100);
   let liveStop = (): void => {}; // D82: quiet-mode progress (verbose already prints stage lines)
-  const liveLine = !verbose && !json ? new LiveLine({ tty: !!process.stdout.isTTY, write: (x) => { process.stdout.write(x); }, columns: terminalWidth(), graceS: 3 }) : null;
+  const liveLine = !verbose && !json ? new LiveLine({ tty: !!process.stdout.isTTY, write: (x) => { process.stdout.write(x); }, columns: terminalWidth(), graceS: 3, repoDir }) : null;
   if (liveLine) {
     if (process.env.LOKI_CONTROL_PLANE_URL) liveLine.setUrl(process.env.LOKI_CONTROL_PLANE_URL);
     let stopLiveTail = (): void => {}; const tick = setInterval(() => liveLine.tick(), 1000);
@@ -354,7 +405,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   }
   let reqMap: { requirements: { id: string; text: string; status: string }[] } | null | undefined; // REQTRACE: computed once, before the PR stage, from intake/spec plus verify results; undefined = not yet computed
   const reqOnce = async (evs: ReturnType<typeof readEvents>): Promise<NonNullable<typeof reqMap> | null> => { if (reqMap === undefined) { const rq = await import("../features/contract.ts"); reqMap = rq.writeFromEngine10(repoDir, join(repoDir, ".loki"), runDir, isIssue ? null : task, evs); } return reqMap; }; // also removes a prior run's stale map when this run has no requirements
-  const sized = deep ? null : resolveRunCapS(repoDir, cap.usd <= 0, env), capS = sized?.capS ?? DEEP_CAP_S;
+  const sized = deep ? null : resolveRunCapS(repoDir, cap.usd <= 0, env), dlS = deep ? deadlineCapS(env) : undefined, capS = sized?.capS ?? (dlS === undefined ? DEEP_CAP_S : Math.min(DEEP_CAP_S, dlS)); // RUN-DEADLINE: a deep run honors the outer deadline too
   applyCapEnv(env, capS, sized); // FC-21b: starts at DEFAULT_CAP_S; the worker resizes once after plan from plan-scope.json unless the cap is fixed
   const statusStep = noPr || !ISSUE_RE.test(task) ? undefined : (await import("../util/run_outputs.ts")).issueStatusProjector({ pushSh: (await import("./stages/pr.ts")).DEFAULT_PUSH_SH, env, origin: readOriginUrl(repoDir), repoDir, runDir, runId, issueRef: task, eventsPath }), stopPlan = statusStep ? tail(eventsPath, (e) => { if (e.type === "stage.completed" && e.stage === "plan") void statusStep(); }, { intervalMs: 500 }) : () => {};
   let refusedAs: PreflightBlocker = "other"; // AN-08
@@ -409,7 +460,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
       usd, provider, tokens: summaryTokens(f, sawCost), ...summaryCache(events, res.tampered), note: !res.tampered && cli && (usd === null || events.some((e) => e.type === "cost" && e.data.source === "cli-invoker-unmetered")) ? "CLI invoker records no cost" : null,
       partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total, stageShares: res.tampered ? null : stageShareText(events),
     },
-    tier: summaryTier(repoDir, runId, res.tampered), wallS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000),
+    wallS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000),
     stages: events.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number")
       .map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })),
   }, verbose);
@@ -421,7 +472,9 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   const ui = { result: rr, filesChanged: ds?.files ?? null, insertions: ds?.ins, deletions: ds?.del, costUsd: usd, elapsedS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000), receiptPath: res.receiptSha ? join(runDir, "receipt.json") : null, next: res.outcome === "BUDGET_STOP" && cap.usd > 0 ? budgetNext(seed + (usd ?? 0), cap.usd) : nextOf(rr, ds?.files ?? null, reasonOf(events, res.tampered, res.stop, res.outcome), provider, runId, res.prUrl ? "" : olg.landNext(localReason, typeof f.stages["intake"]?.data.branch === "string" ? f.stages["intake"].data.branch : null, origBranch)), uncovered }; 
   const rdy = events.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data.readiness, foldTail = [handoffRef, typeof rdy === "string" ? rdy : ""].filter(Boolean).join("; "); // FV-readiness-env-3: D48 default mode folds readiness into the last line
   const riskLine = readRiskSummary(repoDir, t0); // RISKTIER: this run's recorded tier, deferred checks stated as not run
-  process.stdout.write(json ? `${JSON.stringify({ ...JSON.parse(out), summary: { ...summaryObject(ui), ...(riskLine ? { risk: riskLine } : {}) } })}\n` : quiet ? withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99) + (handoffRef ? `${handoffRef}\n` : "") : verbose ? `${out}\n${withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99)}${handoffRef ? `${handoffRef}\n` : ""}` : withRiskLine(foldTail ? withNextLine(out, ui).replace(/\n$/, `; ${foldTail}\n`) : withNextLine(out, ui), riskLine, 7, capLine ? 1 : 0)); // D48: default output stays within 8 lines, so the summary collapses to one line
+  const rs = await import("../util/receipt_surface.ts"), card = !json && !quiet && rs.aweOn("LOKI_AWE_PROOF_CARD") ? rs.proofCardOf(res.tampered ? null : rs.readReceiptAt(events.findLast((e) => e.type === "receipt.sealed")?.data.path)) : null; // AWE-2: proof card from receipt.json; a tampered run reads "not run"
+  process.stdout.write(json ? `${JSON.stringify({ ...JSON.parse(out), summary: { ...summaryObject(ui), ...(riskLine ? { risk: riskLine } : {}) } })}\n` : quiet ? withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99) + (handoffRef ? `${handoffRef}\n` : "") : verbose ? `${out}\n${withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99)}${handoffRef ? `${handoffRef}\n` : ""}` : withFoldLine(withRiskLine(foldTail ? withNextLine(out, ui).replace(/\n$/, `; ${foldTail}\n`) : withNextLine(out, ui), riskLine, 7, capLine ? 1 : 0), card ? rs.renderAweProofLine(card) : null, 7, capLine ? 1 : 0)); // D48: default output stays within 8 lines, so the summary collapses to one line and the proof card to one line
+  if (card && verbose) process.stdout.write(`\n${rs.renderAweProofCard(card, useColor())}\n`); // AWE-2: the full proof card, after the summary, under --verbose
   if (!json && res.outcome === "VERIFIED") await import("../util/satisfaction.ts").then((m) => m.maybeAsk({ runId, env: process.env, isTTY: process.stdin.isTTY === true && process.stdout.isTTY === true })).catch(() => {});
   return res.outcome === "CANCELLED" && res.notProven.some((n) => n.endsWith("SIGTERM")) ? 143 : exitCodeOf(res.outcome); // a SIGTERM cancel keeps the conventional 128+15
 }

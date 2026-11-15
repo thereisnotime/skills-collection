@@ -88,6 +88,18 @@ t_line="$(printf '%s\n' "$out" | grep -n 'Result: TAMPERED' | head -1 | cut -d: 
 [ -n "$v_line" ] && [ -n "$t_line" ] && [ "$v_line" -lt "$t_line" ] && ok "VERIFIED comes before TAMPERED" || bad "tour verdict order is wrong"
 has "tour says it is a sample" "$out" "This is a SAMPLE"
 
+has_not() { printf '%s\n' "$2" | grep -qF "$3" && bad "$1" || ok "$1"; }
+has_not "the offline tour never mentions spending" "$out" "makes real model calls"
+# Live tour (loki tour --live = loki wow): a ready provider (a fake claude that logs every call) and no terminal.
+# It must say it makes model calls and what it can cost, then spend nothing: no provider call, exit 2.
+LV="$T/live-tour"; mkdir -p "$LV/bin" "$LV/home/.claude"
+printf '#!/bin/sh\necho "$*" >> "%s/calls.log"\nexit 1\n' "$LV" > "$LV/bin/claude"; chmod +x "$LV/bin/claude"
+lv_out="$(cd "$LV" && env -u LOKI_ASSUME_YES -u CI HOME="$LV/home" PATH="$LV/bin:$PATH" ANTHROPIC_API_KEY=sk-ant-test-not-a-real-key bash "$ROOT/bin/loki" tour --live </dev/null 2>&1)"; lv_rc=$?
+[ "$lv_rc" = 2 ] && ok "loki tour --live with no terminal spends nothing and exits 2" || bad "loki tour --live with no terminal exited $lv_rc: $(printf '%s' "$lv_out" | tail -3)"
+has "loki tour --live says it makes model calls and the most it can cost" "$lv_out" 'This makes real model calls through claude and can cost up to $2'
+has "loki tour --live says nothing was spent" "$lv_out" "nothing was spent"
+[ ! -s "$LV/calls.log" ] && ok "loki tour --live made no provider call before a yes" || bad "loki tour --live called the provider without a yes: $(head -2 "$LV/calls.log")"
+
 after="$(cat "$FX/receipt.json" "$FX/events.jsonl" "$FX/pubkey.jwk" | shasum -a 256 | cut -d' ' -f1)"
 [ "$before" = "$after" ] && ok "bundled fixture untouched by the tour" || bad "the tour modified the bundled fixture"
 
@@ -154,8 +166,8 @@ out="$(cd "$T" && "${doc_env[@]}" bash "$ROOT/bin/loki" doctor --requirements 2>
 has "L034 doctor --requirements: API-key path ready" "$out" "Anthropic API-key path (Agent SDK, no claude CLI): ready"
 case "$out" in *LOKI_SDK_MODE*) bad "L034 doctor --requirements still asks for LOKI_SDK_MODE" ;; *) ok "L034 doctor --requirements has no LOKI_SDK_MODE item" ;; esac
 has "L050 doctor --requirements: All paths ready without python3 and jq" "$out" "All paths: ready"
-printf '%s\n' "$out" | grep -q '\[MISS\] optional *Python 3.8' && ok "L050 doctor lists Python 3.8 as optional" || bad "L050 doctor does not list Python as optional"
-printf '%s\n' "$out" | grep -q '\[MISS\] optional *jq' && ok "L050 doctor lists jq as optional" || bad "L050 doctor does not list jq as optional"
+grep -q '\[MISS\] optional *Python 3.8' <<< "$out" && ok "L050 doctor lists Python 3.8 as optional" || bad "L050 doctor does not list Python as optional"
+grep -q '\[MISS\] optional *jq' <<< "$out" && ok "L050 doctor lists jq as optional" || bad "L050 doctor does not list jq as optional"
 out="$(cd "$T" && "${doc_env[@]}" bash "$ROOT/bin/loki" doctor 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] && ok "L050 loki doctor exits 0 with only a key, no python3, no jq" || { bad "loki doctor exited $rc on a key-only host"; printf '%s\n' "$out" | grep -E 'FAIL|^  - ' | sed 's/^/    | /'; }
 has "L034 loki doctor names loki \"<goal>\" on the bundled SDK" "$out" 'loki "<goal>" needs no separate CLI'
@@ -369,6 +381,11 @@ route_is() { # route_is "<description>" "<expected output, lines joined by ~>" [
 route_is "FR01 a bare PR URL is verify-pr" "BUN: verify-pr https://github.com/o/r/pull/5~" -- https://github.com/o/r/pull/5
 route_is "FR01 a one-word #N reaches engine10" "BUN: engine10 #12~" -- "#12"
 route_is "FR01 #12x stays on the legacy CLI" "BASH: #12x~" -- "#12x"
+# acc-156: route.sh shows the model engine10 will pin when none is named; its literal must equal DEFAULT_SESSION_MODEL in the TS source
+dsm_ts="$(sed -n 's/^export const DEFAULT_SESSION_MODEL = "\(.*\)";$/\1/p' "$ROOT/loki-ts/src/util/claude_model.ts")"
+dsm_rt="$(env -u LOKI_SESSION_MODEL -u LOKI_MODEL_OVERRIDE -u LOKI_MODEL_ROUTE -u LOKI_MODEL_DEVELOPMENT -u LOKI_CLAUDE_MODEL_DEVELOPMENT -u LOKI_DEFAULT_SESSION_MODEL -u LOKI_PROVIDER bash "$ROOT/bin/loki" route --json "add a function" 2>/dev/null | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("model",""))' 2>/dev/null)"
+dsm_pv="$(env -u LOKI_SESSION_MODEL -u LOKI_MODEL_OVERRIDE -u LOKI_PROVIDER LOKI_DEFAULT_SESSION_MODEL=provider bash "$ROOT/bin/loki" route --json "add a function" 2>/dev/null | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("model",""))' 2>/dev/null)"
+[ -n "$dsm_ts" ] && [ "$dsm_rt" = "$dsm_ts (Loki default)" ] && [ "$dsm_pv" = "claude (provider default)" ] && ok "acc-156 route shows the Loki default model ($dsm_rt) and =provider shows the CLI default" || bad "acc-156 route model: ts '$dsm_ts' route '$dsm_rt' provider '$dsm_pv'"
 route_is "FR01 a plain one-word stays on the legacy CLI" "BASH: fixit~" -- fixit
 route_is "start --attempts 1 <prd> runs engine10 like a plain start" "BUN: engine10 Add x.~" -- start --attempts 1 prd.md
 route_is "start --attempts 1 flag-first brief runs engine10" "BUN: engine10 fix x --no-pr~" -- start --attempts 1 --no-pr "fix x"

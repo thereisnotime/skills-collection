@@ -60,6 +60,8 @@ For executable handoffs, including instruction-only cross-owner workflows, bind 
 [intended-consumer boundary](daymade-skill/skill-creator/references/change-verification.md#bind-the-intended-consumer-before-verification)
 and follow its [first-use route](daymade-skill/skill-creator/references/first-use-and-resume.md).
 Use its selected workflow for regression review, validation, initialization, and packaging.
+For a self-contained executable delivery, follow its
+[shipping-set acceptance](daymade-skill/skill-creator/references/publishing-and-packaging.md#self-contained-executable-acceptance).
 For capability extraction or reuse across business callers, follow its
 [ownership decision](daymade-skill/skill-creator/references/authoring-and-reuse.md#the-extend-vs-create-check--runs-before-any-specialized-branch).
 
@@ -199,10 +201,14 @@ observations separate; this file does not define another batch recipe.
 For tunnel/proxy-path failures or slow throughput, enter
 [tunnel-doctor](tunnel-doctor/SKILL.md) first. For unresolved protocol, streaming or
 throughput investigations, use [debugging-network-issues](debugging-network-issues/SKILL.md).
+For content-encoding-dependent HTTP failures, use its
+[same-byte compression comparison](debugging-network-issues/references/compressed-request-comparison.md).
 Proxy-selection and disruptive VPN changes follow tunnel-doctor's
 [proxy-conflict procedure](tunnel-doctor/references/proxy_conflict_reference.md) and
 [network-change recovery](tunnel-doctor/references/network_change_recovery.md). For Shadowrocket rapid toggle loops or Network Extension startup assertions, read its
 [Network Extension recovery section](tunnel-doctor/references/network_change_recovery.md#network-extension-state-and-stale-listener-recovery).
+For Shadowrocket module activation or database rule-order claims, use the same
+proxy-conflict reference; keep its dated build observations separate from current write acceptance.
 When a watchdog is suspected, first align the actual actor and state transitions through
 [macos-watchdog troubleshooting](daymade-macos/macos-watchdog/SKILL.md#troubleshooting-quick-map).
 For unresolved tunnel packet-loss
@@ -259,6 +265,8 @@ Before updating an accepted report's facts or content, follow its
 [incremental maintenance recipe](report-with-html/references/long-lived-report-maintenance.md#63-已验收报告的有界增量更新).
 For transcript speaker-label updates, later reconciliation and consumer readback,
 follow its [maintenance contract](report-with-html/references/long-lived-report-maintenance.md).
+For a hierarchical course/archive reader,
+use the [archive reader procedure](report-with-html/references/archive-reader.md).
 
 For citation previews and in-place source inspection, enter
 [report-with-html's interaction owner](report-with-html/references/interaction-components.md)
@@ -431,6 +439,8 @@ recovery, or capacity checks before necessary backup/copy/extraction, use
 For exact-file allocation or an already collected inventory, use the
 [read-only diagnosis CLI](daymade-macos/macos-cleaner/references/storage-diagnosis.md).
 When changing measurement, run the SOP's targeted regression suite before shipping.
+For an already-copied directory moving to an external disk, enter
+[macos-cleaner's relocation SOP](daymade-macos/macos-cleaner/references/external-cold-archives.md#verify-an-already-copied-directory-lightly).
 For OrbStack image discovery and physical-release diagnosis, use its
 [Docker reference](daymade-macos/macos-cleaner/references/docker_analysis.md#step-2b-orbstack-specific-analysis).
 For uv cache diagnosis or retirement, enter
@@ -466,10 +476,8 @@ For self-hosted routing, resource limits or cache persistence, follow its
 [runner acceptance](github-ops/references/workflow_operations.md#self-hosted-runner-capacity-and-acceptance).
 Keep demand selection, validation-reuse and capacity acceptance in those owners.
 
-For automatic observers or recovery jobs, begin with
-[ordinary-entry and lifecycle acceptance](daymade-macos/macos-watchdog/SKILL.md#bind-the-ordinary-entry-before-choosing-a-mechanism),
-including recovery after temporary protection. Browser-backed recurring jobs also
-use that Skill's deployment acceptance for resource-budget and focus evidence.
+For application native automatic updates, automatic observers or recovery jobs,
+enter [ordinary-entry and lifecycle acceptance](daymade-macos/macos-watchdog/SKILL.md#bind-the-ordinary-entry-before-choosing-a-mechanism).
 
 Before selecting file-event or periodic triggers, follow
 [macos-watchdog's trigger and acceptance workflow](daymade-macos/macos-watchdog/references/event-driven-observers.md).
@@ -596,6 +604,8 @@ enter [feishu-doc-scraper](feishu-doc-scraper/SKILL.md) and follow its task rout
 Body-capture commands and failure recovery belong to its
 [API capture procedure](feishu-doc-scraper/references/lark-cli-api-extraction.md#step-3-fetch-the-body-programmatically);
 change and exercise that recipe rather than maintaining another copy in the entry.
+Wiki Base/Sheets capture uses
+[table capture](feishu-doc-scraper/references/table-capture.md).
 
 ### Prior Work Retrieval Boundary
 
@@ -606,6 +616,9 @@ Requests to repeat a previously successful method or reuse/improve an older rend
 
 For CLI/hook manifest selection or continuation in an already-running host, read
 [the manifest-selection contract](daymade-claude-code/prior-work-retrieval/SKILL.md#2-validate-the-explicit-source-manifest).
+
+For failures while completing a retrieval, enter
+[receipt completion and freshness](daymade-claude-code/prior-work-retrieval/SKILL.md#5-complete-the-reuse-receipt).
 
 For an existing hook integration or a blocked read-only discovery command, use its
 [companion-hook procedure](daymade-claude-code/prior-work-retrieval/SKILL.md#companion-hooks)
@@ -682,6 +695,8 @@ Keep native-guard installation, recovery and actual-host acceptance in that work
 do not duplicate its parameters here. Reply lookup, transport and discovery
 details belong in [the transport and receiver-evidence SOP](peer-message/references/protocol-and-discovery.md).
 Enter that SOP when diagnosing delayed Codex coordination or comparing live and queued receipts.
+Before a diagnostic pause, marker-only reply or no-tools request to a running session, enter
+[diagnostic coordination](peer-message/references/coordination-and-learning-loop.md#诊断消息与执行隔离).
 Before asking about mutable ownership or a publication window, use the
 [fresh-state preflight](peer-message/references/coordination-and-learning-loop.md#51-发现别人的在制品先核实再问等一个有界窗口).
 For an inbound coordination envelope, a native reply, original-input capture or a receive-integrity error, follow
@@ -734,7 +749,11 @@ Before a Codex startup diagnosis or a build/resume/recovery claim, follow
 [entry identity](daymade-codex/local-codex/references/entry-identity.md).
 That SOP owns the shell/executable binding and the limits of identity evidence.
 
-For an authorized shared Codex backend upgrade or restart, enter
+For Codex model-request failures, including `400 Bad Request`, enter
+[model-request diagnostics](daymade-codex/local-codex/references/model-request-diagnostics.md).
+
+For Codex component updates, native updater eligibility or an authorized shared
+backend restart, enter
 [shared daemon maintenance](daymade-codex/local-codex/references/shared-daemon-maintenance.md).
 
 ### Codex Quota and Account Checks
@@ -870,20 +889,16 @@ Before choosing a task checkout's storage location, follow its
 
 For already-authorized delivery in a shared checkout, enter
 [auto-repo-setup's scoped delivery route](auto-repo-setup/references/git_safety.md#authorized-shared-checkout-delivery).
-It owns the authorization/tool gate, bounded coordination, partial-result recovery and final closure;
-keep ordinary sync, publication and recovery boundaries with their existing owners.
 
 For inbound coordination during delivery or closeout, use
 [peer-message's receiving route](peer-message/SKILL.md#收到消息先分流).
-Keep the receiving and user-delivery procedure with that owner rather than duplicating it here.
 
 Stage only explicit owned file paths; never `git add -A` / `git add .`.
 Inspect the staged file list, including deletions,
 in a separate call before committing; investigate any entry outside the intended
-scope through `git-safety-net`. For branch publication and PR creation, follow
+scope through `git-safety-net`. For branch publication or PR creation, read
 [the publication recipe](github-ops/references/pr_operations.md#basic-pr-creation)
-before the first push. Keep its policy preflight, pinned source and remote readback
-in that owner rather than maintaining another push example here.
+before preparing the task checkout, including sparse and `--no-checkout` worktrees.
 
 For task closeout, enter
 [git-safety-net's Outcome contract](git-safety-net/SKILL.md#outcome-contract--keep-the-safety-net-subordinate-to-the-users-job).
@@ -892,7 +907,6 @@ For stash export or independent recovery, follow the
 [stash recovery procedure](git-safety-net/references/recovery_playbook.md#export-and-recover-selected-stashes).
 For final resource readback against the original inventory, follow the
 [terminal-state procedure](git-safety-net/references/merge_verification.md#5-prove-the-user-visible-terminal-state).
-Keep runtime requirements, artifact layouts and verification commands in those owners.
 For a failed fast-forward or a partly synchronized checkout, use its
 [guarded checkout recovery procedure](git-safety-net/references/prevention_practices.md#guarded-checkout-recovery).
 For local snapshot failures involving an index lock or commit-hook refusal, use its
@@ -1012,8 +1026,9 @@ claiming the whole checkout is current.
 
 For divergent local `main`, recovery-material selection or branch/worktree retirement,
 follow [git-safety-net](git-safety-net/SKILL.md).
-For linked-worktree recovery preparation, including dependency-cache declarations, use its
-[preservation helper](git-safety-net/references/worktree-retirement-helper.md).
+For named linked-worktree retirement, retained recovery refs after squash, interrupted preparation
+or dependency-cache declarations, follow its complete
+[worktree retirement procedure](git-safety-net/references/merge_verification.md#worktree-retirement--prove-the-checkout-is-disposable-before-removal).
 When current content differs from an older published review, use the
 [historical publication example](git-safety-net/references/merge_verification.md#worked-example--old-review-content-landed-through-another-ref)
 before deciding supersession.

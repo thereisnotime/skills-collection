@@ -5,13 +5,13 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join, relative } from "node:path";
 import { withStagePrefix } from "../../features/lean_prefix.ts"; import { fragmentWriterOn, outOfRepoReask, outOfRepoTests } from "../../project_model/conventions.ts";
 import { learningsBlock, lessonsForBrief, orgKnowledgeBlock } from "../../util/pr_lessons.ts"; export { learningsBlock }; // learningsBlock lives with the other brief-note helpers
-import { FINISH_LINE, fixedRules, briefRecord, pinnedTestUpdateEnabled, type BriefRecord } from "../../e10ext/context.ts"; import { pinnedTestUpdates } from "../../util/test_guard.ts";
+import { FINISH_LINE, fixedRules, briefRecord, pinnedTestUpdateEnabled, PLAN_HINT_LEAD, planHintsOn, type BriefRecord } from "../../e10ext/context.ts"; import { pinnedTestUpdates } from "../../util/test_guard.ts";
 import { fastTierModel } from "../../runner/model_downgrades.ts";
 import { cascadeDowngrade, loadRepoMap, namedFiles, sizeTask } from "../sizing.ts";
 import { attemptModels, attemptsK, type ExtraAttemptsDeps } from "../../features/attempts.ts";
 import { selectRelevantFiles } from "./plan.ts"; import { changedFiles, checkExcerpt, commandFor, runCheck, type VerifyCheck } from "./verify.ts"; import { loadProjectApi } from "../../project_model/resolve.ts"; import { suiteCmdsOpt } from "../../project_model/package_suite.ts"; import { planStopChecks } from "../../runner/stop_checks.ts";
 import { capStopOf, classifyExitCause, resolveModel } from "../session.ts"; import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; // E-68 reuse: never re-classify exit codes here
-import { type NamedSitesRecord, type RemedyRecord, resumeForNamedSites, resumeForPrecedence, resumeForRemedy, adjudicateWallConflict, coverageFoldLines, coverageMode, coverageResumeEnabled, reaskFoldedClaims, resumeAfterAlreadyDone, resumeNeverStop, resumeAfterConflict, resumeAfterEmptyDone, resumeForCoverage } from "../../util/conflict_resume.ts";
+import { type NamedSitesRecord, type RemedyRecord, resumeForNamedSites, resumeForPrecedence, resumeForRemedy, adjudicateWallConflict, coverageFoldLines, coverageMode, coverageResumeEnabled, reaskFoldedClaims, resumeAfterAlreadyDone, resumeForSelfReview, resumeNeverStop, resumeAfterConflict, resumeAfterEmptyDone, resumeForCoverage } from "../../util/conflict_resume.ts";
 import { INTERRUPTED_BRIEF, interruptedSession, planChain, readSessionId } from "../../runner/session_resume.ts";
 import { routeEscalate, routeStart } from "../../runner/router/implement_route.ts";
 import { routerActive } from "../../runner/router/unit_model.ts";
@@ -22,6 +22,8 @@ import { assumptionsBlock, rankedRemedyBlock, rankedRemedyEnabled } from "../../
 import { loadSpecFile, specBriefBlock, type LoadedSpec } from "../../util/spec_file.ts";
 import { appliedTests, buildPatchBrief, patchCallFor, patchEnabled, runPatchProtocol, testConventions, type PatchCall, type PatchCheck, type PatchOutcome } from "../../features/patch_protocol.ts";
 import { isTestFile } from "../../util/test_file_text.ts";
+import { guardReviewTurn, type ReviewItem, reviewTurnGuardOn, selfReviewBrief, selfReviewChecks, selfReviewMaxTurns, selfReviewMode, selfReviewWanted, settleItems, stripInventedReleaseRefs, treeStaged, type TurnGuardRecord } from "../../features/self_review.ts";
+import { type DiffEntry, snapshotDiff } from "../../e10ext/treeswap.ts";
 
 /** A test file (a sealed Wall test) the implement session must not change: path is absolute, in the repo working tree; content is what to restore if it no longer matches. */
 export interface ReadOnlyFile { path: string; content: string; }
@@ -50,7 +52,7 @@ export function buildImplementBrief(task: string, plan: string | null, impactedT
     ...assumptionsBlock(assumptions),
     ...rankedRemedyBlock(remedy), // F1 LOKI_E10_RANKED_REMEDY: per-task, after the task block; nothing when intake found no ranked remedy
     ...(spec ? [spec] : []), // SPEC-FIRST-INTENT: the user-edited spec is the authoritative intent; absent adds nothing
-    plan ? `Follow this plan:\n${plan}` : "No separate plan was made: plan the change yourself in this session, then implement it." + (process.env.LOKI_E10_REPRO === "1" ? " " + REPRO_LINE : ""), // TEN-QUALITY-08: default off, lean path only
+    plan ? (planHintsOn() ? `${PLAN_HINT_LEAD}\n${plan}` : `Follow this plan:\n${plan}`) : "No separate plan was made: plan the change yourself in this session, then implement it." + (process.env.LOKI_E10_REPRO === "1" ? " " + REPRO_LINE : ""), // TEN-QUALITY-08: default off, lean path only
     ...(repoMap ? [repoMap] : []),
     impactedTests.length ? `Impacted tests (a starting hint, not a limit): ${impactedTests.join(", ")}.` : "Impacted tests: none known; run the targeted tests for the code you change (the harness runs the full suite after you stop when the diff's risk tier is medium or high).",
     FINISH_LINE,
@@ -120,6 +122,16 @@ export function patchCheck(ctx: RunContext, impacted: string[], wall: string[], 
     const ran = out.filter((c) => c.result === "pass" || c.result === "fail" || c.result === "flaky");
     return { ok: ran.length > 0 && ran.length === out.length && out.every((c) => c.result === "pass"), ran: ran.length, names: out.map((c) => `${c.name}=${c.result}`), digest: out.filter((c) => c.result !== "pass").map((c) => `${c.name}: ${c.result}${c.reason ? ` (${c.reason})` : ""}\n${checkExcerpt(c) || c.first_error || ""}`).join("\n").slice(0, 1500) };
   };
+}
+/** TG: reruns the tests of the review turn's edits (patchCheckRefs: the impacted tests of its paths plus its test files, capped) and takes the turn back when one
+ * that passes without it fails with it. Runs quietly through verify's own runner. */
+export async function reviewTurnGuard(ctx: RunContext, pre: DiffEntry[], wall: string[], signal: AbortSignal): Promise<TurnGuardRecord | null> {
+  const quiet = Object.assign(Object.create(ctx) as RunContext, { emit: () => undefined });
+  return guardReviewTurn(ctx.repoDir, ctx.baseSha!, pre, (paths) => patchCheckRefs(ctx, paths, impactedTests(ctx)), async (t) => {
+    const tc = commandFor(t, ctx.repoDir, loadProjectApi(ctx.repoDir)), out: VerifyCheck[] = [];
+    await runCheck(quiet, `turn:${t.runner}:${t.path}`, tc.cmd, tc.args, signal, out, { ...(tc.interpreter ? { interpreter: tc.interpreter } : {}), ...(tc.pkgRoot !== "." ? { cwd: tc.cwd } : {}), wall: new Set(wall) });
+    const res = out[out.length - 1]?.result; return res === "fail" ? "fail" : res === "pass" || res === "flaky" ? "pass" : "not_run";
+  });
 }
 /** The patch brief: the context pack's code (the haiku pack), the impacted tests' heads and the exact check commands. */
 export function patchBrief(ctx: RunContext, task: string, impacted: string[]): string {
@@ -234,6 +246,15 @@ export const implementStage: Stage = {
     if (patch?.status !== "green" && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done && !session.markers.specConflict && !session.markers.alreadyDone && !treeIsEmpty(ctx)) { const r = await resumeForPrecedence(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session); if (r.sites > 0) { session = r.session; for (const id of r.iterationIds) if (!ids.includes(id)) ids.push(id); precedenceRec = { sites: r.sites, resumed: r.iterationIds.length > 0 }; } }
     let namedRec: NamedSitesRecord | null = null; // R2 LOKI_E10_NAMED_SITES: every named site changed or explained; one "-ns" resume for any that is neither, seal judges the final diff
     if (patch?.status !== "green" && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done && !session.markers.specConflict && !session.markers.alreadyDone && !treeIsEmpty(ctx)) { const r = await resumeForNamedSites(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, task); session = r.session; for (const id of r.iterationIds) if (!ids.includes(id)) ids.push(id); namedRec = r.record; }
+    let selfReview: Record<string, unknown> | null = null; // SR LOKI_E10_SELF_REVIEW: deterministic pre-delivery checks, then at most one bounded "-rv" review resume
+    { const mode = selfReviewMode(); if (mode !== "off" && ctx.baseSha && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done && !session.markers.specConflict && !session.markers.alreadyDone && !treeIsEmpty(ctx)) {
+      const before = selfReviewChecks(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task, ctx.outputs(), process.env, ctx.runDir);
+      let after: ReviewItem[] | null = null, reply: string | null = null, turn: string | null = null;
+      let guard: TurnGuardRecord | null = null;
+      if (selfReviewWanted(before, mode)) { const preTurn = reviewTurnGuardOn() ? snapshotDiff(ctx.repoDir, ctx.baseSha) : null; const r = await resumeForSelfReview(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, selfReviewBrief(ctx.repoDir, before), selfReviewMaxTurns()); if (r) { turn = r.iterationId; if (!ids.includes(r.iterationId)) ids.push(r.iterationId); if (r.session !== session) { reply = r.session.summary ?? ""; guard = preTurn && !signal.aborted ? await reviewTurnGuard(ctx, preTurn, readOnly.map((f) => relative(ctx.repoDir, f.path)), signal) : null; if (!guard?.reverted && !r.session.killed && r.session.exit === 0 && r.session.markers.done && !r.session.markers.specConflict && !r.session.markers.alreadyDone) session = r.session; else session = { ...session, durationS: r.session.durationS }; } after = selfReviewChecks(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task, ctx.outputs(), process.env, ctx.runDir); } } // only a clean LOKI_DONE review reply replaces the implement result: a review turn never turns a done run into a conflict; TG: a reverted turn keeps the pre-turn result
+      selfReview = { mode, turn, items: settleItems(before, after, guard?.reverted ? null : reply), ...(guard ? { turn_guard: guard } : {}) };
+    } }
+    const refsRemoved = ctx.baseSha && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done ? stripInventedReleaseRefs(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task) : []; // CR: a reference the task never gives never ships, whatever the model wrote
     const pinnedUpdates = pinnedTestUpdateEnabled() && ctx.baseSha ? pinnedTestUpdates(ctx.repoDir, ctx.baseSha, session.summary ?? "", task) : []; // Z2: the UPDATED TEST lines of the final reply, each checked against base, head and the task
     if (process.env.LOKI_E10_REPRO === "1" && !plan && !signal.aborted && !session.killed && session.exit === 0) { let bad: { name: string; why: string }[] = []; try { bad = outOfRepoTests(ctx.repoDir, changedFiles(ctx.repoDir, ctx.baseSha, installOwned(ctx.repoDir, ctx.outputs().intake?.install_created))); } catch { /* unreadable tree: no re-ask */ } if (bad.length) { const redo = `${first.iterationId}-oor`; ids.push(redo); session = await ctx.sessions.run({ ...unchained(), brief: withStagePrefix(outOfRepoReask("Rewrite these new test files in place, keeping the same names and what they reproduce.", bad)), iterationId: redo }); } } // TEN-QUALITY-44: the repro test gets the Wall's out-of-repo check and one re-ask
     const testsReverted = restoreReadOnly(readOnly);
@@ -262,7 +283,7 @@ export const implementStage: Stage = {
       already_done_evidence: session.markers.alreadyDone,
       spec_conflict_reason: session.markers.specConflict,
       tests_reverted: testsReverted,
-      impacted_tests: impacted, brief_files: bc.files, ...(bc.pack ? { context_pack: bc.pack } : {}), // L022: the exact files the brief named; L021: pack paths and line ranges
+      impacted_tests: impacted, ...(plan && planHintsOn() ? { plan_hints: true } : {}), brief_files: bc.files, ...(bc.pack ? { context_pack: bc.pack } : {}), // L022: the exact files the brief named; L021: pack paths and line ranges
       cascade,
       ...(downgrade ? { model_downgrade: downgrade.note } : {}),
       iteration_ids: ids, model: rt ? rt.current : downgrade?.to ?? firstAttemptModel ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
@@ -274,6 +295,7 @@ export const implementStage: Stage = {
       ...(tournament ? { tournament } : {}),
       ...(noRegression ? { no_regression: noRegression } : {}),
       ...(neverStop ? { never_stop: [neverStop] } : {}),
+      ...(selfReview ? { self_review: selfReview } : {}), ...(refsRemoved.length ? { changelog_refs_removed: refsRemoved } : {}),
       ...(fragmentWriterOn() && session.summary ? { summary_tail: session.summary.slice(-1500) } : {}), // the release-note writer reads the final message
     };
 

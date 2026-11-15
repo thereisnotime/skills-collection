@@ -14,7 +14,7 @@
       "description": "Routes Feishu/Lark/Doubao operations through the version-matched guides embedded in lark-cli. Use for documents, wiki, sheets, Base, minutes, meetings, calendar, messaging, mail, tasks, approval, authentication, permissions and lark-cli troubleshooting.",
       "source": "./lark-cli-router",
       "strict": false,
-      "version": "1.0.2",
+      "version": "1.0.3",
       "category": "productivity",
       "keywords": [
         "feishu",
@@ -117,7 +117,7 @@
       "description": "Bridge local Claude Code and Codex sessions only when the current host's native communication tools do not cover the target. Use for cross-product messages, hooks/scripts posting to sessions, fallback reply lookup and delivery verification, or diagnosing Held peer messages. Also use its coordination guidance when shared-work ownership or an inbound peer assertion needs verification. For ordinary parent/subagent, teammate, or independent-session communication, first discover and use available native tools; do not load this skill merely to send a native message. The bundled network preview for cross-machine pairing is deprecated (existing deployments only; invitations use the peer-message:v1 format). Never bypass a denied or Held message with another transport. Not for spawning agents, moving full history, or granting user approval. Triggers: 跨产品通信、原生工具未覆盖的会话、脚本回帖、peer 送达排查、共享在制品归属核实、peer-message:v1 邀请（既有部署）。",
       "source": "./peer-message",
       "strict": false,
-      "version": "1.25.6",
+      "version": "1.26.0",
       "category": "communication",
       "keywords": [
         "agent-communication",
@@ -174,7 +174,7 @@
       "description": "Discover, clone, update, and analyze competitor repositories with evidence-based competitive intelligence. Use when tracking competitors, reviewing competitor source code, adding a competitor repository, comparing product capabilities, building a competitor landscape, checking latest competitor code, or when the user says 竞品分析, competitor scan, analyze competitor, or compare with X. Repository-backed findings must come from local cloned code with file:line citations; market-landscape claims must cite their source and volatility.",
       "source": "./competitors-analysis",
       "strict": false,
-      "version": "1.6.6",
+      "version": "1.6.7",
       "category": "productivity",
       "keywords": [
         "competitors",
@@ -191,7 +191,7 @@
       "description": "Claude Code operations suite that bundles cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; provider-separated Claude Code and Codex history readers; identity- and lineage-gated continuation workflows; plugin/skill troubleshooting; CLAUDE.md progressive disclosure optimization; statusline configuration; exported .txt repair; full claude.ai conversation extraction with tool-call rendering and file download; plugin marketplace development and suite consolidation; writing/testing/debugging Claude Code hooks; multi-provider profile isolation; personal-memory migration into tool-agnostic AGENTS.md reference docs; one-shot local timers that ping Claude right after subscription quota reset to start a fresh 5-hour usage window; working web search installed on an agent whose relayed model backend cannot execute the built-in one; and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "5.1.13",
+      "version": "5.1.15",
       "category": "suite",
       "keywords": [
         "suite",
@@ -244,7 +244,7 @@
       "description": "OpenAI Codex operations and design exploration suite bundling model-aware long-context workstation setup, local Codex delegation, generated-image review, static visual-direction selection, and runnable HTML interaction Design Boards under one shared namespace.",
       "source": "./daymade-codex",
       "strict": false,
-      "version": "2.4.11",
+      "version": "2.4.12",
       "category": "suite",
       "keywords": [
         "suite",
@@ -349,7 +349,7 @@
       "description": "Apple-platform development and operations suite for macOS window capture, TCC and Keychain dialog diagnosis, Full Disk Access repair, iOS/macOS app development, disk cleanup, and launchd watchdogs.",
       "source": "./daymade-macos",
       "strict": false,
-      "version": "1.31.1",
+      "version": "1.32.1",
       "category": "suite",
       "keywords": [
         "suite",
@@ -403,7 +403,7 @@
       "description": "Daymade skills core suite. Bundles skill creation, quality review, real Claude/Codex Skill-surface governance, suite-migration reconciliation, and marketplace development tooling under one shared namespace. Skill governance separates canonical source, installed inventory, discovery policy, the fresh model-visible catalog, and router-resolved cold resources instead of optimizing cache counts; it preserves Claude's official versioned-cache lifecycle and verifies selected entries in the real host prompt. Skill verification separates risk classification from evaluation spend: bounded fixes use targeted checks, narrow behavior changes use sampled replays, and paired baselines, graders, benchmarks, or a viewer run only after explicit user authorization or a decision-bearing evidence plan plus opt-in; that authorization does not change the risk tier. Existing-skill edits retain an old-vs-new capability audit and content-bound packaging attestation so prompt compression cannot silently delete runtime contracts. When the official skill-creator plugin is also installed, skill-creator detects the coexistence and offers a consent-based, reversible SessionStart routing hook so the daymade edition wins deterministically; on machines without the official plugin nothing is ever installed.",
       "source": "./daymade-skill",
       "strict": false,
-      "version": "1.79.3",
+      "version": "1.79.4",
       "category": "suite",
       "keywords": [
         "suite",
@@ -481,7 +481,7 @@
       "description": "Extracts Feishu/Lark Docs, Wiki, Sheets, and Minutes (妙记) transcripts into faithful local Markdown via the lark-cli API — no LLM paraphrasing, browser-DOM fallback when lark-cli can't reach content. Use whenever the source is a Feishu/Lark URL and fidelity matters — 导出飞书文档/合集/妙记转写, 把飞书 wiki 转 markdown, or archiving a collection — even if the user just says \"save this\". Also covers owner-exported .docx → Markdown.",
       "source": "./feishu-doc-scraper",
       "strict": false,
-      "version": "1.13.2",
+      "version": "1.14.1",
       "category": "productivity",
       "keywords": [
         "feishu",
@@ -529,7 +529,7 @@
       "description": "Operates GitHub via gh CLI and REST/GraphQL — PRs, issues, Actions, self-hosted Runner inventory/capacity, repos, collaborators, org permissions, 2FA — with explicit target, authorization, and independent readback. Use when a write reports success but state didn't change, or choosing gh/REST/GraphQL/UI-only. Not for local Git recovery (use git-safety-net), maintainer PR review (use github-review-pr), or upstream contribution (use github-contributor).",
       "source": "./github-ops",
       "strict": false,
-      "version": "1.16.3",
+      "version": "1.16.5",
       "category": "developer-tools",
       "keywords": [
         "github",
@@ -568,7 +568,7 @@
       "description": "Audits, preserves and recovers local Git state before cleanup: unpushed or wrong-branch commits, dirty worktrees, duplicate clones, stashes, dangling commits, squash-merge uncertainty. Use when the user fears lost work, wants to recover a commit, asks if a branch is actually merged, asks whether a branch, worktree or clone is safe to delete, or wants one clean main (误删分支 / 还有没有丢的东西). Not for GitHub PR operations.",
       "source": "./git-safety-net",
       "strict": false,
-      "version": "1.28.2",
+      "version": "1.28.5",
       "category": "developer-tools",
       "keywords": [
         "git",
@@ -849,7 +849,7 @@
       "description": "MUST be used first for tunnel / proxy-path connectivity failures or slow throughput (网络故障 / 连不上 / 代理或隧道下超时). Diagnoses Tailscale, proxy, TUN, DNS and SSH-tunnel problems on macOS and Windows/WSL, e.g. Tailscale ping works but SSH fails, curl works but browser gets 503, Git/Docker fails behind the proxy, or downloads crawl despite a reachable proxy. Not for application-layer bugs (use debugging-network-issues).",
       "source": "./tunnel-doctor",
       "strict": false,
-      "version": "1.17.16",
+      "version": "1.17.17",
       "category": "developer-tools",
       "keywords": [
         "tailscale",
@@ -978,7 +978,7 @@
       "description": "Investigates network, streaming and protocol failures with falsification-first layered experiments, the general fallback for unknown root causes. Use for ECONNRESET / RST_STREAM / SSE stalls, CDN/CGNAT timeouts or certificate errors, throughput collapse where everything returns 200 but transfers crawl, or LAN identity/topology mysteries. Not for known Tailscale/TUN/DNS/proxy-path conflicts (use tunnel-doctor).",
       "source": "./debugging-network-issues",
       "strict": false,
-      "version": "1.12.1",
+      "version": "1.12.3",
       "category": "developer-tools",
       "keywords": [
         "debugging",
@@ -1008,7 +1008,7 @@
       "description": "Evidence-driven repository setup, repair, handoff, and safe Git workflow for Claude Code or Codex. Detects the actual stack from project instructions and manifests instead of assuming Python, ffmpeg, uv, or .env; preserves local work during sync/conflict handling; diagnoses repeated SessionStart output before editing config; and defaults routine startup behavior to AGENTS.md/CLAUDE.md or a normal Agent request. Lifecycle hooks are an explicit pre-prompt exception with guarded, idempotent Claude Code setup and runtime-specific Codex verification.",
       "source": "./auto-repo-setup",
       "strict": false,
-      "version": "2.2.0",
+      "version": "2.2.1",
       "category": "developer-tools",
       "keywords": [
         "repo-setup",
@@ -1323,7 +1323,7 @@
       "description": "Produces the reader-facing HTML artifact — report, dashboard, architecture view, data browser, or review workbench — evidence-backed, browser-verified. Use when the deliverable IS a visual HTML report, or the user asks for an HTML/web presentation. Load data-visualization-discipline for chart judgment. Not for chat status or Markdown prose unless asked to become a report; not for PowerPoint (deck-creator Route C).",
       "source": "./report-with-html",
       "strict": false,
-      "version": "1.6.1",
+      "version": "1.7.1",
       "category": "documentation",
       "keywords": [
         "HTML报告",

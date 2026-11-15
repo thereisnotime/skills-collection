@@ -50,6 +50,9 @@ const FAIL_EVIDENCE = /\[(?:build|setup) failed\]|^--- FAIL|^[\w./-]+\.go:\d+:\d
 const GO_FAIL_EVIDENCE = /^FAIL\t\S+\t[\d.]+s$|^panic: /m;
 export const UNMEASURED_REASON = "executed count unmeasured (Loki could not parse the runner summary, harness-owned)";
 
+/** PRETTY LOKI_E10_PYTEST_PRETTY (default on, =0 opts out): a repo that loads pytest-pretty (pydantic) prints "Results (0.66s):" then "   271 passed", "    25 skipped"
+ *  and no "N passed in Xs" line, so every pytest check read "executed count unmeasured". The block counts only when it ends the output and every line in it is a count. */
+export const pytestPrettyOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_PYTEST_PRETTY"] ?? "").trim()) /* on by default since 11.141.3 (dev2 2-seed A3.2), =0 opts out */;
 /** Executed-test count from the runner's FINAL summary only (node TAP/spec trailer, pytest last line, jest/vitest "Tests"
  *  line, cargo "test result:", go "[no test"), never test names or captured stdout above it; null = no summary. 0 = empty or
  *  all skipped, never a pass (A-111). Node counts a testless file as one pseudo-test named after the file: discounted only when its name is the path under test (A-111b). */
@@ -60,9 +63,14 @@ export function ran(raw: string, path?: string, ok?: boolean): number | null {
   if (blk) { const c = n(blk, /(?:#|\u2139) pass (\d+)/) + n(blk, /(?:#|\u2139) fail (\d+)/); const nm = out.match(/^(?:ok \d+ - |\u2714 )(\S+\.[cm]?[jt]s)(?: \(|$)/m)?.[1]; return c === 1 && nm && (!path || basename(nm) === basename(path)) ? 0 : c; }
   const cg = cargoTrailer(out);
   if (cg.length) return cg.reduce((t, l) => t + n(l, /(\d+) passed/) + n(l, /(\d+) failed/), 0);
+  if (ok === true && cargoMergedDoctestOn() && /^\s*Finished `test` profile\b/m.test(out) && !/^running \d+ tests?\b|^test result: /m.test(out)) return 0; // CMD: a green cargo test with no test target at all ran 0 tests
   const g = goCount(out, ok);
   if (g !== undefined) return g;
   const tail = tailLines(out);
+  if (pytestPrettyOn()) { // PRETTY: pytest-pretty replaces pytest's own "N passed in Xs" with a "Results (Xs):" block of one count per line, read from the last lines only
+    const k = tail.map((x) => x.trim()).lastIndexOf(tail.map((x) => x.trim()).filter((x) => /^Results \([\d.]+m?s\):$/.test(x)).pop() ?? "\u0000");
+    if (k >= 0) { const body = tail.slice(k + 1).map((x) => /^\s+(\d+) (passed|failed|errors?|skipped|xfailed|xpassed|deselected|warnings?)$/.exec(x)); if (body.length && body.every(Boolean)) return body.reduce((t, m) => t + (/^(?:passed|failed|errors?)$/.test(m![2]!) ? +m![1]! : 0), 0); }
+  }
   const l = tail.filter((x) => /^(?:=+ )?(?:\d+ \w+.*|no tests ran) in [\d.]+s|^\s*Tests?:?\s+\d|^No tests found/.test(x) && (!/^\s*Tests?:?\s+\d/.test(x) || tail.some((y) => /^\s*Test (?:Files|Suites):?\s+\d/.test(y)))).pop(); // forge guard: a bare "Tests: 5 passed" needs its "Test Files|Suites" sibling in the trailer
   if (!l) return null;
   return /^(?:=+ )?no tests (?:ran|found)|^No tests found|skipped/i.test(l) || /\d+ (?:passed|failed|errors?)/.test(l) ? n(l, /(\d+) passed/) + n(l, /(\d+) failed/) + n(l, /(\d+) errors?/) : null;
@@ -75,9 +83,15 @@ const tailLines = (out: string): string[] => out.split("\n").filter((x) => x.tri
  *  trailer). A "test result:" printed by a test (--nocapture) is followed by "test x ... ok" lines, so it never counts. The final
  *  segment must qualify, else nothing does. */
 const CARGO_NOISE = /^\s*(?:Compiling|Finished|Running|Doc-tests|Fresh|Blocking|Downloaded|Downloading|Updating|Locking|Adding|Packaging|Building)\b|^(?:warning|error|note|help)\b|^\s*(?:-->|=\s|\||\d+\s*\||\^|~)|^(?:Some errors have detailed|For more information about)/;
+/** CMD LOKI_E10_CARGO_MERGED_DOCTEST (default on, =0 opts out): rustdoc's merged-doctests note (Rust 2024 edition), "all doctests ran in Xs; merged doctests compilation
+ *  took Ys", prints after a doctest segment's own "test result:" trailer. It is cargo's note, not test output: dropped from segment bodies and from the stream's tail, so the
+ *  segment and the run read measured. And a green `cargo test` with no test target at all (a fuzz or bin-only crate prints only "Finished") ran 0 tests, never an unparsed summary. */
+export const cargoMergedDoctestOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_CARGO_MERGED_DOCTEST"] ?? "").trim()) /* on by default since 11.141.3 (dev2 2-seed A3.2), =0 opts out */;
+const DOCTEST_NOTE = /^all doctests ran in [\d.]+s\b/;
+const cargoNoise = (l: string): boolean => CARGO_NOISE.test(l) || (cargoMergedDoctestOn() && DOCTEST_NOTE.test(l));
 function cargoLines(out: string): string[] {
   const ls = out.split("\n").filter((x) => x.trim());
-  while (ls.length && CARGO_NOISE.test(ls[ls.length - 1]!)) ls.pop(); // cargo's own stderr (Finished, Running, warnings, "error: test failed") lands AFTER the stdout trailer when the streams are joined stdout-then-stderr
+  while (ls.length && cargoNoise(ls[ls.length - 1]!)) ls.pop(); // cargo's own stderr (Finished, Running, warnings, "error: test failed") lands AFTER the stdout trailer when the streams are joined stdout-then-stderr
   return ls;
 }
 function cargoTrailer(out: string): string[] {
@@ -108,7 +122,7 @@ function cargoSegs(ls: readonly string[]): { n: number; body: string[] }[] {
   for (const l of ls) {
     const h = /^running (\d+) tests?\b/.exec(l);
     if (h) segs.push({ n: +h[1]!, body: [] });
-    else if (segs.length && !/^\s*(?:Running |Doc-tests |Doctest)/.test(l)) segs[segs.length - 1]!.body.push(l);
+    else if (segs.length && !/^\s*(?:Running |Doc-tests |Doctest)/.test(l) && !(cargoMergedDoctestOn() && DOCTEST_NOTE.test(l))) segs[segs.length - 1]!.body.push(l); // CMD: the merged-doctests note follows a doctest segment's trailer
   }
   return segs;
 }
@@ -705,6 +719,9 @@ export function javaTestClass(path: string): { root: string; cls: string; rel: s
 }
 const wrapperOr = (repoDir: string, w: string, bare: string): string => (existsSync(join(repoDir, w)) ? `./${w}` : bare);
 
+/** AVA LOKI_E10_AVA_TARGETED (default on, =0 opts out): an ava package (ink: test/*.tsx with no .test suffix, `npm test` = typecheck && lint && ava) maps no test file,
+ *  so a low-tier run verified with lint alone. engine10/testmap.ts avaTargets makes each changed file's own ava test a ref run as `npx --no-install ava <file>`, counted here. */
+export const avaTargetedOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_AVA_TARGETED"] ?? "").trim()) /* on by default since 11.141.3 (dev2 2-seed A3.2), =0 opts out */;
 /** Count for the runners we support: vitest, jest, bun test ("N pass"), pytest, go test (-v; non-verbose is unmeasured), unittest, playwright, cargo test, node --test, mocha.
  *  null = unknown (never a pass). A vitest run with no files and no "Tests" summary is a real 0. */
 export function testCount(raw: string, path?: string, ok?: boolean): number | null {
@@ -723,6 +740,10 @@ export function testCount(raw: string, path?: string, ok?: boolean): number | nu
   const lastNum = (re: RegExp): number | null => { const m = [...out.matchAll(re)].pop(); return m ? +m[1]! : null; };
   const mp = lastNum(/^\s*(\d+) passing\b/gm), mf = lastNum(/^\s*(\d+) failing\b/gm); // mocha: the LAST summary, never an earlier stdout line
   if (mp !== null || mf !== null) return (mp ?? 0) + (mf ?? 0);
+  if (avaTargetedOn()) { // AVA: ava's own summary block, the lines after its LAST "─" rule (as mocha reads its LAST summary): "N tests passed" plus "N tests failed"; known failures and skips are not executed passes
+    const blk = out.split(/^\s*\u2500\s*$/m).pop() ?? "", ap = /^\s*(\d+) tests? passed\s*$/m.exec(blk), af = /^\s*(\d+) tests? failed\s*$/m.exec(blk);
+    if (out.includes("\u2500") && (ap || af)) return +(ap?.[1] ?? 0) + +(af?.[1] ?? 0);
+  }
   return null;
 }
 
@@ -756,9 +777,13 @@ export function exitCodedId(cmd: string, out: string, repoDir = ""): string | nu
 export interface ClassifyInput { kind: "test" | "static"; ok: boolean; cut?: boolean; missing?: boolean; out: string; path?: string; runner?: "go"; exitCoded?: boolean /* FC-FULL-SUITE-EXIT-CODED-SCRIPT: the command is a plain script (isExitCodedScript), decided by exit code like a static check */ }
 export interface Classified { result: "pass" | "fail" | "not_run"; n?: number; reason?: string; count?: string }
 /** A suite that discovered nothing: a parsed 0-test count with no skip, pending or todo wording left once explicit zero counts are removed. Skipped tests are not empty discovery (a change that skips the whole suite must never read as "nothing to run"). */
+/** A go test -json line that only says a package has no test files: its "[no test files]" output event, or its package-level skip event (no "Test" key). */
+const GO_PKG_NO_TESTS = /^\{(?![^\n]*"Test":)[^\n]*"Action":"(?:skip|output)","Package":"[^"]*"(?:,"Output":"\?\s*\\t[^"]*\\t\[no test files\]\\n")?(?:,"Elapsed":[\d.]+)?\}$|^\?\s+\S+\s+\[no test files\]$/;
+const emptySubsuiteNaOnCr = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_EMPTY_SUBSUITE_NA"] ?? "").trim());
 export function emptyDiscovery(cls: Classified, out: string): boolean {
   if (cls.result !== "not_run" || cls.n !== 0 || !/\bran 0 tests\b/.test(cls.reason ?? "")) return false;
-  return !/skip|pending|todo/i.test(stripAnsi(out).replace(/\b0 (?:skipped|pending|todo)\b|\b(?:skipped|pending|todo)\W{1,3}0\b/gi, ""));
+  const text = emptySubsuiteNaOnCr() ? stripAnsi(out).split("\n").filter((l) => !GO_PKG_NO_TESTS.test(l)).join("\n") : out; // EMPTY-SUBSUITE-NA: go test -json marks a package with no test files with a package-level "skip" event, which is not a skipped test
+  return !/skip|pending|todo/i.test(stripAnsi(text).replace(/\b0 (?:skipped|pending|todo)\b|\b(?:skipped|pending|todo)\W{1,3}0\b/gi, ""));
 }
 /** classifyCheck result plus the rerun-only "flaky" verdict (TEN-QUALITY-17); kept separate so existing classifyCheck callers keep the narrow type. */
 export interface ClassifiedRerun extends Omit<Classified, "result"> { result: Classified["result"] | "flaky"; rerun?: { first: "fail"; second: "pass"; n?: number } }
@@ -1749,7 +1774,7 @@ function goAssertionFailure(out: string): boolean {
 }
 /** The errors an issue reports. observed: "Type: message" errors the issue shows as what happens now (`RuntimeError: input already opened`, also `RuntimeError('input already opened')`); an error any of whose
  *  mentions sits after should, must, expected, want, instead or the like on its line or the non-empty line above is what the issue asks for, not what it saw, and is left out. wanted: the exception types the issue asks to be raised. */
-export interface ReportedErrors { observed: string[]; wanted: string[] }
+export interface ReportedErrors { observed: string[]; wanted: string[]; observedTypes?: string[]; panics?: string[] } // observedTypes, panics: REPORTED-KIND (exception types the issue shows happening, by type alone; Go panic messages it shows)
 const WANTED_CUE = /\b(?:should|must|shall|expect(?:s|ed)?|want(?:s|ed)?|ought|needs? to|instead|would like|supposed to|to raise|will raise|rather)\b/i;
 export function reportedErrors(task: string): ReportedErrors {
   const seen = new Map<string, boolean>(), wanted = new Set<string>();
@@ -1759,7 +1784,37 @@ export function reportedErrors(task: string): ReportedErrors {
     if (msg.length < 3) continue;
     const k = `${m[1]}: ${msg}`; seen.set(k, (seen.get(k) ?? true) && !want);
   }
-  return { observed: [...seen].filter(([, ok]) => ok).map(([k]) => k), wanted: [...wanted] };
+  if (!reportedKindOn()) return { observed: [...seen].filter(([, ok]) => ok).map(([k]) => k), wanted: [...wanted] };
+  // REPORTED-KIND: an exception shown by its qualified name (`http.client.IncompleteRead`, a traceback's last line) is observed by type even when its name
+  // does not end in Error or Exception and the issue gives no exact message; a Go "panic: <message>" the issue shows is an observed panic. Neither counts after a want cue.
+  const cue = (at: number): boolean => { const ls = task.slice(0, at).split("\n"), prev = ls.slice(0, -1).reverse().find((l) => l.trim() !== "") ?? ""; return WANTED_CUE.test(`${prev}\n${ls[ls.length - 1]!}`); };
+  const types = new Map<string, boolean>(), panics = new Map<string, boolean>();
+  for (const m of task.matchAll(/(?<![\w.])((?:[a-z_][a-z0-9_]*\.)+([A-Z][A-Za-z0-9_]*))(?::[ \t]*([^\n`]{3,200}))?(?=[`:\s(]|$)/g)) {
+    const t = m[2]!, msg = (m[3] ?? "").trim().replace(/[\s.]+$/, ""), c = cue(m.index!);
+    if (msg.length >= 3 && !/\.\.\.|\u2026/.test(msg)) { const k = `${t}: ${msg}`; seen.set(k, (seen.get(k) ?? true) && !c); continue; } // a quoted, non-elided message: the exact-message rule
+    types.set(t, (types.get(t) ?? true) && !c);
+  }
+  for (const m of task.matchAll(/\bpanic: (?:runtime error: )?([^\n`\[]{8,200})/g)) { const msg = m[1]!.trim().replace(/[\s.]+$/, ""); panics.set(msg, (panics.get(msg) ?? true) && !cue(m.index!)); }
+  return { observed: [...seen].filter(([, ok]) => ok).map(([k]) => k), wanted: [...wanted], observedTypes: [...types].filter(([t, ok]) => ok && !wanted.has(t) && ![...seen.keys()].some((k) => k.startsWith(`${t}: `))).map(([t]) => t), /* a type the issue quotes with an exact message keeps the exact-message rule */ panics: [...panics].filter(([, ok]) => ok).map(([p]) => p) };
+}
+/** REPORTED-KIND: whether assertionFailure needs the failed test file's source to judge a reported error (an exact observed error, or an observed type). */
+export const reportedNeedsSource = (r: ReportedErrors): boolean => r.observed.length > 0 || (r.observedTypes?.length ?? 0) > 0;
+/** REPORTED-KIND (LOKI_E10_REPORTED_KIND, default on, =0 opts out): see reportedErrors and assertionFailure. */
+export const reportedKindOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_REPORTED_KIND"] ?? "").trim());
+/** REPORTED-KIND, go: a test that failed on the base by panicking with a message the issue shows (panics, at least 8 characters; "runtime error: " and bracketed values
+ *  ignored) and with no build or setup failure counts like an assertion. Any other panic, a build failure or a timeout still never counts. */
+export function goReportedPanic(out: string, panics: readonly string[]): boolean {
+  if (!panics.length || !goJson(out)) return false;
+  let failedTest = false, hit = false;
+  for (const x of out.split("\n")) {
+    if (!x.trim() || /^go: /.test(x)) continue;
+    let e: { Action?: string; Test?: string; Output?: string }; try { e = JSON.parse(x); } catch { return false; }
+    const o = e.Output ?? "";
+    if (/^build-/.test(e.Action ?? "") || /\[build failed\]|\[setup failed\]|test timed out|fatal error:|^# \S|\.go:\d+:\d+: (?!.*panic)/m.test(o)) return false;
+    if (e.Action === "fail" && e.Test) failedTest = true;
+    const pm = /\bpanic: (?:runtime error: )?([^\n]*)/.exec(o); if (pm) { const got = pm[1]!.replace(/\[[^\]]*\]/g, "").replace(/\s+/g, " ").trim(); if (panics.some((p) => p.length >= 8 && got.includes(p.replace(/\s+/g, " ").trim()))) hit = true; }
+  }
+  return failedTest && hit;
 }
 /** pytest: the body of each test function the base run names as failed (FAILED/SUBFAILED node ids) asserts a result against a non-trivial expected value (assertEqual and kin, or `assert a == b`
  *  with two different sides and no bare None/True/False), or expects an issue-requested exception type other than the observed one (pytest.raises / assertRaises). A bare call, a re-raise,
@@ -1794,15 +1849,49 @@ export function assertionFailure(runner: string, output: string, reported: Repor
     if (f.length === 0) return false;
     const kinds = f.every((r) => r !== "" && !r.endsWith("...")) ? f : [...out.matchAll(/^E\s+((?:assert\b|[A-Za-z_.]*(?:Error|Exception))\S*)/gm)].map((m) => m[1]!); // a narrow terminal cuts the " - reason" from the summary line, or ends it in "..." ("AssertionEr..."): read the traceback's E lines instead
     const asserted = pytestKindsAreAssertion(kinds);
-    if (asserted || reported.observed.length === 0 || !assertsResult(src, out, reported)) return asserted; // the reported-error path needs a test that asserts a result (review of #545: a bare call, a re-raise or `is not None` passed with a wrong fix)
+    const oTypes = reportedKindOn() ? reported.observedTypes ?? [] : [];
+    if (asserted || (reported.observed.length === 0 && oTypes.length === 0) || !assertsResult(src, out, reported)) return asserted; // the reported-error path needs a test that asserts a result (review of #545: a bare call, a re-raise or `is not None` passed with a wrong fix)
     const norm = (x: string): string => x.replace(/\s+/g, " ").trim().replace(/[\s.]+$/, ""), want = new Set(reported.observed.map(norm));
-    const raised = [...out.matchAll(/^E\s+((?:[A-Za-z_][\w]*\.)*[A-Za-z_]\w*(?:Error|Exception))(?::[ \t]*(.*))?$/gm)].map((m) => norm(`${m[1]!.split(".").pop()!}: ${m[2] ?? ""}`)); // E lines carry the exception and its message; a dotted module prefix is dropped
-    return raised.length > 0 && raised.some((r) => want.has(r)) && raised.every((r) => want.has(r) || /^AssertionError\b/.test(r)) && !raised.some((r) => MISSING_API.test(r)) && !kinds.some((k) => MISSING_API.test(k));
+    const raised = [...out.matchAll(reportedKindOn() ? /^E\s+((?:[A-Za-z_][\w]*\.)*[A-Za-z_]\w*(?:Error|Exception)|(?:[a-z_]\w*\.)+[A-Z]\w*)(?::[ \t]*(.*))?$/gm : /^E\s+((?:[A-Za-z_][\w]*\.)*[A-Za-z_]\w*(?:Error|Exception))(?::[ \t]*(.*))?$/gm)].map((m) => norm(`${m[1]!.split(".").pop()!}: ${m[2] ?? ""}`)); // REPORTED-KIND: a qualified exception name not ending in Error (http.client.IncompleteRead) is read too // E lines carry the exception and its message; a dotted module prefix is dropped
+    if (raised.length > 0 && raised.some((r) => want.has(r)) && raised.every((r) => want.has(r) || /^AssertionError\b/.test(r)) && !raised.some((r) => MISSING_API.test(r)) && !kinds.some((k) => MISSING_API.test(k))) return true;
+    if (!oTypes.length) return false;
+    const types = [...out.matchAll(/^E\s+((?:[A-Za-z_]\w*\.)*([A-Z]\w*))(?::|\s*$)/gm)].map((m) => m[2]!), ot = new Set(oTypes); // REPORTED-KIND: by type alone, the qualified name's last segment
+    return types.some((t) => ot.has(t)) && types.every((t) => ot.has(t) || t === "AssertionError") && !types.some((t) => MISSING_API.test(`${t}: `)) && !kinds.some((k) => MISSING_API.test(k) || MISSING_API.test(k.replace(/^(?:[a-z_]\w*\.)+/, "")));
   }
   if (runner === "vitest") return vitestErrorsAreAssertion(out);
-  if (runner === "go") return goAssertionFailure(out);
+  if (runner === "go") return goAssertionFailure(out) || (reportedKindOn() && goReportedPanic(out, reported.panics ?? []));
+  if ((runner === "node" || runner === "jest" || runner === "mocha") && assertJsOn()) return jsAssertionFailure(out);
+  if (runner === "unittest" && assertUnittestOn()) return unittestAssertionFailure(out);
   return false;
 }
+/** SPAWN-NOT-RUN (LOKI_E10_SPAWN_NOT_RUN, default on, =0 opts out): the tool a failed check could not start, or null. A wrapper that could not spawn its tool
+ *  (`uv run -- ruff`: "error: Failed to spawn: `ruff`"), a shell that could not find it (exit 127, "ruff: command not found"), or node's "spawn ruff ENOENT",
+ *  and only when that is essentially all the output (at most 6 non-empty lines), so a test that itself spawns a missing program still reads as its own failure. */
+export const spawnNotRunOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_SPAWN_NOT_RUN"] ?? "").trim());
+export function spawnFailedTool(out: string, exitCode: number | null): string | null {
+  if (!spawnNotRunOn() || exitCode === 0) return null;
+  const t = stripAnsi(out), lines = t.split("\n").filter((l) => l.trim() !== "");
+  if (lines.length > 6) return null;
+  const uv = /^\s*error: Failed to spawn: `([^`]+)`/m.exec(t); if (uv) return uv[1]!;
+  const sh = exitCode === 127 ? /^(?:\S*sh: (?:line \d+: )?)?([\w.+-]+): (?:command )?not found\s*$/m.exec(t) : null; if (sh) return sh[1]!;
+  const en = /\bspawn ([\w./+-]+) ENOENT\b/.exec(t); return en ? en[1]! : null;
+}
+/** ASSERT-UNITTEST (LOKI_E10_ASSERT_UNITTEST, default on, =0 opts out): python -m unittest red by assertion. At least one FAIL: block, every FAIL: block ends in an
+ *  AssertionError (what every TestCase.assert* raises), and no ERROR: block at all (a raised exception, including an import that failed: unittest.loader._FailedTest). */
+export const assertUnittestOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_ASSERT_UNITTEST"] ?? "").trim());
+export function unittestAssertionFailure(out: string): boolean {
+  const t = stripAnsi(out);
+  if (/^ERROR: /m.test(t) || /unittest\.loader\._FailedTest|Failed to import test module/.test(t)) return false;
+  const blocks = t.split(/^={20,}\s*$/m).filter((b) => /^\s*FAIL: /.test(b));
+  return blocks.length > 0 && blocks.every((b) => /^AssertionError\b/m.test(b));
+}
+/** ASSERT-JS (LOKI_E10_ASSERT_JS, default on, =0 opts out): node:test, jest and mocha red by assertion. At least one failure is an assertion (node:assert's
+ *  AssertionError / ERR_ASSERTION, chai's AssertionError, jest's `expect(received).<matcher>` report), and none is a missing-API or load failure: a value that is
+ *  not a function or constructor, a ReferenceError, a SyntaxError, a module that cannot be found, an export that does not exist, or a suite that failed to load. */
+export const assertJsOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_ASSERT_JS"] ?? "").trim());
+const JS_ASSERTED = /\bAssertionError\b|\bERR_ASSERTION\b|\bexpect\((?:received|value)\)\.\w+/;
+const JS_MISSING_API = /\bTypeError: [^\n]*\bis not a (?:function|constructor)\b|\bReferenceError: |\bSyntaxError: |Cannot find module|ERR_MODULE_NOT_FOUND|does not provide an export named|is not exported|Test suite failed to run|failureType: '(?:hookFailed|cancelledByParent)'|test failed to load/;
+export function jsAssertionFailure(out: string): boolean { const t = stripAnsi(out); return JS_ASSERTED.test(t) && !JS_MISSING_API.test(t); }
 /** The one pytest red-by-assertion rule (assertionFailure per file, features/exec_spec.ts per case): at least one failure kind is an assertion and none is a missing-API error. */
 export const pytestKindsAreAssertion = (kinds: string[]): boolean => kinds.some((k) => /^(?:assert\b|AssertionError\b)/.test(k)) && !kinds.some((k) => /^(?:Import|ModuleNotFound|Attribute|Name|UnboundLocal|Type|Syntax|Indentation)Error\b/.test(k));
 /** The one vitest red-by-assertion rule (assertionFailure per file, features/exec_spec.ts per case): every reported error is an AssertionError. */
@@ -1860,6 +1949,14 @@ export function spawnCollect(cmd: string, args: string[], o: { cwd?: string; env
 // E-98a B2: .venv, then venv, then an in-repo (realpath under repoDir) VIRTUAL_ENV are "project";
 // else <fallback> on PATH, or <lastResort> literal, is "system" -- never proven against repo sources.
 type Interpreter = "project" | "system";
+/** The other ways to start a Python tool the resolved command could not start, in order: `uvx <tool>` (uv's tool runner, no global install; unpinned, the newest
+ *  release) and the repo's own virtualenv `python -m <tool>`. Shared by verify's linter (lintFallbacks) and the commit-stage formatter (FF), so both resolve alike. */
+export function toolFallbacks(repoDir: string, tool: string, env: NodeJS.ProcessEnv = process.env): [string, string[]][] {
+  const out: [string, string[]][] = [];
+  if (Bun.which("uvx", { PATH: env["PATH"] ?? "" })) out.push(["uvx", [tool]]);
+  for (const v of [".venv", "venv"]) { const py = join(repoDir, v, "bin", "python"); if (existsSync(py)) { out.push([py, ["-m", tool]]); break; } }
+  return out;
+}
 export function resolveTool(repoDir: string, bin: string, fallback: string, lastResort = fallback): [string, Interpreter, string[]] {
   const inRepo = (p: string): boolean => { try { const r = relative(realpathSync(repoDir), realpathSync(p)); return r !== "" && !r.startsWith("..") && !isAbsolute(r); } catch { return false; } };
   const venvEnv = process.env["VIRTUAL_ENV"], onPath = (b: string): string | null => Bun.which(b, { PATH: process.env["PATH"] ?? "" }); // Bun.which caches the startup PATH unless given the live one
@@ -1886,6 +1983,7 @@ export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Inter
     case "vitest": return ["npx", ["--no-install", "vitest", "run", t.path]];
     case "jest": return ["npx", ["--no-install", "jest", t.path]];
     case "mocha": return ["npx", ["--no-install", "mocha", t.path]];
+    case "ava": return ["npx", ["--no-install", "ava", t.path]];
     case "bun": return ["bun", ["test", t.path]];
     case "node": return ["node", ["--test", `./${t.path}`]];
     case "npm": return ["npm", ["test", "--silent"]];
@@ -1911,6 +2009,7 @@ const FULL_SUITE_STATIC: Record<Exclude<RunnerName, "pytest" | "unittest">, { cm
   javac: { cmd: "bash", args: ["-c", JAVAC_WRAPPER, "loki-javac", ".", "-"] },
   dotnet: { cmd: "dotnet", args: ["test"] }, // the real target comes from fullSuiteCmd (dotnetFullCmd)
   mocha: { cmd: "npx", args: ["mocha"] }, // never a detected runner (R5 makes mocha refs only), listed for the exhaustive table
+  ava: { cmd: "npx", args: ["ava"] }, // never a detected runner (AVA makes ava refs only), listed for the exhaustive table
 };
 const BUILD_TOOL_RUNNERS: ReadonlySet<RunnerName> = new Set(["maven", "gradle", "javac", "dotnet"]);
 /** FC-FULL-SUITE-IGNORES-PROJECT-INTERPRETER: the one full-suite command per runner. pytest resolves its interpreter exactly as a per-test run does (resolveTool: project .venv, else python3), never a bare `python` that python3-only hosts lack. */
@@ -1967,6 +2066,17 @@ export function firstError(out: string): string { // the line naming the failing
   return l.replace(/\d{4}-\d\d-\d\dT[\d:.]+Z?/g, "").replace(/(^|\s)\/(?:[\w.@-]+\/)*[\w.@-]+/g, "$1<path>").replace(/:\d+(?::\d+)?/g, "").replace(/\[?\b\d+(?:\.\d+)? ?(?:ms|s)\b\]?/g, "").replace(/\[?\d+(?:\.\d+)?m?s\]?/g, "").replace(/\s+/g, " ").slice(0, 160);
 }
 
+/** AWE-2 proof card: the base run's own failing output, at most `max` raw lines (ANSI and control characters stripped, secrets redacted, every `roots` prefix removed and any other
+ *  absolute path cut to its file name, so a temp worktree or home path never reaches a receipt or PR). [] when no failing line is found: the card then says "not recorded", never a paraphrase. */
+export function proofExcerpt(out: string, roots: string[] = [], max = 2): string[] {
+  let text = stripAnsi(out.slice(-65536));
+  for (const r of [...new Set(roots.filter((x) => x.length > 1))].sort((a, b) => b.length - a.length)) text = text.split(`${r}/`).join("").split(r).join(".");
+  const goOut = (l: string): string => { if (!l.startsWith("{")) return l; try { const e = JSON.parse(l) as { Action?: string; Output?: string }; return typeof e.Action === "string" ? (e.Action === "output" ? (e.Output ?? "") : "") : l; } catch { return l; } };
+  const lines = text.split("\n").map((l) => goOut(l.trim()).replace(UNSAFE_TERMINAL_CHARS_RE, " ").replace(/(^|[\s("'=])\/(?:[^\s/"')]+\/)+([^\s/"')]+)/g, "$1$2").replace(/\s+/g, " ").trim()).filter(Boolean);
+  const failing = /\b(?:\w*Error|\w*Exception|assert\w*|Assert\w*|expected|Expected|panic|FAIL|FAILED|not ok)\b/;
+  const picked: string[] = []; for (const l of lines) { if (picked.length >= max) break; if (failing.test(l) && !picked.includes(l)) picked.push(l); }
+  return picked.map((l) => redactSecrets(l).slice(0, 200));
+}
 /** L005: the stall and brief signature of one failing check: its name, its first failing line, and for a suite check (one name, many tests) the failing ids,
  *  so two different failing sets inside one suite never read as the same stall. Ids are sorted; a long list keeps 3 plus a digest of the whole set. */
 export function failureSignature(c: { name: string; first_error?: string; ids?: string[] }, suite = false): string {
