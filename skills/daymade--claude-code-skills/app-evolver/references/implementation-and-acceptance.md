@@ -19,6 +19,45 @@ package or production service. Record protected normal behavior and data.
 Choose evidence for each clause, using existing repository checks where suitable.
 Keep required human judgment visible instead of converting it into agent approval.
 
+### Synthetic pair: a publication's first useful result
+
+An existing publication wants to serve people and agents. Its current delivery is
+a website explaining one research question; downloads and a contribution service
+are outside this increment. Accept a page only when an unfamiliar reader can
+distinguish the source's finding from the publication's added evidence, explain
+the result's scope and follow the supporting original. Where machine-readable
+reading is authorized, expose the same claims and limits through the existing site.
+
+Reject a plan that makes a new repository, downloadable bundle or submission
+service a prerequisite without tying it to this reader task and current scope.
+Conversely, when the user explicitly requests executable materials or public
+contributions, preserve that result: a readable page alone does not fulfill it.
+Readability, agent comprehension and actual external use need separate evidence;
+one internal reading replay cannot establish reader value or organic adoption.
+
+### Synthetic pair: an approved workspace inside the existing application
+
+The user asks to extend an approved zoomable workflow map in an existing
+administrator workspace. The current increment adds distribution channels; the
+accepted nested loops, relative grouping, continuous zoom, source quotations and
+existing tasks remain protected. The destination is the application's existing
+`/operations/map` route, under its normal administrator identity. A local preview
+is requested; a separate prototype and production deployment are different results.
+
+| Observed evidence | Acceptance judgment |
+|---|---|
+| A standalone page has the new channels, passes its build and looks correct. | Useful implementation evidence; the requested application integration remains unfinished. |
+| The administrator route opens, but its active document still identifies the old revision. | Entry and access work; the requested update has not reached the consumer. |
+| The new document appears inside the application, but zoom now navigates to a separate detail page or replaces the approved relationships with a card grid. | The destination is correct; protected behavior or structure has regressed. Integration alone does not pass the increment. |
+| The named route serves the expected revision; an administrator can read the new relationships, use intermediate zoom levels and return to the overview; existing role restrictions and affected old tasks still work. | The exercised integration and preservation criteria pass. Keep any untested journey and the user's final design judgment separate. |
+| The user instead requested only a standalone HTML deliverable, and the named file with its required resources works in the recipient's reader. | That delivery can pass its own contract; do not impose application embedding or deployment. |
+
+Use the real application's entry, actor and revision evidence for this case,
+not the example route or the author's source directory. Keep local development,
+isolated acceptance and production identities distinct. A screenshot of the
+correct shell cannot prove its embedded document is current; a document hash
+cannot prove the protected relationships remain readable and usable.
+
 ## Give the engineering owner an executable handoff
 
 Provide the current user result, exact source baseline, adopted mechanism,

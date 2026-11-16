@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## v11.143.0 (2026-11-16)
+
+An issue run now works on the whole issue and keeps unfinished work.
+
+### What changes for `loki start owner/repo#N` on the Claude provider
+- A large issue runs as one run on Sonnet and stronger models. It is no longer split into slices up front. `LOKI_ISSUE_WHOLE_FIRST=0` restores the split; a run that implements on Haiku keeps the split. `loki backlog` and `loki issues run` start the same run and follow it.
+- A session that ends without a finish line is continued in the same session, up to 4 times; if it still does not finish, the work is kept and the result is PARTIAL with what was outstanding. Before this, such a reply was counted as done.
+- Before any model call, a rerun stops with the URL of an open Loki pull request that already covers the issue, and never writes to that pull request. `LOKI_RERUN_GUARD=0` runs anyway. This guard is tested against a stand-in for GitHub only.
+- Text goals, PRD runs and other providers are unchanged.
+
+### Measured on one real issue in one repository (asklokesh/FireLater#24, 9 acceptance items, Sonnet), on builds with this release's whole-issue route
+- Cost: seven whole-issue runs cost $0.38 to $1.00 each. The split route this release replaces cost $3.45 (one run).
+- Items working, counted by a scorer who did not know which tool made each result, with each result's backend started and its routes called: whole-issue runs 8, 2, 8, 2, 2, 2 and 8 of 9. The split route scored 3 of 9 (one run) with three reproduced defects.
+- For reference on the same issue: plain Claude Code on Sonnet scored 3 and 2 of 9; on Haiku 8 and 8; on Opus 9 (one run, $10.51).
+
+### Known gaps
+- Results vary from run to run: the same route scored 2 or 8 of 9. A result that breaks creating a new tenant counts as 2 here even when its routes answer for an existing tenant. Review a result before merging it.
+- VERIFIED is not a reliable signal on feature issues yet: of 7 results labelled VERIFIED in these measurements, 3 had 8 of 9 items working and 4 had 6 or fewer.
+- A session does not start the product it builds: the run's command guard refuses ports, stopping its own processes and working outside the repository. In these measurements no session of this route started a backend or called a route. The fix is the next release.
+- Haiku is unchanged for issue runs. On this issue Loki's Haiku routes scored 1 to 6 of 9 where plain Claude Code on Haiku scored 8 and 8.
+- Not run on this build: `loki backlog`, `loki issues run`, the GitHub Action, and issues in other repositories. No speed figure is claimed.
+- This release was not gated on a fresh blind set of issues; the founder ordered it released on the evidence above.
+
+## v11.142.0 (2026-11-15)
+
+`loki backlog` reports clearly while it runs and at the end, keeps receipts, and prints its summary when stopped. Shipped text makes no compliance claim.
+
+### Changed
+- `loki backlog` (many issues at once) now reports clearly. While it runs you see one line per state change with the path of each issue's log, and a short line every two minutes naming what is still running (`LOKI_BACKLOG_HEARTBEAT_S`, default 120, 0 turns it off). At the end there is one row per issue (cost, time, result, pull request) and one `Total:` line: done, not done, pull requests, cost and time. An issue that ended in several pull requests says how many and why, where it used to show only the first.
+- The audit evidence reports from `src/audit/compliance.js` no longer name a compliance framework. `reportType` is now `AUDIT_EVIDENCE_REPORT` for the two control mappings that were `SOC2_TYPE_II` and `ISO27001`, and `DATA_PROCESSING_RECORD` for the one that was `GDPR_DATA_PROCESSING_RECORD`. A consumer that matched the old `reportType` values needs updating. The `?type=` ids the dashboard accepts are unchanged.
+- The compliance engineer agent persona, the `loki compliance` help, the dashboard endpoint docs, the telemetry comments and the reference docs no longer name SOC 2, GDPR or similar frameworks as something Loki Mode provides. They describe audit evidence and drafts for the team's own review. The model-selection rule that routes compliance-related tasks to the high tier still matches those framework names in a task's own text. Shipped docs no longer state a fixed count of agent types.
+
+### Fixed
+- Stopping `loki backlog` with Ctrl-C or a job time limit used to exit with no summary. It now stops the runs (SIGTERM, then SIGKILL after `LOKI_BACKLOG_STOP_GRACE_S`, default 30 seconds), prints every row and the total, and exits 130. A run that had already finished before the stop keeps its real result.
+- `loki backlog` keeps the receipts of a finished run under `<checkout>-backlog/receipts`; they used to be deleted with the issue's worktree. A rerun moves earlier receipts aside under a dated name instead of replacing them.
+
+### Added
+- `LOKI_BACKLOG_LOCAL_ORIGIN=1` (off by default) lets `loki backlog` run from a checkout whose origin is a local bare repository, for rehearsals and tests: branches and pull requests go to that bare repository and the run still reads the issue from GitHub.
+
+### Known gaps
+- On the founder's test issue, plain Claude Code finished more of the issue for less cost than Loki 11.141.6.
+- In a 4-issue `loki backlog` run, no issue ended VERIFIED and one ended FAILED.
+- The printed cost leaves out retried attempts.
+- A failed slice whose output mentions a rate limit is retried even when no rate limit occurred.
+
+## v11.141.6 (2026-11-15)
+
+A run stopped by its time limit now always leaves a receipt.
+
+### Fixed
+- A run stopped by its time limit always leaves a receipt. When the engine is stuck and the supervisor's backstop has to stop it, a short seal pass now commits and seals the current tree as PARTIAL with "time ran out", still inside the run's deadline; before, nothing was sealed. `LOKI_E10_BACKSTOP_SEAL=0` restores the old ending.
+
 ## v11.141.5 (2026-11-15)
 
 A split issue ends in one pull request, a run can finish inside an outer time limit, a silent run leaves a trace, and a timed-out untouched test is not rerun.

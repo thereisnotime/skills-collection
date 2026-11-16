@@ -834,7 +834,6 @@ Domain-specific knowledge for Azure SDK and Microsoft AI Foundry development. 13
 Official curated skills from OpenAI's skills repository.
 
 - **[openai/cloudflare-deploy](https://officialskills.sh/openai/skills/cloudflare-deploy)** - Deploy apps to Cloudflare using Workers, Pages, and platform services
-- **[openai/develop-web-game](https://officialskills.sh/openai/skills/develop-web-game)** - Build and test web games iteratively using Playwright with time-stepping
 - **[openai/doc](https://officialskills.sh/openai/skills/doc)** - Read, create, and edit .docx documents with formatting and layout fidelity
 - **[openai/gh-address-comments](https://officialskills.sh/openai/skills/gh-address-comments)** - Address review and issue comments on open GitHub PRs via CLI
 - **[openai/gh-fix-ci](https://officialskills.sh/openai/skills/gh-fix-ci)** - Debug and fix failing GitHub Actions PR checks using log inspection
@@ -871,7 +870,6 @@ Official curated skills from OpenAI's skills repository.
 - **[openai/figma-generate-library](https://officialskills.sh/openai/skills/figma-generate-library)** - Build or update a professional-grade design system in Figma from a codebase
 - **[openai/figma-implement-design](https://officialskills.sh/openai/skills/figma-implement-design)** - Translate Figma designs into production-ready code with 1:1 visual fidelity
 - **[openai/figma-use](https://officialskills.sh/openai/skills/figma-use)** - Prerequisite skill for every use_figma tool call — write/read actions in Figma context
-- **[openai/frontend-skill](https://officialskills.sh/openai/skills/frontend-skill)** - Create visually strong landing pages, websites, and app UIs with restrained composition
 - **[openai/playwright-interactive](https://officialskills.sh/openai/skills/playwright-interactive)** - Persistent browser and Electron interaction via js_repl for iterative UI debugging
 - **[openai/slides](https://officialskills.sh/openai/skills/slides)** - Create and edit .pptx presentation decks with PptxGenJS
 - **[openai/winui-app](https://officialskills.sh/openai/skills/winui-app)** - Bootstrap and develop modern WinUI 3 desktop apps with C# and Windows App SDK
@@ -1598,6 +1596,10 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[arcmira/find-quotes](https://github.com/arcmira/mcp/tree/master/plugins/arcmira/skills/find-quotes)** - Find timestamped quotes and clips in YouTube and podcast transcripts
 - **[Aboudjem/humanizer-skill](https://github.com/Aboudjem/humanizer-skill)** - Rewrites AI-sounding text, flagging 55 writing patterns
 - **[zhuyansen/new-term-radar](https://github.com/zhuyansen/new-term-radar)** - Daily radar of new AI names and their search demand
+- **[Illyism/seo-skills](https://github.com/Illyism/seo-skills)** - 17 SEO skills for audits, titles, content, and GEO
+- **[adkit/ads-skills](https://github.com/adkit/ads-skills)** - Create, edit and report on campaigns across eight ad platforms
+- **[everyinfra/seo-skills](https://github.com/everyinfra/seo-skills)** - Open-source SEO and GEO audits, keyword and SERP research
+- **[akii-technologies-ltd/schema-markup](https://github.com/akii-technologies-ltd/akii-seo-ai-search-optimizer/tree/main/skills/schema-markup)** - Write and check JSON-LD markup for a web page
 
 </details>
 
@@ -1674,6 +1676,9 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[QingYunA/answer-me-with-html](https://github.com/QingYunA/answer-me-with-html/tree/main/skills/answer-me-with-html)** - Answers hard questions as readable, self-contained HTML pages
 - **[Koloyaaa/foreign-academic-translator](https://github.com/Koloyaaa/foreign-academic-translator-skill/tree/main/skills/foreign-academic-translator)** - Translate foreign academic handouts into Chinese with subject glossaries
 - **[duyunzhoudyz/dyz-gongwen-skills](https://github.com/duyunzhoudyz/dyz-gongwen-skills)** - Chinese official document drafting, review and GB/T 9704 formatting
+- **[tw93/mole](https://github.com/tw93/Mole/tree/main/skills/mole)** - Drive the Mole CLI to clean macOS and Windows
+- **[busabase/busabase](https://github.com/busabase/busabase)** - Approval-first database workspace for AI agents
+- **[Frihet-io/frihet-mcp](https://github.com/Frihet-io/frihet-mcp/tree/main/skills/frihet-mcp)** - AI-native ERP skills for invoicing, CRM, expenses, and tax compliance
 
 </details>
 
@@ -1815,6 +1820,18 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[ScrapingBee/scrapingbee-cli](https://github.com/ScrapingBee/scrapingbee-cli/tree/main/.agents/skills/scrapingbee-cli)** - Scrape any page, search the web, crawl sites, extract data
 - **[0design/unslop-skill](https://github.com/0design/unslop-skill)** - Audit plugin for Claude Code and Codex
 - **[swiftlysingh/excalidraw-cli](https://github.com/swiftlysingh/excalidraw-cli/tree/main/skills/excalidraw-cli)** - Turn text, JSON, or Graphviz DOT into editable Excalidraw diagrams
+- **[kyy-logs/code-review-gate-skill](https://github.com/kyy-logs/code-review-gate-skill)** - Evidence-backed static code review with a JSON-derived merge gate
+- **[laulauraluo/ai-code-review-triage](https://github.com/laulauraluo/ai-code-review-triage)** - Three-pass review workflow for AI-generated pull requests
+- **[thedesignproject/agentic-design-systems](https://github.com/thedesignproject/agent-skills/tree/main/skills/agentic-design-systems)** - Scaffolds AI-readable design systems for agents
+- **[nodemaven/skills](https://github.com/nodemaven/skills)** - Residential proxies, Google search scraping, proxy benchmarking and troubleshooting
+- **[KyungHwanKim-devs/kubegap](https://github.com/KyungHwanKim-devs/kubegap)** - Read-only Kubernetes operations gap audit with Markdown report
+- **[soba-labs/langchain-agent-skills](https://github.com/soba-labs/langchain-agent-skills)** - LangChain, LangGraph, LangSmith and Deep Agents development skills
+- **[izzzzzi/assh](https://github.com/izzzzzi/agent-assh/tree/main/skills/assh)** - SSH over persistent tmux sessions with paginated remote output
+- **[speakeasy-api/sdk-generation-skills](https://github.com/speakeasy-api/sdk-generation-skills)** - Generate SDKs, MCP servers, and Terraform providers from OpenAPI specs
+- **[buddy/buddy](https://github.com/buddy/buddy-plugin/tree/main/skills/buddy)** - Deploy apps, run pipelines and expose ports with Buddy
+- **[orwa-mahmoud/nightshift](https://github.com/orwa-mahmoud/nightshift)** - Punch list, clock-out gate and receipts for long agent runs
+- **[momentic-ai/skills](https://github.com/momentic-ai/skills)** - Write, run, and repair Momentic browser and mobile E2E tests
+- **[awss1i/checking-a-page](https://github.com/awss1i/assay/tree/main/plugins/assay/skills/checking-a-page)** - Check a web page by driving every control in Chromium
 
 </details>
 
@@ -1845,7 +1862,9 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[thousandflowers/skillreaper](https://github.com/thousandflowers/skillreaper)** - Prunes unused skills, MCP servers, and subagents from transcript evidence
 - **[orziz/odai](https://github.com/orziz/odai/tree/main/skills/odai)** - Govern evidence, responsibility routing, safety boundaries, and verified delivery
 - **[thedotmack/claude-mem](https://github.com/thedotmack/claude-mem)** - Compresses and persists agent memory across sessions
-- **[vshulcz/deja-history](https://github.com/vshulcz/deja-vu/tree/main/claude-plugin/skills/deja-history)** - Searches your own past sessions across 20 coding agents
+- **[vshulcz/deja-history](https://github.com/vshulcz/deja-vu/tree/main/claude-plugin/skills/deja-history)** - Searches your own past sessions across 43 coding agents
+- **[vshulcz/deja-search](https://github.com/vshulcz/deja-vu/tree/main/skills/deja-search)** - CLI session recall and blame across 43 coding agents
+- **[vshulcz/deja-reflect](https://github.com/vshulcz/deja-vu/tree/main/skills/deja-reflect)** - Distill recurring agent fixes into project rules files
 - **[ruslanlap/cavemenko](https://github.com/ruslanlap/cavemenko/tree/main/skills/cavemenko)** - Ukrainian pro-drop reply style, measured -49% tokens
 - **[RAKKUNN/vicem](https://github.com/RAKKUNN/vicem)** - Cross-agent context baton and 80-90% lossless code skeletonizer
 - **[amirkiarafiei/subagent-cli-skills](https://github.com/amirkiarafiei/subagent-cli-skills/tree/main/skills)** - Delegate heavy work to 15 other agent CLIs as subagents
@@ -1854,6 +1873,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[Qiuner/birdview](https://github.com/Qiuner/birdview)** - Put architecture and constraints at the center of AI coding
 - **[JayPokale/chisle](https://github.com/JayPokale/Chisle/tree/main/skills/chisle)** - Cuts agent tokens: terse prose, lean code, trimmed tool output
 - **[tinqiao-oss/engramory](https://github.com/tinqiao-oss/engramory)** - Curated plain-Markdown long-term memory with a size-capped index
+- **[wrg32786/aigent-os](https://github.com/wrg32786/aigent-os)** - Claude Code auto-clear harness with capsule memory
 
 </details>
 
@@ -1927,6 +1947,12 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[kinprove/genealogy-research-recipes](https://github.com/Kinprove/genealogy-research-recipes)** - Fact-checked recipes for DNA evidence and genealogy record searches
 - **[ChatCut-Inc/talking-head-guide](https://github.com/ChatCut-Inc/agent-plugin/tree/main/codex/skills/talking-head-guide)** - Edit talking-head videos: remove fillers, pauses, retakes; add captions, B-roll
 - **[ChatCut-Inc/create-motion-graphics](https://github.com/ChatCut-Inc/agent-plugin/tree/main/codex/skills/create-motion-graphics)** - Create editable motion graphics for video: titles, lower thirds, overlays
+- **[pashov/skills](https://github.com/pashov/skills)** - Solidity AI audit, threat model, fuzz suites.
+- **[makevoid/motion-graphics-music-video-skill-noimage](https://github.com/makevoid/motion-graphics-music-video-skill-noimage)** - Create music videos with native Swift graphics on macOS
+- **[rhiever/evident-charts](https://github.com/rhiever/evident-charts/tree/main/skills/evident-charts)** - Makes and critiques charts and checks the rendered image
+- **[mhfed/vn-law-check](https://github.com/mhfed/vn-law-check)** - Audit websites and apps against Vietnamese law
+- **[Vladimir-Human/ru-marketplace-mcp](https://github.com/Vladimir-Human/ru-marketplace-mcp)** - 15 skills for read-only search, product cards, seller details, reviews, and cross-marketplace price comparison across 12 Russian and Chinese marketplaces without API keys
+- **[everyinfra/everyinfra-agent-plugins](https://github.com/everyinfra/everyinfra-agent-plugins)** - Public data from 100+ platforms, web search, CAPTCHA solving
 
 </details>
 
