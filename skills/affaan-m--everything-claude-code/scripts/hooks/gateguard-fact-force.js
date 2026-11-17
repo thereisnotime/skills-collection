@@ -25,6 +25,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { showRecoveryHints } = require('../lib/hooks/recovery-hints');
 const { extractCommandSubstitutions, extractSubshellGroups, extractBraceGroups } = require('../lib/shell-substitution');
 const { classifyPowerShellDestructiveCommand } = require('../lib/powershell-destructive-command');
 const { stripHeredocBodies } = require('./gateguard-heredoc');
@@ -123,7 +124,13 @@ const ECC_ENABLE_VALUES = new Set(['1', 'true', 'on', 'enabled', 'enable', 'yes'
 // `echo dd if=x` — which runs no dd at all — was gated. The boundary decided
 // the verdict instead of the command position, so dd moved to isDestructiveDd()
 // alongside the other token-based detectors (#2642).
-const DESTRUCTIVE_SQL = /\b(drop\s+table|delete\s+from|truncate)\b/i;
+// DROP DATABASE / DROP SCHEMA remove at least as much data as DROP TABLE, and
+// ALTER TABLE ... DROP COLUMN discards a column's data across every row. The
+// DROP COLUMN arm is bounded by `;` so it cannot join two separate statements,
+// and it requires the explicit COLUMN keyword so `ALTER COLUMN ... DROP
+// DEFAULT` / `DROP NOT NULL` (metadata-only changes) stay passive.
+const DESTRUCTIVE_SQL =
+  /\b(drop\s+(?:table|database|schema)|delete\s+from|truncate|alter\s+table\b[^;]*?\bdrop\s+column)\b/i;
 
 // Operator-supplied additional destructive patterns. Lazily compiled from
 // `GATEGUARD_BASH_EXTRA_DESTRUCTIVE` (regex source) on first use, then
@@ -1044,22 +1051,35 @@ function isDestructiveQuoteAware(raw, depth = 0) {
       if (isDestructiveSqlClient(tokens)) return true;
       if (isDestructiveFindExec(tokens)) return true;
       const argv = unwrapLeadWrappers(tokens, true, true);
-      const base = commandBasename(argv[0]);
-      if (SHELL_WRAPPERS.has(base)) {
-        // `-c`, or a short-option cluster that includes it (`-lc`, `-ec`).
-        const ci = argv.findIndex((arg, i) => i > 0 && /^-[A-Za-z]*c[A-Za-z]*$/.test(arg));
-        if (ci !== -1 && argv[ci + 1] && isDestructiveQuoteAware(argv[ci + 1], depth + 1)) {
-          return true;
-        }
-      }
-      if (base === 'su') {
-        for (const commandLine of suCommandLines(argv)) {
+      // `sudo find . -exec rm {} \;` runs the same actions as a bare find.
+      if (isDestructiveFindExec(argv)) return true;
+      // A shell that find -exec starts runs its -c text like any other.
+      const execShells = findExecArgvs(argv).map(exec => unwrapLeadWrappers(exec, false, true));
+      for (const shellArgv of [argv, ...execShells]) {
+        for (const commandLine of nestedShellCommandLines(shellArgv)) {
           if (isDestructiveQuoteAware(commandLine, depth + 1)) return true;
         }
       }
     }
   }
   return false;
+}
+
+/**
+ * Command text a resolved argv hands to a nested shell: the `-c` operand of
+ * sh/bash/zsh/dash/ksh (also inside a cluster such as `-lc` or `-ec`), or every
+ * command line of `su`.
+ *
+ * @param {string[]} argv
+ * @returns {string[]}
+ */
+function nestedShellCommandLines(argv) {
+  const base = commandBasename(argv[0]);
+  if (SHELL_WRAPPERS.has(base)) {
+    const ci = argv.findIndex((arg, i) => i > 0 && /^-[A-Za-z]*c[A-Za-z]*$/.test(arg));
+    return ci !== -1 && argv[ci + 1] ? [argv[ci + 1]] : [];
+  }
+  return base === 'su' ? suCommandLines(argv) : [];
 }
 
 /**
@@ -1434,8 +1454,19 @@ const FIND_EXEC_ACTIONS = new Set(['-exec', '-execdir', '-ok', '-okdir']);
 function isDestructiveFindExec(command) {
   const quoteAware = Array.isArray(command);
   const tokens = quoteAware ? command : tokenize(String(command || '').trim());
-  if (commandBasename(tokens[0]) !== 'find') return false;
+  return findExecArgvs(tokens).some(argv => isDestructiveFindExecArgv(argv, quoteAware));
+}
 
+/**
+ * The argv of every executable action of one find invocation, or [] when the
+ * tokens are not a find command.
+ *
+ * @param {string[]} tokens
+ * @returns {string[][]}
+ */
+function findExecArgvs(tokens) {
+  if (commandBasename(tokens[0]) !== 'find') return [];
+  const actions = [];
   for (let index = 1; index < tokens.length; index += 1) {
     const action = tokens[index];
     if (action === '-fprintf') {
@@ -1449,9 +1480,9 @@ function isDestructiveFindExec(command) {
     if (!FIND_EXEC_ACTIONS.has(action)) continue;
     const exec = readFindExecArgv(tokens, index + 1, action);
     index = exec.index;
-    if (exec.argv.length && isDestructiveFindExecArgv(exec.argv, quoteAware)) return true;
+    if (exec.argv.length) actions.push(exec.argv);
   }
-  return false;
+  return actions;
 }
 
 // Collect the argv of one find action starting at `start`. Returns the argv
@@ -1472,10 +1503,21 @@ function readFindExecArgv(tokens, start, action) {
 
 function isDestructiveFindExecArgv(argv, quoteAware) {
   // The legacy raw fallback can split quoted prose into apparent actions.
-  // Preserve its old rm/Git coverage, but classify dd only from real argv.
+  // Preserve its old rm/Git coverage, but classify dd and wrappers only from
+  // real argv.
   if (quoteAware && isDestructiveDd(argv, false)) return true;
+  if (isDestructiveFindExecCommand(argv)) return true;
+  if (!quoteAware) return false;
+  // find execs argv directly, so `-exec sudo rm {} \;` and
+  // `-exec timeout 5 rm {} \;` run rm just as `-exec rm {} \;` does (#2832).
+  // Shell builtins do not apply: find never runs `command` or `exec` itself.
+  const resolved = unwrapLeadWrappers(argv, false, true);
+  return resolved.length > 0 && isDestructiveFindExecCommand(resolved);
+}
+
+// Preserve main's existing find rm/rmdir/unlink and git-reset handling.
+function isDestructiveFindExecCommand(argv) {
   const baseCmd = commandBasename(argv[0]);
-  // Preserve main's existing rm/rmdir/unlink and git-reset handling.
   if (baseCmd === 'rm' || baseCmd === 'rmdir' || baseCmd === 'unlink') return true;
   if (baseCmd !== 'git') return false;
   const sub = findGitSubcommand(argv);
@@ -2010,12 +2052,6 @@ function normalizeForMatch(value) {
     .toLowerCase();
 }
 
-function isClaudeSettingsPath(filePath) {
-  const normalized = normalizeForMatch(filePath);
-  return /(^|\/)\.claude\/settings(?:\.[^/]+)?\.json$/.test(normalized);
-}
-
-
 function isReadOnlyGitIntrospection(command) {
   const trimmed = String(command || '').trim();
   if (!trimmed || /[\r\n;&|><`$()]/.test(trimmed)) return false;
@@ -2108,7 +2144,9 @@ function condensedGateMsg(action, filePath, ordinal, { cls = 'code', targetNote 
     `${batchSiblingWarning(safe)} ` +
     (missNote ? `${missNote} ` : '') +
     (targetNote ? `${targetNote} ` : '') +
-    '(Use GATEGUARD_EXEMPT_GLOBS for path-scoped exemptions; GATEGUARD_FACT_FORCE_MAX_DENIALS caps denials per session; ECC_GATEGUARD=off disables this gate.)'
+    (showRecoveryHints()
+      ? '(Use GATEGUARD_EXEMPT_GLOBS for path-scoped exemptions; GATEGUARD_FACT_FORCE_MAX_DENIALS caps denials per session; ECC_GATEGUARD=off disables this gate.)'
+      : '')
   );
 }
 
@@ -2183,6 +2221,7 @@ function routineShellMsg(toolName) {
 }
 
 function withRecoveryHint(message, hookIds = [EDIT_WRITE_HOOK_ID], narrowRecoveryHint = '') {
+  if (!showRecoveryHints()) return message;
   const disableTargets = hookIds.map(hookId => `\`${hookId}\``).join(' or ');
   const recoveryLines = narrowRecoveryHint ? [narrowRecoveryHint, ''] : [];
   return [
@@ -2444,7 +2483,9 @@ function flushMetrics() {
 
 function exemptReason(filePath, data) {
   if (!filePath) return 'no-path';
-  if (isClaudeSettingsPath(filePath)) return 'claude-settings';
+  // .claude/settings*.json holds the switches for GateGuard and the other
+  // hooks, so a first-touch edit there must go through the same gate as any
+  // other new target. Exempting it let an agent disable the guard (#3845).
   return isExemptPath(filePath, data) ? 'exempt-glob' : '';
 }
 
@@ -2618,7 +2659,7 @@ function gateMultiEdit(ctx) {
 function gateMultiEditSubagent(edits, data, rawInput) {
   for (const edit of edits) {
     const filePath = (edit && edit.file_path) || '';
-    if (!filePath || isClaudeSettingsPath(filePath) || isExemptPath(filePath, data)) continue;
+    if (!filePath || isExemptPath(filePath, data)) continue;
     const denial = subagentRestrictedDenial(filePath, data, false);
     if (denial) return denial;
   }

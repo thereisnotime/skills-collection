@@ -4,7 +4,7 @@ description: Structured spec-driven development workflow. Load this skill whenev
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.9.2"
+  version: "2.10.0"
 ---
 
 # Spec-Driven Development
@@ -125,6 +125,10 @@ The constitution must be approved before writing any feature specs. All subseque
 
 ## Phase 2: Specification
 
+A spec is a durable contract for a capability. Months later, someone who was not
+in the room opens it to learn what the system must do. So before creating one,
+name who would open it again; if nobody would, there is nothing to write.
+
 ### Triage: Existing Specs First
 
 Before creating any new spec, **scan all existing specs** to determine whether this work belongs to an existing spec. Amend when the request changes or extends a capability an existing spec describes; create a new spec only for a distinct user goal or capability, not merely because it depends on existing features. See [references/spec-triage-guide.md](references/spec-triage-guide.md) for the full decision matrix and examples.
@@ -137,13 +141,20 @@ matching ACs, and add one `changelog.md` entry; never leave a superseded FR
 standing with a "superseded by" note. Each new FR names what it replaces, and
 a change that would net-add more than ~3 FRs, or lands on a spec past ~15,
 goes through the Amendment Gate in the triage guide. If no, create a new
-spec. If ambiguous, ask. "Improve combat" is an amendment; "add inventory
-system" is new. A spec that has accreted a hundred lines of amendments is
-rewritten, not split.
+spec only after the approval step below. If ambiguous, ask. "Improve combat"
+is an amendment; "add inventory system" is new. A spec that has accreted a
+hundred lines of amendments is rewritten, not split.
 
 ### Create the Spec
 
-Create `specs/###-feature-name/spec.md` for each feature (the `/speckit.specify` command scaffolds this via the helper scripts). See [references/feature-spec-template.md](references/feature-spec-template.md) for the full template.
+Before creating one, say in your reply what capability the spec would name and
+who would read it later — in your own sentence, not a filled-in template — and
+wait for the user's approval. Create no file or directory until the answer
+comes back.
+
+Create `specs/###-feature-name/spec.md` for each feature only after the yes
+(the `/speckit.specify` command scaffolds this via the helper scripts and runs
+only after the same approval). See [references/feature-spec-template.md](references/feature-spec-template.md) for the full template.
 
 Key sections:
 

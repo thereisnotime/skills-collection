@@ -378,7 +378,8 @@ const ROUTER_AUTO_COMPACT_WINDOW = 100000;
 const hasNoPriceCliff = (m: string): boolean => /sonnet|opus/i.test(m) && !/haiku/i.test(m);
 /** T036: the compact window a session carries. Every Haiku session gets it (router on or off, advisor or not); a routed
  *  session also gets it for an unknown model. Sonnet/Opus never do. The one definition both invokers and planRouterSession use. */
-export function compactWindowSettings(model: string, routed = false): { autoCompactWindow: number } | undefined {
+export function compactWindowSettings(model: string, routed = false, env: NodeJS.ProcessEnv = process.env): { autoCompactWindow: number } | undefined {
+  if (/^(0|off|false|no)$/i.test((env["LOKI_E10_COMPACT_WINDOW"] ?? "").trim())) return undefined; // Haiku arm measurement knob: no 100K window, the model's own default applies
   return isHaikuModel(model) || (routed && !hasNoPriceCliff(model)) ? { autoCompactWindow: ROUTER_AUTO_COMPACT_WINDOW } : undefined;
 }
 
@@ -464,11 +465,12 @@ function cliSettingsJson(hostGuard: boolean, router: Partial<NonNullable<RouterS
 // Edit and NotebookEdit in every permission mode; it does not cover Bash, MCP tools or hooks. Other stages are unchanged.
 // E1: implement and fix sessions on the CLI route also get a deny rule per existing config or lockfile the task does not name (Edit rules cover Edit, Write
 // and MultiEdit); a file the session creates is not covered here, the restore after the session (engine10/session.ts) removes it.
-type WriteFence = { permissions: { blockWritesOutsideWorkingDirectories?: true; deny?: string[] } };
+type WriteFence = { permissions: { blockWritesOutsideWorkingDirectories?: true; additionalDirectories?: string[]; deny?: string[] } };
 function implementWriteFence(cwd?: string): WriteFence | undefined { // cwd given: the CLI route, which has no in-process hook (the SDK route denies through createConfigFenceHook)
   const stage = process.env["LOKI_E10_STAGE"], deny = [...(cwd && stage ? stateDenyRules(cwd, harnessOutputs(cwd, process.env)) : []), ...(cwd && fenceEnabled(stage) ? fencedDenyRules(cwd, process.env) : [])]; // .loki/ run state in every engine10 stage, except the exact files the stage brief names (HARNESS-OUTPUTS)
   if (stage !== "implement" && deny.length === 0) return undefined;
-  return { permissions: { ...(stage === "implement" ? { blockWritesOutsideWorkingDirectories: true as const } : {}), ...(deny.length > 0 ? { deny } : {}) } };
+  const scratch = process.env["LOKI_SCRATCH"]; // the run-owned scratch directory is a working directory too (both routes): the brief asks for the proof script there, and a session that uses Write for it must not be refused
+  return { permissions: { ...(stage === "implement" ? { blockWritesOutsideWorkingDirectories: true as const, ...(scratch ? { additionalDirectories: [scratch] } : {}) } : {}), ...(deny.length > 0 ? { deny } : {}) } };
 }
 
 // Write captured output to disk. Used by every provider to honor the
@@ -579,6 +581,9 @@ export function claudeProvider(): ProviderInvoker {
         ...modelArgv,
         ...autoFlags,
         ...sessionArgv,
+        // The run-owned scratch directory is a working directory of the session: the write fence above blocks Write and Edit outside the working
+        // directories, and a session that reaches for Write (not a shell heredoc) to leave its proof script there was refused and ended unfinished.
+        ...(process.env["LOKI_SCRATCH"] && claudeFlagSupported("--add-dir") ? ["--add-dir", process.env["LOKI_SCRATCH"]] : []),
         ...(hostGuard || sessionSettings || fence
           ? ["--settings", cliSettingsJson(hostGuard, sessionSettings, fence)]
           : []),
@@ -719,6 +724,10 @@ const ENGINE10_TOOLS = ["Bash", "Read", "Edit", "Write", "Glob", "Grep"];
  *  buildSdkLoopOptions applies exactly this, and session.ts hashes exactly this (prefixParts), so the cache-cause key cannot drift. */
 export function engine10StaticPrefix(env: Readonly<Record<string, string | undefined>>): { tools: string[]; systemPrompt?: string; excludeDynamic: boolean } {
   // excludeDynamicSections applies only to the claude_code preset; the lean string replaces the preset, so it is never set with it.
+  // FULL SESSION (LOKI_E10_FULL_SESSION=1, set by engine10/session.ts for the implement session of an issue run): Claude Code as it ships: its own
+  // system prompt and every tool it has (subagents, task list, background shells), not six tools under a replacement prompt. The session that does the
+  // work is the product's intelligence; Loki adds the brief, the safety and the independent check around it, and no longer narrows it.
+  if (env["LOKI_E10_FULL_SESSION"] === "1") return { tools: [], excludeDynamic: env["LOKI_E10_STABLE_PREFIX"] !== "0" };
   const lean = env["LOKI_E10_PREFIX"] === "lean";
   return { tools: ENGINE10_TOOLS, ...(lean ? { systemPrompt: LEAN_PREFIX } : {}), excludeDynamic: !lean && env["LOKI_E10_STABLE_PREFIX"] !== "0" };
 }
@@ -750,7 +759,7 @@ export function buildSdkLoopOptions(args: {
   const engine10 = Boolean(process.env["LOKI_E10_STAGE"]);
   if (engine10) {
     const sp = engine10StaticPrefix(process.env);
-    out.tools = sp.tools;
+    if (sp.tools.length) out.tools = sp.tools; // an empty list (full session) leaves the tool set at Claude Code's own default
     out.noAppend = true;
     out.strictMcpConfig = true; // no MCP servers at all, ambient .mcp.json included
     // S41-09: LOKI_E10_PREFIX=lean (session.ts default) replaces the claude_code preset with one fixed string, so every

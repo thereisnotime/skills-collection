@@ -88,6 +88,21 @@ for skill in "${candidates[@]}"; do
     continue
   fi
 
+  old=
+  if [[ $event == push && -n $before ]] && git cat-file -e "$before:skills/$skill/SKILL.md" 2>/dev/null; then
+    old=$(version_at "$before" "$skill")
+  fi
+  if [[ -z $old ]]; then
+    old_tag=$(git tag -l "$skill/v*" --sort=-v:refname | sed -n '1p')
+    [[ -n $old_tag ]] && old=${old_tag##*/v}
+  fi
+
   git tag "$tag" "$target"
   git push origin "refs/tags/$tag"
+
+  if [[ -n $old ]]; then
+    echo "$skill $old -> $version"
+  else
+    echo "$skill $version (first tag)"
+  fi
 done

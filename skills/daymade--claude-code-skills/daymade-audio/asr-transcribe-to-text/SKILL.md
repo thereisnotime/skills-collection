@@ -931,6 +931,21 @@ After diarization you get a CSV per file (`file,start,end,duration,speaker,text`
 
 Generate it from a speaker-transcribe output directory:
 
+Projects explicitly adopted in a shared viewer registry refresh their separate
+data through its installed `asr_entry.py`; they do not regenerate a standalone
+UI. Select the registry with `MESSAGE_VIEWER_CONFIG` (default:
+`~/.config/daymade/message-viewer/service.json`). Missing migration prerequisites
+or a failed handoff stop without replacing the existing reader. Unregistered
+projects retain the offline generator below. This optional handoff requires a
+separately installed shared-viewer owner: the registry's `service_script` points
+to its `viewer_service.py`, beside `asr_entry.py`.
+Title, subtitle, known-speaker colors and material keywords are forwarded to the
+installed owner and retained in that source's registry. Default title/subtitle
+values do not replace its existing configuration. An older owner that rejects an
+option stops without regenerating the old UI. `--storage-key` remains unsupported
+for adopted projects: their dataset identity owns review storage; retain/export
+the old report before migrating its annotations.
+
 ```bash
 uv run ${CLAUDE_SKILL_DIR}/scripts/generate_audit_html.py \
   OUTPUT_DIR \

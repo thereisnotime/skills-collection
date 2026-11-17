@@ -5,14 +5,14 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join, relative } from "node:path";
 import { withStagePrefix } from "../../features/lean_prefix.ts"; import { fragmentWriterOn, outOfRepoReask, outOfRepoTests } from "../../project_model/conventions.ts";
 import { learningsBlock, lessonsForBrief, orgKnowledgeBlock } from "../../util/pr_lessons.ts"; export { learningsBlock }; // learningsBlock lives with the other brief-note helpers
-import { FINISH_LINE, fixedRules, briefRecord, pinnedTestUpdateEnabled, PLAN_HINT_LEAD, planHintsOn, type BriefRecord } from "../../e10ext/context.ts"; import { pinnedTestUpdates } from "../../util/test_guard.ts";
+import { FINISH_LINE, fixedRules, briefRecord, ISSUE_FINISH_LINE, issueRunBrief, pinnedTestUpdateEnabled, PLAN_HINT_LEAD, planHintsOn, proveByRunningBlock, type BriefRecord } from "../../e10ext/context.ts"; import { pinnedTestUpdates } from "../../util/test_guard.ts";
 import { fastTierModel } from "../../runner/model_downgrades.ts";
 import { cascadeDowngrade, loadRepoMap, namedFiles, sizeTask } from "../sizing.ts";
 import { attemptModels, attemptsK, type ExtraAttemptsDeps } from "../../features/attempts.ts";
 import { selectRelevantFiles } from "./plan.ts"; import { changedFiles, checkExcerpt, commandFor, runCheck, type VerifyCheck } from "./verify.ts"; import { loadProjectApi } from "../../project_model/resolve.ts"; import { suiteCmdsOpt } from "../../project_model/package_suite.ts"; import { planStopChecks } from "../../runner/stop_checks.ts";
-import { treeFingerprint } from "../../util/anti_loop.ts"; import { capStopOf, classifyExitCause, resolveModel } from "../session.ts"; import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; // E-68 reuse: never re-classify exit codes here
-import { type ContinueRecord, compactionsOf, lacksFinishLine, resumeToFinish, type NamedSitesRecord, type RemedyRecord, resumeForNamedSites, resumeForPrecedence, resumeForRemedy, adjudicateWallConflict, coverageFoldLines, coverageMode, coverageResumeEnabled, reaskFoldedClaims, resumeAfterAlreadyDone, resumeForSelfReview, resumeNeverStop, resumeAfterConflict, resumeAfterEmptyDone, resumeForCoverage } from "../../util/conflict_resume.ts";
-import { INTERRUPTED_BRIEF, interruptedSession, planChain, readSessionId } from "../../runner/session_resume.ts";
+import { treeFingerprint } from "../../util/anti_loop.ts"; import { baseFacts, keepProofScript, labelAsks, optionalAsk, ruleStatus, writeProofKit, PROOF_SCRIPT, PROVES_NOTHING_FIX, proofBaseCapOn, proofFacts, proofLoopMax, proofOnBase, proofRerunOn, provesNothing, provesNothingReason, rerunProof, unmetBrief, unusedNewFiles, worktreeTree, runSetupScript } from "../proof_rerun.ts"; import { crossReview, isUnmetNote, issueLineCheck, reviewFixOn } from "./xreview.ts"; import { PROOF_SCRIPT_LINE } from "../../e10ext/context.ts"; import { writeExitCleanup, cleanupSessionScratch, createSessionScratch, scratchSessionEnv, type SessionScratch } from "../../runner/worker_proc.ts"; import { envCard } from "../../util/stack_tools.ts"; import { repoCardBrief, settleSetupCheck } from "../../e10ext/repomemory.ts"; import { capStopOf, classifyExitCause, resolveModel } from "../session.ts"; import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; // E-68 reuse: never re-classify exit codes here
+import { type ContinueRecord, asUnfinishedConflict, compactionsOf, conflictNeedsTestOn, lacksFinishLine, resumeToFinish, type NamedSitesRecord, type RemedyRecord, resumeForNamedSites, resumeForPrecedence, resumeForRemedy, adjudicateWallConflict, coverageFoldLines, coverageMode, coverageResumeEnabled, reaskFoldedClaims, resumeAfterAlreadyDone, resumeForProofScript, resumeForSelfReview, resumeNeverStop, resumeAfterConflict, resumeAfterEmptyDone, resumeForCoverage, runVerifiedFinish } from "../../util/conflict_resume.ts";
+import { INTERRUPTED_BRIEF, interruptedSession, planChain, readSessionId } from "../../runner/session_resume.ts"; import { issueAcceptanceCapOn, issueAcceptanceOf } from "../../util/intent_card.ts";
 import { routeEscalate, routeStart } from "../../runner/router/implement_route.ts";
 import { routerActive } from "../../runner/router/unit_model.ts";
 import { type ImplementExit, type RunContext, type SessionResult, type SessionRunOptions, type Stage, type StageResult, type TestMap, type TestRef, taskBlock } from "../types.ts";
@@ -22,7 +22,7 @@ import { assumptionsBlock, rankedRemedyBlock, rankedRemedyEnabled } from "../../
 import { loadSpecFile, specBriefBlock, type LoadedSpec } from "../../util/spec_file.ts";
 import { appliedTests, buildPatchBrief, patchCallFor, patchEnabled, runPatchProtocol, testConventions, type PatchCall, type PatchCheck, type PatchOutcome } from "../../features/patch_protocol.ts";
 import { isTestFile } from "../../util/test_file_text.ts";
-import { guardReviewTurn, type ReviewItem, reviewTurnGuardOn, selfReviewBrief, selfReviewChecks, selfReviewMaxTurns, selfReviewMode, selfReviewWanted, settleItems, stripInventedReleaseRefs, treeStaged, type TurnGuardRecord } from "../../features/self_review.ts";
+import { type FinishRecord, guardReviewTurn, type ReviewItem, reviewTurnGuardOn, selfReviewBrief, verifiedFinishBrief, verifiedFinishMaxTurns, verifiedFinishOn, selfReviewChecks, selfReviewMaxTurns, selfReviewMode, selfReviewWanted, settleItems, stripInventedReleaseRefs, treeStaged, type TurnGuardRecord } from "../../features/self_review.ts";
 import { type DiffEntry, snapshotDiff } from "../../e10ext/treeswap.ts";
 
 /** A test file (a sealed Wall test) the implement session must not change: path is absolute, in the repo working tree; content is what to restore if it no longer matches. */
@@ -44,9 +44,9 @@ export const briefCtx = (ctx: RunContext, model?: string): BriefRecord => briefR
 // Plan skipped: fixed lines (this one, then the folded coverage line), no per-task text, placed right after FIXED_RULES so every skipped-plan brief shares the same cache-stable prefix.
 export const FOLD_PLAN_INSTRUCTION = "Before editing, write the files you will change and the test you will run, in at most 10 lines, then proceed.";
 const REPRO_LINE = "If the task reports a bug, first add a new test function that reproduces it, run it and see it fail, then fix the code and run that test again.";
-export function buildImplementBrief(task: string, plan: string | null, impactedTests: string[], repoMap = "", spec: string | null = null, assumptions: unknown = undefined, remedy: unknown = undefined): string {
+export function buildImplementBrief(task: string, plan: string | null, impactedTests: string[], repoMap = "", spec: string | null = null, assumptions: unknown = undefined, remedy: unknown = undefined, issue = false): string {
   return withStagePrefix([ // FIXED_RULES leads and FINISH_LINE closes, both byte-identical per task
-    fixedRules(), // Z2: the pinned-test rule, or the v11.139.0 text with LOKI_E10_PINNED_TEST_UPDATE=0
+    fixedRules(process.env, issue), // Z2: the pinned-test rule, or the v11.139.0 text with LOKI_E10_PINNED_TEST_UPDATE=0; issue: the issue-run rules constant (e10ext/context.ts issueRules)
     ...(plan ? [] : [FOLD_PLAN_INSTRUCTION, ...coverageFoldLines()]), // LOKI_E10_COVERAGE_RESUME fold (default): fixed bytes before any per-task text; turn and off add nothing (main's brief)
     ...taskBlock(task),
     ...assumptionsBlock(assumptions),
@@ -55,7 +55,7 @@ export function buildImplementBrief(task: string, plan: string | null, impactedT
     plan ? (planHintsOn() ? `${PLAN_HINT_LEAD}\n${plan}` : `Follow this plan:\n${plan}`) : "No separate plan was made: plan the change yourself in this session, then implement it." + (process.env.LOKI_E10_REPRO === "1" ? " " + REPRO_LINE : ""), // TEN-QUALITY-08: default off, lean path only
     ...(repoMap ? [repoMap] : []),
     impactedTests.length ? `Impacted tests (a starting hint, not a limit): ${impactedTests.join(", ")}.` : "Impacted tests: none known; run the targeted tests for the code you change (the harness runs the full suite after you stop when the diff's risk tier is medium or high).",
-    FINISH_LINE,
+    issue ? ISSUE_FINISH_LINE : FINISH_LINE,
   ].join("\n\n"));
 }
 
@@ -175,7 +175,16 @@ export const implementStage: Stage = {
     let sessionResume: string | undefined = own ? (ownId ? "resumed" : `fresh (${(own as { why: string }).why})`) : undefined;
     const picked = (Array.isArray(prior.intake?.assumptions) ? (prior.intake!.assumptions as unknown[]) : []).filter((a): a is string => typeof a === "string" && runPickedChoice(a)); // LOKI_E10_OPUS_CONSULT trigger open-choice: an either/or the run would settle by itself
     const choiceAdvice = picked.length && consultEnabled() && !ownId && !signal.aborted ? await runConsult({ runDir: ctx.runDir, repoDir: ctx.repoDir, stage: "implement", trigger: "open-choice", task, evidence: picked.join("\n"), diff: null, code: bc.packText ?? bc.text }) : null;
-    const fullBrief = buildImplementBrief(task, plan, impacted, repoMap, [specBriefBlock(spec), execSpecBriefOf(ctx.runDir), ...adviceBlock(choiceAdvice)].filter(Boolean).join("\n\n") || null, prior.intake?.assumptions, rankedRemedyEnabled() ? prior.intake?.ranked_remedy : undefined); // the advice joins the per-task part of the brief, never the cache-stable prefix // LOKI_E10_EXEC_SPEC: the binding and advisory spec cases the lean Wall stage left
+    const issue = issueRunBrief(ctx.provider, prior.intake?.source); // candidate 1: issue-run rules, block, lines and card; a text goal and opencode keep today's brief
+    let scratch: SessionScratch | null = null; try { scratch = issue ? createSessionScratch(ctx.runDir) : null; } catch { scratch = null; } // Q1 RUN-SCRATCH: the session's own short scratch directory; any error means none
+    if (scratch) writeProofKit(scratch.dir, labelAsks(ctx.provider, prior.intake, prior.plan, ctx.repoDir).asks); // the check functions and the numbered acceptance lines the proof script must use
+    if (scratch) { const sc = scratch, rd = ctx.runDir; process.once("exit", () => { if (existsSync(sc.dir)) writeExitCleanup(rd, cleanupSessionScratch(sc)); }); } // safety net: an aborted stage still leaves nothing running or on disk
+    const setupCheck = issue && !ownId && !signal.aborted ? await settleSetupCheck(ctx.repoDir, ctx.runDir, (s) => runSetupScript(ctx.repoDir, s, signal)) : null; // SETUP CHECK: Loki's own run of the stored setup on this checkout (started beside plan), and the one-file edit that gets it through when it stops
+    if (setupCheck) ctx.emit("repo.card", "implement", { when: "checked", result: setupCheck.result, seconds: setupCheck.seconds, trials: setupCheck.trials, ...(setupCheck.file ? { file: setupCheck.file } : {}) });
+    const known = issue ? repoCardBrief(ctx.repoDir, scratch?.dir ?? null, process.env, setupCheck) : null; // REPO CARD: what earlier runs here verified (e10ext/repomemory.ts), in the brief and as $LOKI_SCRATCH/loki-setup.sh; LOKI_REPO_CARD=0 opts out
+    if (known) { try { writeFileSync(join(ctx.runDir, "repo-card.json"), JSON.stringify(known.record) + "\n"); } catch { /* the record is evidence only */ } ctx.emit("repo.card", "implement", { when: "read", ...known.record }); }
+    const card = issue ? envCard(ctx) : null; // the small environment card (util/stack_tools.ts envCard): server binaries off PATH that the repository needs
+    const fullBrief = buildImplementBrief(task, plan, impacted, known ? `${repoMap}${repoMap ? "\n\n" : ""}${known.text}` : repoMap, [specBriefBlock(spec), execSpecBriefOf(ctx.runDir), ...adviceBlock(choiceAdvice), proveByRunningBlock(ctx.provider, prior.intake?.source, process.env, card?.line ?? null)].filter(Boolean).join("\n\n") || null, prior.intake?.assumptions, rankedRemedyEnabled() ? prior.intake?.ranked_remedy : undefined, issue); // the advice joins the per-task part of the brief, never the cache-stable prefix // LOKI_E10_EXEC_SPEC: the binding and advisory spec cases the lean Wall stage left
     try { mkdirSync(ctx.runDir, { recursive: true }); writeFileSync(join(ctx.runDir, ATTEMPT_BRIEF_FILE), fullBrief, "utf8"); } catch { /* best effort: without it the machine starts no extra attempt */ } // EXP-0010: the extra attempts after a red verify start from this exact brief
     const firstAttemptModel = attemptsK(ctx.model) > 0 ? attemptModels()[0] : undefined; // LOKI_E10_ATTEMPT_MODELS entry 1: the first of the best-of-N attempts (a downgrade still wins)
     const first: SessionRunOptions = {
@@ -183,6 +192,8 @@ export const implementStage: Stage = {
       brief: ownId ? INTERRUPTED_BRIEF : fullBrief,
       tier: "development",
       iterationId: `${ctx.runId}-impl`,
+      ...(card?.pathAppend.length ? { pathAppend: card.pathAppend } : {}),
+      ...(scratch ? { sessionEnv: scratchSessionEnv(scratch) } : {}), // RUN-SCRATCH: resumes inherit it (resumeWith spreads first) // appended to this session's PATH and every resume's (resumeWith spreads first)
       limitS: implementStage.limitS,
       signal,
       cwd: ctx.repoDir,
@@ -216,7 +227,10 @@ export const implementStage: Stage = {
     }
     if (rt && !signal.aborted) session = await routeEscalate(ctx, first, session, rt, ids, () => treeIsEmpty(ctx)); // triggers b/c (and, under the preset, a no-diff already-done claim): one redo on the next rung
     let pinConflict: string | undefined; // Z1 (LOKI_E10_PINNED_TEST_UPDATE): the cited test that pins the reported behavior, when the correction named it
+    const h1 = issueRunBrief(ctx.provider, prior.intake?.source) && conflictNeedsTestOn(), h1n = (x: SessionResult): SessionResult => (h1 ? asUnfinishedConflict(x) : x); // H1: decided before the conflict correction, so a no-test conflict never gets the -r turn and is resumed once, by S1b
+    session = h1n(session);
     if (session.markers.specConflict && !session.killed) { const r = await resumeAfterConflict(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session); session = r.session; pinConflict = r.pinnedTest; if (r.iterationId !== ids[ids.length - 1]) ids.push(r.iterationId); } // FC-19: one correction, then the conflict is believed
+    session = h1n(session); // H1: a -r reply that answers with a no-test conflict is unfinished, not a believed conflict
     if (session.markers.specConflict && !session.killed && !signal.aborted) { const w = await adjudicateWallConflict(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, readOnly); if (w) { session = w.session; ids.push(...w.ids); } } // FC-WALL-DEFECT-REPORTED-AS-SPEC-CONFLICT: a Wall-anchored conflict goes to the referee (record: outputs.wall.arbitrated)
     let neverStop: NeverStopRecord | undefined; // LOKI_E10_OPUS_CONSULT never-stop: a headless run does not end BLOCKED on a conflict it can settle; one consult, then one resume that implements the most likely intent
     if (session.markers.specConflict && !session.killed && !signal.aborted && neverStopActive()) {
@@ -234,7 +248,7 @@ export const implementStage: Stage = {
 
     let finish: Omit<ContinueRecord, "compactions"> | undefined; // S1b FINISH-LINE (claude only): a session whose final text has no finish line is resumed before every follow-up gate
     if (patch?.status !== "green" && !session.killed && session.exit === 0 && !signal.aborted && lacksFinishLine(ctx.provider, session)) {
-      const r = await resumeToFinish(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, { fingerprint: () => treeFingerprint(ctx.repoDir, ctx.baseSha), spentUsd: () => ctx.cost.read(ctx.repoDir, ctx.sessionIds?.() ?? ids).usd, compactions: (xs) => compactionsOf(ctx, xs), signal });
+      const r = await resumeToFinish(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, { fingerprint: () => treeFingerprint(ctx.repoDir, ctx.baseSha), spentUsd: () => ctx.cost.read(ctx.repoDir, ctx.sessionIds?.() ?? ids).usd, compactions: (xs) => compactionsOf(ctx, xs), signal, normalize: h1n });
       session = r.session; for (const id of r.iterationIds) if (!ids.includes(id)) ids.push(id); finish = r.record;
     }
     const incomplete = finish !== undefined && finish.ended !== "finish line";
@@ -254,13 +268,61 @@ export const implementStage: Stage = {
     if (patch?.status !== "green" && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done && !session.markers.specConflict && !session.markers.alreadyDone && !treeIsEmpty(ctx)) { const r = await resumeForPrecedence(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session); if (r.sites > 0) { session = r.session; for (const id of r.iterationIds) if (!ids.includes(id)) ids.push(id); precedenceRec = { sites: r.sites, resumed: r.iterationIds.length > 0 }; } }
     let namedRec: NamedSitesRecord | null = null; // R2 LOKI_E10_NAMED_SITES: every named site changed or explained; one "-ns" resume for any that is neither, seal judges the final diff
     if (patch?.status !== "green" && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done && !session.markers.specConflict && !session.markers.alreadyDone && !treeIsEmpty(ctx)) { const r = await resumeForNamedSites(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, task); session = r.session; for (const id of r.iterationIds) if (!ids.includes(id)) ids.push(id); namedRec = r.record; }
+    if (scratch && proofRerunOn() && !existsSync(join(scratch.dir, PROOF_SCRIPT)) && !signal.aborted && !session.killed && session.exit === 0 && !session.markers.specConflict && !session.markers.alreadyDone && !treeIsEmpty(ctx)) { // PROOF SCRIPT: the session ran the product by hand but left nothing Loki can re-run; one resume asks for the script, the session's own verdict and reply stay
+      const r = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, `Loki found no proof script at $LOKI_SCRATCH/loki-proof.sh, so nothing you ran can count toward the label. Write it now from the commands you already ran in this session. ${PROOF_SCRIPT_LINE} Do not change the product code in this turn unless the script shows a real failure. When it passes, leave it in place and end with the same finish line as before.`);
+      if (r.iterationId !== ids[ids.length - 1]) ids.push(r.iterationId);
+      if (r.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[proof script turn]\n${r.session.summary}` };
+    }
+    const lineRounds: { met: number; unmet: number; usd: number | null }[] = [];
+    const proofRounds: { exit: number | null; failed: number; seconds: number; base_seconds?: number }[] = []; // PROOF LOOP: Loki runs the proof itself and hands a failure back with its real output, so a session that is wrong is corrected by evidence, not asked to try harder
+    let reviewedEarly = false, earlyReviewCost: string | null = null; let proofFails = 0, lineTurns = 0; const LINE_TURNS_MAX = 2; // the acceptance check has its own two turns: a session that used every proof turn to get the script passing (Haiku did) used to get no acceptance feedback at all
+    for (let round = 0; proofFails < proofLoopMax() && scratch && proofRerunOn() && existsSync(join(scratch.dir, PROOF_SCRIPT)) && !signal.aborted && !session.killed && session.exit === 0 && !session.markers.specConflict && !session.markers.alreadyDone; round++) {
+      if (!keepProofScript(scratch.dir, ctx.runDir)) break;
+      const pr = await rerunProof(ctx.repoDir, ctx.runDir, signal); if (!pr) break;
+      const pb = pr.exit === 0 && pr.failed === 0 ? await proofOnBase(ctx.repoDir, ctx.runDir, ctx.baseSha, pr, signal) : null; // PROVES THE CHANGE: the same script against the base commit; a check that also passes there proves nothing about this change (proof_rerun.ts proofOnBase)
+      if (pb) ctx.emit("proof.base", "implement", { round: round + 1, available: pb.available, ...(pb.why ? { why: pb.why } : {}), seconds: pb.seconds, ...(pb.cached ? { cached: true } : {}), base_checks: pb.base_checks, base_proved: pb.base_proved, passing: pb.head_proved, also_pass_on_base: pb.same_total });
+      proofRounds.push({ exit: pr.exit, failed: pr.failed, seconds: pr.seconds, ...(pb && !pb.cached ? { base_seconds: pb.seconds } : {}) }); { const la0 = labelAsks(ctx.provider, prior.intake, prior.plan, ctx.repoDir); ctx.emit("proof.rerun", "implement", { round: round + 1, exit: pr.exit, proved: pr.proved, failed: pr.failed, seconds: pr.seconds, source: la0.source, statuses: ruleStatus(la0.asks, pr, proofBaseCapOn() ? pb : null).map((s, i) => ({ line: s.line, status: s.status, checks: pr.lines[String(i + 1)]?.proved ?? 0, ...(s.reason ? { reason: s.reason } : {}) })) }); } // the live console turns each line green from this
+      if (pr.exit === 0 && pr.failed === 0) { // the proof passes when Loki runs it: now check it against every acceptance line, and hand unmet lines back with the reason
+        const la = labelAsks(ctx.provider, prior.intake, prior.plan, ctx.repoDir); if (!la.asks.length || lineTurns >= LINE_TURNS_MAX) break;
+        const tree = await worktreeTree(ctx.repoDir); if (!tree) break;
+        const lc = await issueLineCheck(ctx, la.asks, tree, [], session.summary ?? "", [...(la.needs.length ? [`This repository needs: ${la.needs.join(", ")}.`] : []), "Loki's verify stage has not run yet at this point, so the check list is empty: a line about tests is met when the output of Loki's own run shows those tests passing.", ...proofFacts(ctx.runDir, pr, true), ...baseFacts(la.asks, pr, pb)]);
+        const byRule = ruleStatus(la.asks, pr), empty = new Set(provesNothing(la.asks, pr, pb)), unmet = la.asks.flatMap((line, i) => { if (optionalAsk(line)) return []; if (byRule[i]!.status !== "met") return [{ line: `${i + 1}. ${line}`, reason: byRule[i]!.reason ?? "" }]; if (empty.has(i + 1)) return [{ line: `${i + 1}. ${line}`, reason: `${provesNothingReason(pb!, i + 1)}. ${PROVES_NOTHING_FIX}` }]; return lc.marks && !lc.marks.met.includes(i + 1) ? [{ line: `${i + 1}. ${line}`, reason: `it has a passing check, but a reviewer found a gap: ${lc.reasons?.[String(i + 1)] ?? "not stated"}` }] : []; }); // the count decides; the reviewer's gaps are handed back too, as advice the session should close
+        const lineUnmet = unmet.length; // the acceptance count is about the lines only
+        for (const f of await unusedNewFiles(ctx.repoDir, ctx.baseSha, tree)) unmet.push({ line: `(not an acceptance line) ${f}`, reason: "no other file in the repository imports or names this new file, so a user cannot reach what it does. Mount it where it belongs (a page, a route, a registry, a menu) and prove that path, or remove it" });
+        lineRounds.push({ met: lc.marks?.met.length ?? 0, unmet: unmet.length, usd: lc.usd }); ctx.emit("acceptance.round", "implement", { round: round + 1, met: la.asks.length - lineUnmet, unmet: lineUnmet, ...(empty.size ? { pass_on_base_too: empty.size } : {}), ...(unmet.length > lineUnmet ? { unused_new_files: unmet.length - lineUnmet } : {}) });
+        if (!unmet.length) {
+          // REVIEW-THEN-FIX: every item is met by count and by the acceptance check. One independent review now, while the session can still act on it.
+          if (reviewedEarly || !reviewFixOn()) break;
+          reviewedEarly = true;
+          const xr = await crossReview(ctx, "VERIFIED", tree, signal, true); if (xr?.cost_iteration) earlyReviewCost = xr.cost_iteration;
+          const found = xr && (xr.level === "block" || xr.notes.some(isUnmetNote)) ? xr.notes.filter((n) => /^cross-review (block|flag) /.test(n) || isUnmetNote(n)).slice(0, 8) : [];
+          ctx.emit("review.early", "implement", { level: xr?.level ?? "not_run", findings: found.length });
+          if (!found.length) break;
+          const r3 = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, [`An independent reviewer read your whole change and found ${found.length} problem${found.length === 1 ? "" : "s"}:`, "", ...found.map((n, i) => `${i + 1}. ${n.replace(/^cross-review \w+ \([^)]*\):\s*/, "")}`), "", "Check each one against the code. Where the reviewer is right, fix the product (and the documentation when the two disagree), add a check for it to $LOKI_SCRATCH/loki-proof.sh under the acceptance item it belongs to, and run the proof again until it passes. Where the reviewer is wrong, say why in one line and change nothing for it. Do not remove or loosen an existing check. End with the same finish line as before."].join("\n"));
+          if (r3.iterationId !== ids[ids.length - 1]) ids.push(r3.iterationId); else break;
+          if (r3.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[after the independent review]\n${r3.session.summary}` };
+          continue; // Loki runs the proof again on the fixed tree
+        }
+        const stray = Object.keys(pr.lines).filter((k) => Number(k) > la.asks.length || Number(k) < 1); // checks filed under a number that is no acceptance item
+        const r2 = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, unmetBrief(unmet, stray.length ? `Your proof script passes, but ${stray.length} of its check numbers (${stray.slice(0, 6).join(", ")}) are not acceptance item numbers, so those checks count for no item. The first argument of loki_http and loki_cmd is the item's number in $LOKI_SCRATCH/acceptance.txt (1 to ${la.asks.length}), never a line number of the script. Renumber them.` : ""));
+        if (r2.iterationId !== ids[ids.length - 1]) ids.push(r2.iterationId); else break;
+        lineTurns++;
+        if (r2.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[after Loki's acceptance check, round ${round + 1}]\n${r2.session.summary}` };
+        continue;
+      }
+      const r = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, `Loki ran your proof script ($LOKI_SCRATCH/loki-proof.sh) by itself, in a new empty directory, and it did not pass: exit ${pr.exit === null ? "none (it did not finish in time)" : pr.exit}, ${pr.proved} PROVED and ${pr.failed} FAILED line(s). This is the real end of its output:\n\n${pr.tail.slice(-4000)}\n\nFind out why it fails when it starts from nothing. A script that passed for you and fails for Loki usually depends on something your earlier commands left behind (a database, a file, a running server, an environment variable). Fix the product if the product is wrong, or the script if the script is wrong, run it yourself with a new empty directory as its argument until it exits 0, leave it in place, and end with the same finish line.`);
+      if (r.iterationId !== ids[ids.length - 1]) ids.push(r.iterationId); else break; // no room left to resume
+      proofFails++;
+      if (r.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[after Loki's own run of the proof failed, round ${round + 1}]\n${r.session.summary}` };
+    }
+    const preReviewReply = session.summary ?? ""; // the implement session's own last reply, with its per-item proof list; the review turn below replaces session.summary with its checklist answers
     let selfReview: Record<string, unknown> | null = null; // SR LOKI_E10_SELF_REVIEW: deterministic pre-delivery checks, then at most one bounded "-rv" review resume
     { const mode = selfReviewMode(); if (mode !== "off" && ctx.baseSha && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done && !session.markers.specConflict && !session.markers.alreadyDone && !treeIsEmpty(ctx)) {
       const before = selfReviewChecks(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task, ctx.outputs(), process.env, ctx.runDir);
       let after: ReviewItem[] | null = null, reply: string | null = null, turn: string | null = null;
-      let guard: TurnGuardRecord | null = null;
-      if (selfReviewWanted(before, mode)) { const preTurn = reviewTurnGuardOn() ? snapshotDiff(ctx.repoDir, ctx.baseSha) : null; const r = await resumeForSelfReview(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, selfReviewBrief(ctx.repoDir, before), selfReviewMaxTurns()); if (r) { turn = r.iterationId; if (!ids.includes(r.iterationId)) ids.push(r.iterationId); if (r.session !== session) { reply = r.session.summary ?? ""; guard = preTurn && !signal.aborted ? await reviewTurnGuard(ctx, preTurn, readOnly.map((f) => relative(ctx.repoDir, f.path)), signal) : null; if (!guard?.reverted && !r.session.killed && r.session.exit === 0 && r.session.markers.done && !r.session.markers.specConflict && !r.session.markers.alreadyDone) session = r.session; else session = { ...session, durationS: r.session.durationS }; } after = selfReviewChecks(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task, ctx.outputs(), process.env, ctx.runDir); } } // only a clean LOKI_DONE review reply replaces the implement result: a review turn never turns a done run into a conflict; TG: a reverted turn keeps the pre-turn result
-      selfReview = { mode, turn, items: settleItems(before, after, guard?.reverted ? null : reply), ...(guard ? { turn_guard: guard } : {}) };
+      let guard: TurnGuardRecord | null = null, finish: FinishRecord | null = null;
+      if (selfReviewWanted(before, mode)) { const fin = verifiedFinishOn() ? verifiedFinishBrief(ctx.repoDir, ctx.baseSha, before, task) : null, preTurn = fin || reviewTurnGuardOn() ? snapshotDiff(ctx.repoDir, ctx.baseSha) : null; const r = fin ? await runVerifiedFinish(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, fin.brief, verifiedFinishMaxTurns()) : await resumeForSelfReview(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, selfReviewBrief(ctx.repoDir, before), selfReviewMaxTurns()); if (fin) finish = { fired: true, iteration: r?.iterationId ?? null, ...fin.record }; /* VF: a fresh finish session on the cut context, always guarded */ if (r) { turn = r.iterationId; if (!ids.includes(r.iterationId)) ids.push(r.iterationId); if (r.session !== session) { reply = r.session.summary ?? ""; guard = preTurn && !signal.aborted ? await reviewTurnGuard(ctx, preTurn, readOnly.map((f) => relative(ctx.repoDir, f.path)), signal) : null; if (!guard?.reverted && !r.session.killed && r.session.exit === 0 && r.session.markers.done && !r.session.markers.specConflict && !r.session.markers.alreadyDone) session = r.session; else session = { ...session, durationS: r.session.durationS }; } after = selfReviewChecks(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task, ctx.outputs(), process.env, ctx.runDir); } } // only a clean LOKI_DONE review reply replaces the implement result: a review turn never turns a done run into a conflict; TG: a reverted turn keeps the pre-turn result
+      selfReview = { mode, turn, items: settleItems(before, after, guard?.reverted ? null : reply), ...(guard ? { turn_guard: guard } : {}), ...(finish ? { finish } : {}) };
     } }
     const refsRemoved = ctx.baseSha && !signal.aborted && !session.killed && session.exit === 0 && session.markers.done ? stripInventedReleaseRefs(ctx.repoDir, ctx.baseSha, treeStaged(ctx.repoDir, ctx.baseSha), task) : []; // CR: a reference the task never gives never ships, whatever the model wrote
     const pinnedUpdates = pinnedTestUpdateEnabled() && ctx.baseSha ? pinnedTestUpdates(ctx.repoDir, ctx.baseSha, session.summary ?? "", task) : []; // Z2: the UPDATED TEST lines of the final reply, each checked against base, head and the task
@@ -271,6 +333,9 @@ export const implementStage: Stage = {
     const noRegression = !plan && !overlap ? await runNrdGate(ctx, signal, session, readOnly.map((f) => relative(ctx.repoDir, f.path))) : null; // LOKI_E10_NRD (Go, lean path, default on, =0 opts out): features/no_regression.ts, after the tournament and the Wall restore; the first verify hands its finding to one fix round
     const iterationId = ids[ids.length - 1]!;
     // E-68 classifies exit codes; a non-killed, marker-less non-zero exit is an error, never "done".
+    if (scratch) keepProofScript(scratch.dir, ctx.runDir); // the session's proof script leaves the scratch before it is removed; seal re-runs it
+    const scratchRec = scratch ? cleanupSessionScratch(scratch) : null; // RUN-SCRATCH: implement and its resumes have ended; stop what is left and remove the directory
+    if (scratchRec && (scratchRec.stopped.length || scratchRec.left.length || !scratchRec.removed)) ctx.emit("scratch.cleanup", "implement", { when: "after the implement session", stopped: scratchRec.stopped, left: scratchRec.left, removed: scratchRec.removed, ...(scratchRec.kept ? { kept: scratchRec.kept } : {}) }); // Q1 SCRATCH-FINAL: the event on a normal run too; the receipt entry below
     let exit: ImplementExit | "error";
     if (session.killed || session.exit === MAX_TURNS_EXIT) { // a turn-cap stop is harness-owned and ends like a limit stop: PARTIAL, never BLOCKED
       exit = "killed";
@@ -293,19 +358,21 @@ export const implementStage: Stage = {
       already_done_evidence: session.markers.alreadyDone,
       spec_conflict_reason: session.markers.specConflict,
       tests_reverted: testsReverted,
-      impacted_tests: impacted, ...(plan && planHintsOn() ? { plan_hints: true } : {}), brief_files: bc.files, ...(bc.pack ? { context_pack: bc.pack } : {}), // L022: the exact files the brief named; L021: pack paths and line ranges
+      impacted_tests: impacted, ...(known ? { repo_card: known.record } : {}), ...(plan && planHintsOn() ? { plan_hints: true } : {}), brief_files: bc.files, ...(bc.pack ? { context_pack: bc.pack } : {}), // L022: the exact files the brief named; L021: pack paths and line ranges
       cascade,
       ...(downgrade ? { model_downgrade: downgrade.note } : {}),
-      iteration_ids: ids, model: rt ? rt.current : downgrade?.to ?? firstAttemptModel ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
+      iteration_ids: earlyReviewCost ? [...ids, earlyReviewCost] : ids, model: rt ? rt.current : downgrade?.to ?? firstAttemptModel ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
       duration_s: session.durationS, ...(session.exit === MAX_TURNS_EXIT && !session.killed ? { stop_cause: "max_turns", owner: "harness", limit_s: implementStage.limitS, elapsed_s: session.durationS, ...(capStopOf(session.summary) ? { session_cap: capStopOf(session.summary) } : {}) } : {}),
       ...(planChainMode ? { plan_chain: planChainMode } : {}),
       ...(sessionResume ? { session_resume: sessionResume } : {}),
-      ...(finish ? { finish: { ...finish, compactions: compactionsOf(ctx, ids) } } : {}), // S1b: only when it fired, so an unchanged run's receipt keys stay as they were; compactions are seen on the SDK route only (null on the CLI route)
+      ...(finish ? { finish: { ...finish, compactions: compactionsOf(ctx, ids) } } : {}),
+      ...(proofRounds.length ? { proof_rounds: proofRounds } : {}), ...(lineRounds.length ? { acceptance_rounds: lineRounds } : {}), ...(scratchRec && (scratchRec.stopped.length || scratchRec.left.length || !scratchRec.removed) ? { scratch_cleanup: scratchRec } : {}), // RUN-SCRATCH: recorded only when the harness had to stop something or could not remove the directory // S1b: only when it fired, so an unchanged run's receipt keys stay as they were; compactions are seen on the SDK route only (null on the CLI route)
       ...(coverage ? { coverage_resume: coverage } : {}), ...(rankedRemedyRec ? { ranked_remedy: rankedRemedyRec } : {}), ...(precedenceRec ? { precedence_check: precedenceRec } : {}), ...(namedRec ? { named_sites: namedRec } : {}), ...(pinConflict ? { pin_conflict: pinConflict } : {}), ...(pinnedUpdates.length ? { pinned_test_updates: pinnedUpdates } : {}), ...(claimAbsent ? { claim_absent: claimAbsent } : {}),
       ...(patch ? { patch: { status: patch.status, seconds: Math.round(patchS * 10) / 10, calls: patch.calls, applied: patch.applied, refused: patch.refused, restored: patch.restored, usd: patch.usd, log: patch.log, ...(patch.check ? { check: patch.check } : {}) } } : {}),
       ...(tournament ? { tournament } : {}),
       ...(noRegression ? { no_regression: noRegression } : {}),
       ...(neverStop ? { never_stop: [neverStop] } : {}),
+      ...(issueAcceptanceCapOn() && (issueAcceptanceOf(prior.intake).length || issue) && session.summary ? { final_reply: (preReviewReply && preReviewReply !== session.summary ? `${preReviewReply.slice(-12000)}\n\n[then, after the review turn]\n${session.summary.slice(-4000)}` : session.summary.slice(-16000)) } : {}), // Q1 ISSUE-ACCEPTANCE: the final reply the seal's line check reads
       ...(selfReview ? { self_review: selfReview } : {}), ...(refsRemoved.length ? { changelog_refs_removed: refsRemoved } : {}),
       ...(fragmentWriterOn() && session.summary ? { summary_tail: session.summary.slice(-1500) } : {}), // the release-note writer reads the final message
     };

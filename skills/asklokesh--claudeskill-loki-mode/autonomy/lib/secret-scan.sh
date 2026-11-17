@@ -64,6 +64,14 @@ _commit_scan_secret_file() {
     # placeholder or an environment-variable reference rather than a literal.
     local deny='(\$\{|\$[A-Za-z_]|process\.env|os\.(environ|getenv)|%[A-Za-z_]+%|your[-_]|redacted|changeme|change[-_]me|placeholder|example|dummy|sample|fake|<[^>]*>|x{4,}|\*{4,})'
 
+    # TEST FILES: a test's made-up credential (adminPassword: 'correct-horse-battery') is test data, not a leak. Tier 1 above
+    # (real key formats) still applies to them; the generic tier below does not. A finished run was refused its push for
+    # exactly that line (FireLater#24, 2026-11-17).
+    case "$file" in
+        */__tests__/*|*/tests/*|*/test/*|*/spec/*|*/e2e/*|*.test.*|*.spec.*|*_test.py|*_test.go|*/test_*.py)
+            return 1 ;;
+    esac
+
     # TIER 2: generic assignments + bearer tokens + connection-string creds.
     local tier2='(api[_-]?key|secret|token|password|passwd|access[_-]?key|client[_-]?secret|auth)[A-Za-z0-9_]*[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9_/+.=-]{16,}'
     local bearer='[Bb]earer[[:space:]]+[A-Za-z0-9_.\-]{20,}'
@@ -75,8 +83,13 @@ _commit_scan_secret_file() {
     local uricred='[a-z][a-z0-9+.\-]*://[^/[:space:]:@]*:[^/[:space:]:@]+@'
 
     local surviving
-    surviving="$(LC_ALL=C grep -EiI "$tier2|$bearer|$uricred" "$file" 2>/dev/null \
-        | LC_ALL=C grep -Eiv "$deny" 2>/dev/null)"
+    # A value that is a function call (tokens = tokenizeSearchQuery(input)) is code, not a literal. Each generic match is
+    # taken on its own (-o) with the character after it: one that ends in "(" is a call and is dropped, and every other
+    # match on the same line still counts, so `{ Authorization: getToken(), apiKey: "<literal>" }` is still caught.
+    # A parser's `const tokens = tokenizeSearchQuery(input);` failed a whole run as a "secret match" (FireLater#24, 2026-11-16).
+    local kept
+    kept="$(LC_ALL=C grep -EiI "$tier2|$bearer|$uricred" "$file" 2>/dev/null | LC_ALL=C grep -Eiv "$deny" 2>/dev/null)"
+    surviving="$(printf '%s\n' "$kept" | LC_ALL=C grep -Ei "$bearer|$uricred" 2>/dev/null)$(printf '%s\n' "$kept" | LC_ALL=C grep -Eio "$tier2"'\(?' 2>/dev/null | LC_ALL=C grep -v '($' 2>/dev/null)"
     if [ -n "$surviving" ]; then
         return 0
     fi
@@ -104,6 +117,13 @@ _commit_path_looks_secret() {
     local lower base
     lower="$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')"
     base="${lower##*/}"
+    # SOURCE FILES: a file of program code is judged by its content (the content scan), not by a word in its name.
+    # backend/src/migrations/037_refresh_token_sessions.ts, auth_token_service.py and secret_rotation.go are code about
+    # tokens and secrets, not token or secret files; that migration's name alone stopped a finished run (FireLater#16).
+    case "$base" in
+        *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.py|*.go|*.rb|*.rs|*.java|*.kt|*.swift|*.cs|*.php|*.sql|*.vue|*.svelte|*.c|*.h|*.cpp|*.sh|*.md)
+            return 1 ;;
+    esac
     local cand
     for cand in "$lower" "$base"; do
         case "$cand" in

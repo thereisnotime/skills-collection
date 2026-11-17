@@ -48,6 +48,9 @@ claude plugin install daymade-skill@daymade-skills
 
 ### Skill Validation and Packaging
 
+For applications already served by daudio, use the
+[shared-service access route](daymade-audio/audio-router/references/shared-service-access.md).
+
 For StepFun speech controls, literal-text/directive ambiguity, cloning or streaming changes, read
 [`stepfun-tts`'s native API reference](daymade-audio/stepfun-tts/references/api_reference.md).
 Verify both the standalone CLI and the actual flat `llmreg.wrapper_for` loader;
@@ -158,6 +161,9 @@ For recovery/cache-test prerequisites, fixture isolation or invalid-fixture tria
 use its [recovery-test recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#establish-recovery-test-prerequisites).
 For resumable writes to human-edited state, use its
 [interrupted-write controls](daymade-skill/skill-creator/references/stateful-script-verification.md#interrupted-writes-and-later-human-changes).
+For frozen helpers or separate interpreters, use its
+[installed-consumer checks](daymade-skill/skill-creator/references/stateful-script-verification.md#installed-consumer-projection);
+optional Python imports follow the [repository-runner controls](daymade-skill/skill-creator/references/stateful-script-verification.md#optional-dependencies-and-the-repository-test-entry).
 
 For its audit, release or source-contract commands from another working directory,
 or Agent-facing materialization from any directory, use the
@@ -211,6 +217,10 @@ observations separate; this file does not define another batch recipe.
 For tunnel/proxy-path failures or slow throughput, enter
 [tunnel-doctor](tunnel-doctor/SKILL.md) first. For unresolved protocol, streaming or
 throughput investigations, use [debugging-network-issues](debugging-network-issues/SKILL.md).
+For a container healthcheck or internal RPC failure while the host probe succeeds,
+use tunnel-doctor's [container consumer path](tunnel-doctor/SKILL.md#2g-4-deploy-scripts-and-container-healthchecks-probe-localhost-through-proxy).
+For named Peer Relay trials or network speed claims, use
+[business-path acceptance](tunnel-doctor/references/tailscale_peer_relay_acceptance.md).
 For content-encoding-dependent HTTP failures, use its
 [same-byte compression comparison](debugging-network-issues/references/compressed-request-comparison.md).
 Proxy-selection and disruptive VPN changes follow tunnel-doctor's
@@ -245,7 +255,8 @@ as the route rather than a second copy of those procedures.
 For customer-approved report forms, follow
 [skill-creator's report-template contract](daymade-skill/skill-creator/references/authoring-and-reuse.md#show-the-result-not-just-the-work).
 
-For Codex login, credential recovery, quota-query ownership or quota-driven continuation, enter
+For Codex login, account switching, credential recovery or session recovery after login changes,
+quota-query ownership or quota-driven continuation, enter
 [local-codex authentication](daymade-codex/local-codex/SKILL.md#authentication-chatgpt-oauth).
 For existing unmanaged/legacy Ghostty Codex windows around a manual account switch, enter
 [ghostty-use's switch workflow](ghostty-use/SKILL.md#codex-account-switch). Minions
@@ -349,7 +360,8 @@ For the pre-release ancillary-copy gate or density/layout comparisons, follow
 [information necessity](frontend-visual-qa/references/history-derived-checklist.md#information-necessity-before-layout).
 Before measuring loading speed, read its
 [cache and timing comparison](frontend-visual-qa/references/browser-driving-and-observation-traps.md#separate-freshness-checks-from-performance-comparisons).
-For build reuse across source refs or a target redeployed during acceptance, load its
+For build reuse across source refs, a target redeployed during acceptance, or competing
+current/old pickup URLs, load its
 [delivery verification procedure](frontend-visual-qa/references/delivery-verification.md).
 For changed asynchronous loading or saving, or nested zoomable workspaces, use its
 [journey and state matrix](frontend-visual-qa/references/journey-and-page-contracts.md#journey-and-state-matrix).
@@ -410,6 +422,8 @@ For already-authorized Keychain recovery, follow
 [authorized credential-owner recovery](daymade-macos/macos-permissions/references/keychain-dialog-recovery.md#recover-through-an-authorized-credential-owner).
 For application-specific recurring prompts, follow
 [the credential-backend boundary](daymade-macos/macos-permissions/references/keychain-dialog-recovery.md#distinguish-application-credential-storage-from-permission-repair).
+For an enabled permission switch that fails after replacing a signed app, enter
+[signed-app replacement diagnosis](daymade-macos/macos-permissions/references/tcc-mechanics.md#signed-app-replacement-with-an-enabled-but-ineffective-grant).
 Keep detailed diagnosis and cancellation procedures with those Skills.
 
 ### Background protected-data access
@@ -516,6 +530,8 @@ When a local job emitted a notification but its banner or card is not visible, f
 [local notification diagnosis](daymade-macos/macos-watchdog/references/alert-discipline.md#local-notifications-are-not-visible).
 For named macOS load/runaway alerts, follow
 [macos-load-doctor's intervention and diagnosis-completion contract](daymade-macos/macos-load-doctor/SKILL.md#5-act-within-the-boundary).
+For idle Node/Vite previews, enter its
+[watcher and exact-instance procedure](daymade-macos/macos-load-doctor/references/dev-server-watchers.md).
 For memory pressure or suspected child-process leaks, enter that Skill's
 [triage](daymade-macos/macos-load-doctor/SKILL.md#triage-read-do-in-order) and
 [memory evidence](daymade-macos/macos-load-doctor/SKILL.md#memory-evidence) before attributing the cause.
@@ -526,6 +542,11 @@ or behavior-replay dispatch and coverage claims, use
 [skill-creator's independent-review protocol](daymade-skill/skill-creator/references/independent-review-protocol.md).
 Keep decision criteria and verification details in those owners.
 
+### Acoustic diagnostics
+
+For waveform, speech-cut or tail-level diagnosis, enter
+[audio-router's acoustic workflow](daymade-audio/audio-router/references/acoustic-diagnostics.md).
+
 ### Transcript Correction
 
 For local audio listening, speaker decisions, word edits and recovery of saved
@@ -533,12 +554,15 @@ judgments, use [Listening Desk](daymade-audio/asr-transcribe-to-text/references/
 Its saving, recovery and verification sections govern the browser and local
 service; keep the operating procedure there rather than in review artifacts.
 
-For explicit single-task speaker-inference requests, load
+For explicit single-task speaker-inference requests, including telephone
+self-introductions, forms of address and quoted names, load
 [scoped speaker inference](daymade-audio/transcript-fixer/references/scoped_speaker_inference.md).
 
 Use [transcript-fixer](daymade-audio/transcript-fixer/SKILL.md) for transcript
 correction. Its Native workflow owns evidence selection, selective human escalation,
 and correction/finalization order;
+for Stage 1 JSON or an already-promoted input, use its
+[result contract](daymade-audio/transcript-fixer/SKILL.md#stage-1-result-contract);
 for frontmatter edits, reruns or reversals, enter
 [metadata provenance](daymade-audio/transcript-fixer/references/native_metadata_provenance.md).
 [Native review packets](daymade-audio/transcript-fixer/references/native_review_packets.md)
@@ -635,6 +659,8 @@ Wiki Base/Sheets capture uses
 
 For an explicit prior-work, reuse or history request, follow the
 [Prior Work operating contract](daymade-claude-code/prior-work-retrieval/SKILL.md).
+For follow-ups after a completed retrieval, use its
+[receipt reuse and rearm procedure](daymade-claude-code/prior-work-retrieval/SKILL.md#3-retrieve-across-declared-carriers).
 Requests to repeat a previously successful method or reuse/improve an older rendered artifact enter its
 [candidate verification](daymade-claude-code/prior-work-retrieval/SKILL.md#4-verify-candidates-at-authority).
 
@@ -711,6 +737,8 @@ for candidate selection and commands; keep the detailed rules in those owners.
 For local transport selection or accepted/consumed delivery interpretation, enter
 [peer-message](peer-message/SKILL.md), starting with
 [current-host tool discovery](peer-message/references/local-coordination.md#先发现完整工具面再选通信通道).
+For independent work starts, scope changes or Fork handoff, use the
+[work-entry procedure](peer-message/references/local-coordination.md#开工范围变化和退出).
 For independent-session preflight and request lifecycle, follow the
 [local coordination workflow](peer-message/references/local-coordination.md#原生跨会话通信).
 For a native payload limit or a rejected preparation, use its
@@ -786,12 +814,6 @@ For selected-site Cookie copying between local profiles of the same macOS Chrome
 enter [cookie-copy](cookie-copy/SKILL.md). For its quota-query caller, follow
 [Tibo's Cookie Copy handoff](tibo-reset-codex/references/browser-session-migration.md).
 
-Before switching an existing Codex session, or recovering one after login changes, start at
-[Local Codex existing-owner recovery](daymade-codex/local-codex/references/oauth-guide.md#existing-native-owner-recovery).
-For a remote Codex sign-in prompt or choosing existing-login reuse versus new authorization, start at
-[Local Codex authentication recovery](daymade-codex/local-codex/references/oauth-guide.md#remote-account-switch-and-expired-login-recovery).
-Keep quota checks on the separate route below.
-
 For stopping a Tibo monitor or ending reset tracking, enter the
 [host lifecycle route](tibo-reset-codex/SKILL.md#停用监控先走宿主操作).
 
@@ -837,6 +859,9 @@ digest; a matching basename is not identity. A pending item is not a delivery
 receipt, and an automatic outbox path gets one non-retrying HTTP attempt.
 
 ### Testing Skills Locally
+
+For provider-pin changes or headless Claude permission/result failures, follow
+[headless profile verification](daymade-claude-code/claude-switch-models-setup/references/headless-verification.md).
 
 For affected executable entries before release and after source synchronization,
 follow [source location and activation](daymade-skill/skill-creator/references/source-location-and-activation.md).
@@ -921,8 +946,8 @@ For staged-set inspection, deletions or entries outside this task, follow
 For inbound coordination during delivery or closeout, use
 [peer-message's receiving route](peer-message/SKILL.md#收到消息先分流).
 
-For branch publication or PR creation, read
-[the publication recipe](github-ops/references/pr_operations.md#basic-pr-creation)
+For first-push route selection, branch publication or PR creation, read
+[the publication preflight and recipe](github-ops/references/pr_operations.md#basic-pr-creation)
 before preparing the task checkout, including sparse and `--no-checkout` worktrees.
 
 For repository recovery or convergence under concurrent work, enter
@@ -1053,8 +1078,8 @@ claiming the whole checkout is current.
 
 For divergent local `main`, recovery-material selection or branch/worktree retirement,
 follow [git-safety-net](git-safety-net/SKILL.md).
-For named linked-worktree retirement, retained recovery refs after squash, interrupted preparation
-or dependency-cache declarations, follow its complete
+For named linked-worktree retirement, including sparse filtered files, retained recovery refs
+after squash, interrupted preparation or dependency-cache declarations, follow its complete
 [worktree retirement procedure](git-safety-net/references/merge_verification.md#worktree-retirement--prove-the-checkout-is-disposable-before-removal).
 If local Skill release receipts reference the review checkout being retired, first use
 [review archive relocation](daymade-skill/skill-creator/references/release-readiness.md#retire-a-temporary-review-checkout),

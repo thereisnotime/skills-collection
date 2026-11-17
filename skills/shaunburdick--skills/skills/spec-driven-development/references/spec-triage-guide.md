@@ -9,7 +9,7 @@ When a new piece of work is requested:
 1. **List all existing specs** — read `specs/` and review each `spec.md` title, problem statement, and functional requirements.
 2. **Score relevance** — for each existing spec, ask: "Does this work change, extend, or fix something described in this spec?"
 3. **Decide** — apply the decision matrix below.
-4. **Document the decision** — regardless of outcome, record what you found and why you made the choice.
+4. **Document the decision** — regardless of outcome, record what you found and why you made the choice in your reply and the commit body; do not open a file for it.
 
 ## Decision Matrix
 

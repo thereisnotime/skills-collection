@@ -67,6 +67,37 @@ if (test('blocks quoted core.hooksPath override argument', () => {
   assert.ok(r.stderr.includes('core.hooksPath'), `stderr should mention core.hooksPath: ${r.stderr}`);
 })) passed++; else failed++;
 
+// --- Command-supplied Git aliases ---
+
+const gitAliasCases = [
+  ['inline alias with a bypass flag', 2, "git -c 'alias.ci=commit --no-verify' ci -m demo"],
+  ['mixed-case alias with a caller-supplied flag', 2, "git -c 'Alias.Ci=commit' ci -an -m demo"],
+  ['shell alias', 2, "git -c 'alias.ci=!git commit --no-verify' ci -m demo"],
+  ['chained alias', 2, "git -c 'alias.ci=co --no-verify' -c 'alias.co=commit' ci -m demo"],
+  ['alias defined with a command subsection', 2, "git -c 'alias.ci.command=commit --no-verify' ci -m demo"],
+  ['invoked alias with a benign definition', 2, "git -c alias.st=status st"],
+  ['config-env alias', 2, "git --config-env alias.ci=COMMIT_ALIAS ci -m demo"],
+  ['attached config-env alias', 2, "git --config-env=alias.ci=COMMIT_ALIAS ci -m demo"],
+  ['config count alias', 2, "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.ci GIT_CONFIG_VALUE_0='commit --no-verify' git ci -m demo"],
+  ['config parameters alias', 2, "GIT_CONFIG_PARAMETERS=\"'alias.ci'='commit --no-verify'\" git ci -m demo"],
+  ['status ignores a same-name inline alias', 0, 'git -c alias.status=log status --porcelain'],
+  ['log ignores a same-name config-env alias', 0, "GIT_LOG_ALIAS='commit --no-verify' git --config-env=alias.log=GIT_LOG_ALIAS log -1"],
+  ['diff ignores a same-name environment alias', 0, "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.diff GIT_CONFIG_VALUE_0='commit --no-verify' git diff"],
+  ['uppercase status can resolve to an alias', 2, "git -c 'alias.status=commit --no-verify' STATUS"],
+  ['direct commit still checks flags with a same-name alias', 2, 'git -c alias.commit=status commit --no-verify', /--no-verify flag/],
+  ['unused alias definition', 0, "git -c 'alias.ci=commit --no-verify' status"],
+  ['protected builtin ignores a same-name alias', 0, "git -c 'alias.commit=commit --no-verify' commit -m demo"],
+  ['alias definition in message text', 0, "git commit -m 'alias.ci=commit --no-verify'"],
+];
+
+for (const [name, expected, command, diagnostic = /Git alias/] of gitAliasCases) {
+  if (test(name, () => {
+    const result = runHook({ tool_input: { command } });
+    assert.strictEqual(result.code, expected, result.stderr);
+    if (expected === 2) assert.match(result.stderr, diagnostic);
+  })) passed++; else failed++;
+}
+
 // --- Chained command false positive prevention (Comment 2) ---
 
 if (test('does not false-positive on -n belonging to git log in a chain', () => {
@@ -235,6 +266,21 @@ const executingPayloads = [
   ['word-internal hash does not hide a later push bypass', 'printf %s foo#bar && git push --no-verify'],
   ['pipe echo data to bash', "echo 'git commit -n -m x' | bash"],
   ['pipe printf data to sh', "printf '%s\\n' 'git commit --no-verify -m x' | sh"],
+  ['pipe brace group data to sh', "{ echo 'git commit --no-verify -m x'; } | sh"],
+  ['pipe subshell data to bash', "(echo 'git push --no-verify'; printf x) | bash"],
+  ['pipe nested group data to sh', "{ (printf '%s\\n' 'git commit -n -m x'); } | sh"],
+  ['pipe group pipeline data to sh', "{ echo 'git push --no-verify' | grep git; } | sh"],
+  ['pipe consecutive group writes to sh', "{ printf 'git pu'; printf 'sh --no-verify'; } | sh"],
+  ['pipe echo -n and echo group writes to bash', "{ echo -n 'git commit '; echo '--no-verify -m x'; } | bash"],
+  ['pipe printf with a newline escape to sh', "printf 'git push --no-verify\\n' | sh"],
+  ['pipe split printf writes ending in a newline escape to sh', '{ printf "git "; printf "push --no-verify\\n"; } | sh'],
+  ['pipe printf %s arguments joined to sh', "printf '%s' 'git pu' 'sh --no-verify' | sh"],
+  ['pipe echo with a trailing -n operand to sh', "echo 'git commit -m x' -n | sh"],
+  ['execute bypass through Node eval', 'node -e \'require("child_process").execSync("git push --no-verify")\''],
+  ['execute piped bypass source through Node stdin', "printf '%s' 'require(\"child_process\").execSync(\"git push --no-verify\")' | node"],
+  ['execute heredoc bypass source through Node empty double-quoted operand', 'node "" <<\'JS\'\nrequire("child_process").execSync("git push --no-verify")\nJS'],
+  ['execute heredoc bypass source through Node empty single-quoted operand', "node '' <<'JS'\nrequire(\"child_process\").execSync(\"git push --no-verify\")\nJS"],
+  ['keep a dynamic Node launcher opaque', "node$SUFFIX /tmp/x.js 'git commit --no-verify'"],
   ['execute data through xargs and bash -c', "printf '%s\\n' 'git commit -n -m x' | xargs -I CMD bash -c CMD"],
   ['execute command substitution text through bash', "echo '$(git commit -n -m x)' | bash"],
   ['execute bash here-string', "bash <<< 'git commit -n -m x'"],
@@ -272,10 +318,14 @@ for (const [name, command] of executingPayloads) {
 }
 
 const nonLeakingPayloads = [
+  ['Node script argument is data, not shell source', "node /tmp/cli.js 'git commit --no-verify -m x'"],
+  ['stdin piped to a Node script is data, not shell source', "printf '%s' 'git commit --no-verify -m x' | node /tmp/x.js"],
   // Inside double quotes a backslash before dot remains literal, so decoded executable is git\.exe, not git.exe.
   ['allows the distinct executable with a literal escaped dot', '"git""\\.exe" commit -n -m x'],
   // A complete echo operand is data; accepted role repair intentionally corrects the authored broad-blocking expectation.
   ['allows quoted echo data (corrected author expectation)', 'echo "git commit -n"'],
+  ['allows two echo lines in a group piped to sh', "{ echo 'git pu'; echo 'sh --no-verify'; } | sh"],
+  ['allows an echo -n operand that does not join two group lines', "{ echo 'git pu' -n; echo 'sh --no-verify'; } | sh"],
   ['python heredoc string with later bash -n', 'python3 - <<\'PY\'\nold="git add -A\\nif ! git diff --cached --quiet; then\\n  git commit -q -m \\"vault sync"\nPY\nbash -n vault-sync.sh'],
   ['assignment string with later bash -n', 'old="git commit -q -m x"; bash -n x.sh'],
   ['plain commit followed by later-line bash -n', 'git commit -m x\nbash -n s.sh'],
@@ -1963,6 +2013,61 @@ for (const n of [8, 12]) {
   })) passed++; else failed++;
 }
 
+// --- Value-taking option arity (#2837, carried forward onto the current scanner) ---
+// `--push-option`/`-o`/`--receive-pack`/`--exec`/`--repo`/`--trailer` consume
+// the next token as data. Git sends or executes it verbatim and still runs the
+// hooks, so refusing these is a false positive. An unambiguous abbreviation of
+// a value-taking option consumes the next token exactly like the full name.
+for (const command of [
+  'git push --push-option --no-verify',
+  'git push --push-option --no-verif',
+  'git push -o --no-verify',
+  'git push --receive-pack --no-verify',
+  'git push --exec --no-verify origin main',
+  'git push --repo --no-verify',
+  'git commit --trailer --no-verify -m "msg"',
+  'git commit --trailer --no-verif -m "msg"',
+  'git push --push-opti --no-verify',
+  'git push --push-o --no-verif',
+  'git commit --trail --no-verify -m "msg"',
+  'git commit --mes --no-verify',
+  "bash -c 'git push -o --no-verify origin main'",
+  'git -C repo commit --trailer --no-verify -m "msg"',
+  'git push --force-with-lease',
+]) {
+  if (test(`does not block a value-taking option's value: ${command}`, () => {
+    const r = runHook({ tool_input: { command } });
+    assert.strictEqual(r.code, 0, `expected exit 0, got ${r.code}: ${r.stderr}`);
+  })) passed++; else failed++;
+}
+
+// Arity must never swallow a real flag. `--force-with-lease` takes an optional,
+// inline-only value, so the bare form consumes nothing. Inline `=value` forms
+// are one token. A prefix ambiguous among the value-taking options resolves to
+// none of them. Value options of another subcommand do not apply.
+for (const command of [
+  'git push --force-with-lease --no-verify',
+  'git push --force-with-lease --no-verif',
+  'git push --force-with-lease=main:abc123 --no-verify',
+  'git push --push-option=ci.skip --no-verify',
+  'git push --push-opti=ci.skip --no-verify',
+  'git commit --trailer=Key:val --no-verif -m "msg"',
+  'git commit --trail=Key:val --no-verify -m "msg"',
+  'git push --re --no-verify',
+  'git commit --f --no-verify -m "msg"',
+  'git commit --push-option --no-verify -m "msg"',
+  'git push --trailer --no-verify',
+  'git push -o x --no-verify',
+  "bash -c 'git push --re --no-verify'",
+  'git commit --no-verify --trailer x -m "msg"',
+]) {
+  if (test(`arity handling still blocks: ${command}`, () => {
+    const r = runHook({ tool_input: { command } });
+    assert.strictEqual(r.code, 2, `expected exit 2, got ${r.code}`);
+    assert.ok(r.stderr.includes('BLOCKED'), `stderr should contain BLOCKED: ${r.stderr}`);
+  })) passed++; else failed++;
+}
+
 const pureOnly = process.argv.includes('--pure-only');
 if (pureOnly) console.log('Pure classifier mode: 3 bounded Node routing checks omitted.');
 else {
@@ -1991,6 +2096,51 @@ else {
     }
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
+  }
+}
+
+// Real Git agrees with the arity table: when the hook allows a flag-looking
+// value, Git still runs the refusing hook and creates nothing.
+const gitProbe = pureOnly ? null : spawnSync('git', ['--version'], { encoding: 'utf8' });
+if (gitProbe && gitProbe.status === 0) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ecc-no-verify-arity-'));
+  const git = (cwd, args) => spawnSync('git', args, {
+    cwd, encoding: 'utf8', timeout: 10000,
+    env: { ...process.env, GIT_CONFIG_GLOBAL: path.join(root, 'absent'), GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' },
+  });
+  try {
+    const repo = path.join(root, 'repo');
+    const remote = path.join(root, 'remote.git');
+    git(root, ['init', '-q', repo]);
+    git(root, ['init', '-q', '--bare', remote]);
+    const identity = ['-c', 'user.name=ECC', '-c', 'user.email=ecc@example.invalid'];
+    git(repo, [...identity, 'commit', '-q', '--allow-empty', '-m', 'base']);
+    git(repo, ['remote', 'add', 'origin', remote]);
+    git(repo, ['push', '-q', 'origin', 'HEAD:refs/heads/main']);
+    for (const name of ['pre-commit', 'pre-push']) {
+      const hookPath = path.join(repo, '.git', 'hooks', name);
+      fs.writeFileSync(hookPath, '#!/bin/sh\nexit 1\n');
+      fs.chmodSync(hookPath, 0o755);
+    }
+    git(repo, [...identity, 'commit', '-q', '--allow-empty', '--no-verify', '-m', 'ahead']);
+    for (const args of [
+      ['commit', '--allow-empty', '--trailer', '--no-verify', '-m', 'probe'],
+      ['commit', '--allow-empty', '--mes', '--no-verify'],
+      ['push', '--push-option', '--no-verify', 'origin', 'HEAD:refs/heads/main'],
+      ['push', '--push-opti', '--no-verify', 'origin', 'HEAD:refs/heads/main'],
+    ]) {
+      if (test(`real Git still runs the hook after an allowed value: git ${args.join(' ')}`, () => {
+        assert.strictEqual(runHook({ tool_input: { command: `git ${args.join(' ')}` } }).code, 0);
+        const head = git(repo, ['rev-parse', 'HEAD']).stdout;
+        const remoteHead = git(remote, ['rev-parse', 'main']).stdout;
+        const result = git(repo, [...identity, ...args]);
+        assert.notStrictEqual(result.status, 0, 'the refusing hook must stop Git');
+        assert.strictEqual(git(repo, ['rev-parse', 'HEAD']).stdout, head);
+        assert.strictEqual(git(remote, ['rev-parse', 'main']).stdout, remoteHead);
+      })) passed++; else failed++;
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 }
 
@@ -2205,6 +2355,56 @@ for (const [name, command, expected] of sedCases) {
     }
   })) passed++; else failed++;
 }
+
+// --- Producer output follows the shell's descriptors (checked against bash) ---
+
+// Each command ends in `| bash` or `| sh`. That receiver is replaced by a bash
+// that runs what it reads with `git` defined as a function printing its
+// arguments, and the hook must block exactly when the shell would have run
+// `git push` or `git commit` with --no-verify.
+const producerCases = [
+  "{ exec 2>&1; echo 'git push --no-verify' >&2; } | bash",
+  "( exec 3>&1; echo 'git push --no-verify' >&3 ) | sh",
+  "{ echo 'git push --no-verify' >&2; } 2>&1 | bash",
+  "{ echo 'git push --no-verify' >&2; } | bash",
+  "{ echo 'git push --no-verify' >/dev/null | cat; } | bash",
+  "echo 'git push --no-verify' >&2 | bash",
+  "echo 'git push --no-verify' 2>&1 >/dev/null | bash",
+  "echo 'git push --no-verify' >/dev/stdout | bash",
+  "echo 'git push --no-verify' | cat >/dev/null | bash",
+  "echo 'git push --no-verify' | echo hi | bash",
+  "echo 'git push --no-verify' | cat <<< 'ls' | bash",
+  "printf 'git %s --no-verify\\n' push | sh",
+  "printf -- 'git %b --no-verify\\n' push | sh",
+  "printf '%s %s %s\\n' git push --no-verify | sh",
+  "printf 'git push %s\\n' --no-verify | sh",
+  "printf '%%s git push\\n' | sh",
+  "{ printf 'git pu'; printf 'sh --no-verify'; } | sh",
+  "printf '%s' 'gi\\t push --no-verify' | sh",
+  "printf '%b' 'git push\\t--no-verify' | sh",
+  "echo 'git push --no-verify' 3>&1 >/dev/null 1<&3 | sh",
+  "echo 'git push --no-verify' 3>&1 >/dev/null 1>&3- | sh",
+];
+if (process.platform !== 'win32') {
+  for (const command of producerCases) {
+    if (test(`producer output as bash reads it: ${command}`, () => {
+      const shown = command.replace(/\|\s*(bash|sh)$/, '| /bin/bash -c \'git() { echo "GIT $*"; }; . /dev/stdin\'');
+      const bash = spawnSync('/bin/bash', ['-c', shown], { encoding: 'utf8' });
+      const bypass = /^GIT (?:push|commit)\b.*\s--no-verify\b/m.test(bash.stdout);
+      assert.strictEqual(runHook({ tool_input: { command } }).code, bypass ? 2 : 0, `the shell runs ${JSON.stringify(bash.stdout)}`);
+    })) passed++; else failed++;
+  }
+}
+
+if (test('printf format reuse is charged to the work budget before it expands', () => {
+  // About 4 KB of command expands to about 2 MB when the format is reused per argument.
+  const command = `printf '${'x'.repeat(2000)}%s' ${Array(1000).fill('a').join(' ')} | sh`;
+  const started = Date.now();
+  const result = runHook({ tool_input: { command } });
+  assert.strictEqual(result.code, 2);
+  assert.match(result.stderr, /work budget exceeded/);
+  assert.ok(Date.now() - started < 2000, 'expected the budget to stop the expansion early');
+})) passed++; else failed++;
 
 console.log('─'.repeat(50));
 console.log(`Passed: ${passed}  Failed: ${failed}`);

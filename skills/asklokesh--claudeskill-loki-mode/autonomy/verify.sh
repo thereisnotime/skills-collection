@@ -1234,8 +1234,13 @@ verify_secret_scan_file() {
     local uricred='[a-z][a-z0-9+.\-]*://[^/[:space:]:@]*:[^/[:space:]:@]+@'
 
     local surviving
-    surviving="$(LC_ALL=C grep -EiI "$tier2|$bearer|$uricred" "$file" 2>/dev/null \
-        | LC_ALL=C grep -Eiv "$deny" 2>/dev/null)"
+    # A value that is a function call (tokens = tokenizeSearchQuery(input)) is code, not a literal. Each generic match is
+    # taken on its own (-o) with the character after it: one that ends in "(" is a call and is dropped, and every other
+    # match on the same line still counts, so `{ Authorization: getToken(), apiKey: "<literal>" }` is still caught.
+    # A parser's `const tokens = tokenizeSearchQuery(input);` failed a whole run as a "secret match" (FireLater#24, 2026-11-16).
+    local kept
+    kept="$(LC_ALL=C grep -EiI "$tier2|$bearer|$uricred" "$file" 2>/dev/null | LC_ALL=C grep -Eiv "$deny" 2>/dev/null)"
+    surviving="$(printf '%s\n' "$kept" | LC_ALL=C grep -Ei "$bearer|$uricred" 2>/dev/null)$(printf '%s\n' "$kept" | LC_ALL=C grep -Eio "$tier2"'\(?' 2>/dev/null | LC_ALL=C grep -v '($' 2>/dev/null)"
     if [ -n "$surviving" ]; then
         return 0
     fi

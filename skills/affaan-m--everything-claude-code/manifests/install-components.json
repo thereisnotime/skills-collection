@@ -423,6 +423,14 @@
       ]
     },
     {
+      "id": "agent:spec-miner",
+      "family": "agent",
+      "description": "Behavioral spec extraction agent for brownfield codebases.",
+      "modules": [
+        "agents-core"
+      ]
+    },
+    {
       "id": "agent:tdd-guide",
       "family": "agent",
       "description": "Test-driven development guidance agent.",
@@ -503,6 +511,14 @@
       ]
     },
     {
+      "id": "skill:ecc-contribution-review",
+      "family": "skill",
+      "description": "Optional skill contribution review packet workflow for ECC repositories.",
+      "modules": [
+        "ecc-contribution-review"
+      ]
+    },
+    {
       "id": "skill:unified-memory",
       "family": "skill",
       "description": "Cross-harness memory guidance that requires the separately installed ecc-universal CLI runtime.",
@@ -570,6 +586,14 @@
       "id": "skill:frontend-patterns",
       "family": "skill",
       "description": "React and frontend engineering patterns.",
+      "modules": [
+        "framework-language"
+      ]
+    },
+    {
+      "id": "skill:yoruba-localization-testing",
+      "family": "skill",
+      "description": "Yoruba-English UI localization, Unicode diacritics, fallback, and accessibility testing.",
       "modules": [
         "framework-language"
       ]

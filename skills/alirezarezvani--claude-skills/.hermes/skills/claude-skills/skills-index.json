@@ -1,6 +1,6 @@
 {
   "source": "claude-code-skills",
-  "total_skills": 393,
+  "total_skills": 399,
   "domains": {
     "engineering": [
       {
@@ -52,6 +52,11 @@
         "name": "ci-cd-pipeline-builder",
         "description": "Generate a CI/CD workflow for a repo from its detected stack: lint, test, build, deploy. Load whenever the user says the repo has no CI, wants tests run on push, or needs a pipeline YAML.",
         "path": "engineering/ci-cd-pipeline-builder"
+      },
+      {
+        "name": "cloud-finops",
+        "description": "Use for any cloud cost question on AWS, Azure or Google Cloud - a bill that jumped or one service that spiked (NAT gateway, egress, storage), cost anomaly alert thresholds, untagged or unallocated spend and tag cleanup for showback or chargeback, Savings Plans, Reserved Instances or committed use discounts (utilization, coverage, unused commitment, effective savings rate, whether to buy more), or whether cost per order or per customer got worse. Reads a FOCUS billing export with stdlib scripts.",
+        "path": "engineering/cloud-finops"
       },
       {
         "name": "codebase-onboarding",
@@ -142,6 +147,11 @@
         "name": "migration-architect",
         "description": "Plan a migration with zero or minimal downtime: phased plan, compatibility check, rollback scripts, for schemas, databases and services. Load whenever the user must change a live table, move a database or cut over without downtime.",
         "path": "engineering/migration-architect"
+      },
+      {
+        "name": "mobile-release",
+        "description": "Use when shipping an iOS or Android app update to the App Store or Google Play - Apple or Google rejected or warned about a build (ITMS-91053 privacy manifest, required reason API, missing usage description, target API level, 16 KB page size, exported activity, SMS or call log permission, Data safety), a readiness check before submitting an iOS, Android, Flutter or React Native release, or whether to pause, halt or widen a phased or staged rollout from crash rate, ANR rate or Play's bad behavior thresholds. Checks the project with stdlib scripts.",
+        "path": "engineering/mobile-release"
       },
       {
         "name": "monorepo-navigator",
@@ -417,6 +427,11 @@
         "name": "prompt-governance",
         "description": "Use when prompts run in production and need versioning, a registry, A/B tests, regression checks or an eval pipeline. Sets up the release process for prompts; single-prompt quality: senior-prompt-engineer.",
         "path": "engineering/prompt-governance"
+      },
+      {
+        "name": "readme-polish",
+        "description": "Use when an existing README must be upgraded, audited, or made scannable: polish/\u7f8e\u5316/\u5347\u7ea7/\u4f18\u5316/\u6253\u78e8 README, add badges, mermaid, callouts, or collapsible sections, compare against top repos in the same ecosystem, or fix a plain/ugly first screen. Calibrates to the repo's own category, rewrites the hero and information hierarchy, and enforces a deterministic lint gate. Not for brand-new READMEs from scratch or hero-image design.",
+        "path": "engineering/readme-polish"
       },
       {
         "name": "security-guidance",
@@ -1371,6 +1386,11 @@
         "path": "ra-qm-team/cra-readiness"
       },
       {
+        "name": "dora-readiness",
+        "description": "Use when a bank, payment or e-money institution, investment firm, insurer, crypto-asset service provider or fund manager in the EU faces DORA (Regulation 2022/2554, Digital Operational Resilience Act) - is an ICT outage or cyber incident major, when the initial (4h/24h), intermediate (72h) and final reports are due, weekends included; the register of information; ICT or cloud contracts missing audit rights, exit plans or other Article 30 terms; scope and the simplified framework for small firms. Not for DORA DevOps metrics. Three deterministic scripts with cited articles.",
+        "path": "ra-qm-team/dora-readiness"
+      },
+      {
         "name": "eu-ai-act-specialist",
         "description": "Use for EU AI Act (Regulation 2024/1689) compliance work: classifying an AI system's risk tier, planning the Art. 43 conformity route and Annex IV file, or listing obligations by role. Runs ai_system_risk_classifier.py, conformity_assessment_planner.py and ai_act_obligation_tracker.py, citing Articles.",
         "path": "ra-qm-team/eu-ai-act-specialist"
@@ -1409,6 +1429,11 @@
         "name": "medical-device-software",
         "description": "Use for any question about the software inside a medical device, SaMD or regulated health app - which IEC 62304 safety class (A/B/C) it is and how much process and documentation that class needs, what to record about open-source or third-party libraries (SOUP, SBOM), trace matrix and release testing, IEC 81001-5-1 security, or the FDA documentation level and 524B cyber-device duties. Checks the user's files with four scripts that cite the clause.",
         "path": "ra-qm-team/medical-device-software"
+      },
+      {
+        "name": "nis2-readiness",
+        "description": "Use when a cyberattack, ransomware or outage hits a hospital, utility, transport, digital-infrastructure or other EU company and it must report under NIS2 (Directive 2022/2555) or the German NIS2UmsuCG/BSIG - 24h early warning, 72h notification, one-month final report. Also for whether a company is an essential or important entity, BSI registration, management-board liability and training (Article 20), an Article 21 gap analysis, or one incident that also triggers DORA, CRA or GDPR reports. Four deterministic scripts with cited articles.",
+        "path": "ra-qm-team/nis2-readiness"
       },
       {
         "name": "qms-audit-expert",
@@ -1454,7 +1479,7 @@
     "business-growth": [
       {
         "name": "business-growth-skills",
-        "description": "Use when a growth request needs routing between customer-success-manager, sales-engineer, revenue-operations and contract-and-proposal-writer.",
+        "description": "Use when a growth request needs routing between customer-success-manager, sales-engineer, revenue-operations, contract-and-proposal-writer and support-ops.",
         "path": "business-growth/business-growth-skills"
       },
       {
@@ -1476,6 +1501,11 @@
         "name": "sales-engineer",
         "description": "Use for pre-sales work: RFP coverage gaps, competitive feature matrices or planning and scoring a proof of concept. Runs rfp_response_analyzer.py, competitive_matrix_builder.py and poc_planner.py.",
         "path": "business-growth/sales-engineer"
+      },
+      {
+        "name": "support-ops",
+        "description": "Use for any customer support operations question - SLA attainment and breaches (first response, resolution, business hours, weekends, tickets about to breach), how many agents to schedule per hour for a phone, chat or email queue and where the roster is short (Erlang C, service level, handle time, shrinkage, occupancy, backlog), or which ticket topics to deflect with help-center articles, automate with macros or fix as product bugs. Works from a helpdesk ticket export with stdlib scripts.",
+        "path": "business-growth/support-ops"
       }
     ],
     "finance": [

@@ -428,8 +428,10 @@ class SnapshotTest(unittest.TestCase):
         self.state = Path(self.temp.name) / '.ghostty-session'
         self.latest = self.state / 'snapshots/latest.json'
 
-    def run_cycle(self, rows=None, unresolved=None):
-        return watch.cycle(self.state, lambda deadline: observation(rows, unresolved))
+    def run_cycle(self, rows=None, unresolved=None, capture=None):
+        stub = capture if capture is not None else {'captured': False}
+        with mock.patch('ghostty_windows.capture_window_structure', return_value=stub):
+            return watch.cycle(self.state, lambda deadline: observation(rows, unresolved))
 
     def archive_count(self):
         return len(list((self.state / 'snapshots').glob('snapshot-*.json')))
@@ -668,10 +670,30 @@ class SnapshotTest(unittest.TestCase):
         with storage.snapshot_lock(self.state):
             with self.assertRaisesRegex(ValueError, 'another writer'):
                 self.run_cycle()
-            with mock.patch.object(gs, 'SNAP_DIR', str(self.latest.parent)):
+            with mock.patch.object(gs, 'SNAP_DIR', str(self.latest.parent)), \
+                 mock.patch('ghostty_windows.capture_window_structure', return_value={'captured': False}):
                 with self.assertRaisesRegex(ValueError, 'another writer'):
                     gs.write_snapshot([session(S2)])
         self.assertEqual(self.latest.read_bytes(), before)
+
+    def test_automatic_manifest_carries_window_structure_on_publish(self):
+        block = {'captured': True, 'capture_channel': 'ghostty-applescript-dictionary',
+                 'coverage': {'tabs': 1, 'terminals': 1, 'sessions_matched': 0,
+                              'unmapped_tab_ttys': [], 'sessions_without_tab': []},
+                 'windows': [{'id': 'w1', 'name': 'W', 'tabs': []}]}
+        summary = self.run_cycle([session(S1)], capture=dict(block))
+        self.assertEqual(summary['state'], 'changed')
+        doc = json.loads(self.latest.read_text())
+        self.assertEqual(doc['window_tab_mapping'], 'known')
+        self.assertEqual(doc['windows']['captured'], True)
+
+    def test_automatic_manifest_records_capture_failure(self):
+        self.run_cycle([session(S1)])
+        doc = json.loads(self.latest.read_text())
+        self.assertFalse(doc['windows']['captured'])
+        self.assertEqual(doc['window_tab_mapping'], 'unknown')
+        record = json.loads((self.latest.parent.parent / 'watcher' / 'last-cycle.json').read_text())
+        self.assertIn('deploy', record)
 
     def test_automatic_full_selection_manual_active_default_unchanged(self):
         self.run_cycle([session(S1), session(S2)])
@@ -705,7 +727,7 @@ class SnapshotTest(unittest.TestCase):
             for index in range(count):
                 (history / f'synthetic-{index}.jsonl').write_text('{"type":"synthetic"}\n')
             history_reads.clear()
-            with mock.patch.object(builtins, 'open', guarded_builtin), mock.patch.object(io, 'open', guarded_io), mock.patch.object(sqlite3, 'connect', side_effect=AssertionError('history SQL forbidden')), mock.patch.object(gs, 'codex_liveness', side_effect=AssertionError('history read')), mock.patch.object(gs, 'claude_liveness', side_effect=AssertionError('history read')):
+            with mock.patch.object(builtins, 'open', guarded_builtin), mock.patch.object(io, 'open', guarded_io), mock.patch.object(sqlite3, 'connect', side_effect=AssertionError('history SQL forbidden')), mock.patch.object(gs, 'codex_liveness', side_effect=AssertionError('history read')), mock.patch.object(gs, 'claude_liveness', side_effect=AssertionError('history read')), mock.patch('ghostty_windows.capture_window_structure', return_value={'captured': False}):
                 cold = watch.cycle(self.state / str(count), lambda deadline: observation())
                 warm = watch.cycle(self.state / str(count), lambda deadline: observation())
                 delta = watch.cycle(self.state / str(count), lambda deadline: observation([session(S2)]))
@@ -750,6 +772,7 @@ class AutomaticNativeIdentityTest(unittest.TestCase):
                 return ''.join('p' + pid + '\nn' + cwd + '\n' for pid in command[3].split(','))
             with mock.patch.object(watch, 'run_bounded', side_effect=run), \
                     mock.patch.object(gs, 'HOME', str(home)), \
+                    mock.patch('ghostty_windows.capture_window_structure', return_value={'captured': False}), \
                     mock.patch.object(gs, '_codex_home', return_value=home / '.codex'), \
                     mock.patch.object(gs, '_proc_start', return_value=started), \
                     mock.patch.object(gs, '_stat_birth_mtime', return_value=(started + 1, started + 1)), \
@@ -824,6 +847,9 @@ class InstallSupervisorTest(unittest.TestCase):
             for filename in ('ghostty_watch.py', 'ghostty_session.py', 'ghostty_storage.py'):
                 self.assertEqual((self.state / 'watcher/scripts' / filename).read_bytes(),
                                  (Path(watch.__file__).parent / filename).read_bytes())
+            stamp = json.loads((self.state / 'watcher' / 'install-source.json').read_text())
+            self.assertEqual(stamp['source_dir'], str(Path(watch.__file__).parent))
+            self.assertIn('ghostty_windows.py', stamp['files'])
             self.assertEqual(before, self.target.read_bytes())
             self.assertEqual(sum('bootstrap' in call for call in calls), 1)
             self.assertEqual(sum('venv' in call for call in calls), 1)
@@ -941,6 +967,107 @@ class InstallSupervisorTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'startup failure'):
                 watch.supervise(self.state)
         self.assertIn('startup failure', watch.cycle_status(self.state)['error'])
+
+
+
+
+class DeployFreshnessTest(unittest.TestCase):
+    """deploy_freshness compares installed copies against the recorded source."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='ghostty-deploy-test-')
+        self.state = Path(self.temp.name) / 'state'
+        (self.state / 'watcher' / 'scripts').mkdir(parents=True)
+        self.source = Path(self.temp.name) / 'src'
+        self.source.mkdir()
+        stamp = {'source_dir': str(self.source),
+                 'installed_at': '2026-11-17T00:00:00+00:00',
+                 'files': {'ghostty_watch.py': 'x', 'ghostty_windows.py': 'y'}}
+        (self.state / 'watcher' / 'install-source.json').write_text(json.dumps(stamp))
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_current_when_copies_match_source(self):
+        for name in ('ghostty_watch.py', 'ghostty_windows.py'):
+            (self.source / name).write_bytes(b'same')
+            (self.state / 'watcher' / 'scripts' / name).write_bytes(b'same')
+        self.assertEqual(watch.deploy_freshness(self.state)['deploy'], 'current')
+
+    def test_stale_lists_differing_files(self):
+        (self.source / 'ghostty_watch.py').write_bytes(b'new')
+        (self.state / 'watcher' / 'scripts' / 'ghostty_watch.py').write_bytes(b'old')
+        (self.source / 'ghostty_windows.py').write_bytes(b'same')
+        (self.state / 'watcher' / 'scripts' / 'ghostty_windows.py').write_bytes(b'same')
+        result = watch.deploy_freshness(self.state)
+        self.assertEqual(result['deploy'], 'stale')
+        self.assertEqual(result['differing'], ['ghostty_watch.py'])
+
+    def test_missing_source_file_counts_as_differing(self):
+        for name in ('ghostty_watch.py', 'ghostty_windows.py'):
+            (self.state / 'watcher' / 'scripts' / name).write_bytes(b'x')
+        (self.source / 'ghostty_windows.py').write_bytes(b'x')
+        self.assertEqual(watch.deploy_freshness(self.state)['deploy'], 'stale')
+
+    def test_gone_source_dir_and_missing_stamp(self):
+        self.source.rename(self.temp.name + '/src-gone')
+        self.assertEqual(watch.deploy_freshness(self.state)['deploy'], 'source-unavailable')
+        (self.state / 'watcher' / 'install-source.json').unlink()
+        self.assertEqual(watch.deploy_freshness(self.state)['deploy'], 'no-stamp')
+
+
+
+
+class DeployFreshnessHardeningTest(unittest.TestCase):
+    """Round-3 review fixes: corrupt stamps, self-install guard, key hygiene."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='ghostty-deploy-hard-test-')
+        self.state = Path(self.temp.name) / 'state'
+        (self.state / 'watcher' / 'scripts').mkdir(parents=True)
+        self.source = Path(self.temp.name) / 'src'
+        self.source.mkdir()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _stamp(self, payload):
+        (self.state / 'watcher' / 'install-source.json').write_text(json.dumps(payload))
+
+    def test_type_corrupt_stamps_degrade_to_no_stamp(self):
+        for payload in ([], 'hello', None,
+                        {'source_dir': 42, 'files': {}},
+                        {'source_dir': str(self.source), 'files': 7}):
+            self._stamp(payload)
+            self.assertEqual(watch.deploy_freshness(self.state)['deploy'], 'no-stamp')
+
+    def test_unmanaged_key_fails_loud(self):
+        (self.source / 'ghostty_watch.py').write_bytes(b'x')
+        (self.state / 'watcher' / 'scripts' / 'ghostty_watch.py').write_bytes(b'x')
+        self._stamp({'source_dir': str(self.source), 'files': {'/etc/hosts': 'z'}})
+        result = watch.deploy_freshness(self.state)
+        self.assertEqual(result['deploy'], 'stale')
+        self.assertTrue(result['differing'][0].endswith('(unmanaged key)'))
+
+    def test_extra_python_file_is_stale(self):
+        self._stamp({'source_dir': str(self.source), 'files': {'ghostty_watch.py': 'z'}})
+        (self.source / 'ghostty_watch.py').write_bytes(b'x')
+        (self.state / 'watcher' / 'scripts' / 'ghostty_watch.py').write_bytes(b'x')
+        (self.state / 'watcher' / 'scripts' / 'ghostty_extra.py').write_bytes(b'new')
+        result = watch.deploy_freshness(self.state)
+        self.assertEqual(result['deploy'], 'stale')
+        self.assertIn('ghostty_extra.py (untracked by stamp)', result['differing'])
+
+    def test_install_refuses_self_referential_source(self):
+        interpreter = watch.owned_interpreter(self.state)
+        interpreter.parent.mkdir(parents=True, exist_ok=True)
+        interpreter.write_text('synthetic runtime')
+        ok = lambda command, check=True: subprocess.CompletedProcess(command, 0, stdout='ok', stderr='')
+        with mock.patch.object(watch, 'launch_target', return_value=self.state / 'plist' / 'target.plist'), \
+                mock.patch.object(watch, 'system_run', side_effect=ok), \
+                mock.patch.object(watch, '__file__', str(self.state / 'watcher' / 'scripts' / 'ghostty_watch.py')), \
+                self.assertRaisesRegex(ValueError, 'self-referential'):
+            watch.install(self.state, apply=True)
 
 
 if __name__ == '__main__':

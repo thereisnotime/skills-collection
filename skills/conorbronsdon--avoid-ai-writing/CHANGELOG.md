@@ -6,6 +6,13 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- The em dash rate no longer counts the separator dash in an HTML list item that opens with a `<strong>`, `<b>`, or `<a>` lead term of at most five words (`<li><strong>Term</strong> — gloss</li>`). This matches the existing Markdown `- **Term** — gloss` exemption. Dashes after plain text, later in the item, or outside `<li>` still count (#351).
+- Sentence-length `uniformity` no longer measures glossary entries: three or more bold-lead definitions with distinct terms (`**Term:** gloss`, `- **Term** — gloss`), wrapped lines included. A short glossary no longer reads as flat prose rhythm. A label repeated on every line, such as `**Note:**`, stays in the sample, as does prose around the glossary. The sample gate and threshold are unchanged (#351).
+
+## [3.39.0] — 2026-11-16
+
 ### Added
 
 - A "Pre-publish pipeline" README section and a `fact-check` marketplace entry, so the companion skill installs from the `conorbronsdon-skills` marketplace alongside this one.
@@ -19,6 +26,7 @@ All notable changes to this project are documented here.
 - Add editorial decision cards to selected existing rules, with stable IDs, partial detector mappings, applicability conditions, and edit/keep/gap examples. Preserve subjective judgments and report unresolved claim scope. Keep the full catalog mandatory in directory and portable installations; no detector API, loading default, or category count changes (#206).
 - Reworded the large-file scope sentence in the editing contract so it no longer reads as "without asking" to static skill scanners; the meaning is unchanged. Documented known scanner false positives in `SUPPORT.md`.
 - The detector now exports `CONTEXT_MODES` and `SOURCE_MODES`, the frozen lists of modes `analyzeText()` accepts. The CLIs read them instead of keeping their own copies (#413, #414).
+- Cite or qualify frequency claims in the pattern catalog (`references/patterns.md`). Claims about how often models use a phrase now cite pinned HAP-E measurements or are qualified, and several entries no longer attribute a pattern to AI by default. Rule IDs, detection behavior, and the category count are unchanged (#249).
 
 ### Fixed
 

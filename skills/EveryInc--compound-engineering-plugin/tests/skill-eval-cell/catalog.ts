@@ -69,6 +69,8 @@ export const RESOLVER_PUBLICATION_BASE_REF = "bb5899b36c133a8441fa79af7cf60420c8
 export const STRUCTURAL_FIX_BASE_REF = "2b4cacd32d3e8c19a91e1c50c318172ec1d2f160"
 /** main before the ce-debug session-audit changes (other affected places, behavior-based review skip, findings-shaped options). */
 export const DEBUG_AUDIT_BASE_REF = "00d0a5bbf1300b2138b65ce724b325dd4dff77ba"
+/** main before ce-debug made every other site of the root-cause mistake part of the minimal fix. */
+export const SIBLING_SITES_BASE_REF = "8d2a49cd8ab3a12e11ee2822f56cd57a106f01e1"
 /** main before ce-debug named measurement bounds, ticket titles, always-on signal proposals, induced-failure checks, and what a test seam misses. */
 const DEBUG_SIGNAL_BASE_REF = "beacb629c8a6f34d6154996e819b2ac60857c514"
 const SIGNAL_PROPOSED = [['"prevention_signal": "', '"prevention_signal":"']]
@@ -1392,8 +1394,73 @@ function boundaryDiagnosticScenarios(): Scenario[] {
   ]
 }
 
+/** main before a check or test proving a property that rests on several guards had to be shown failing with each guard broken alone. Per tests/skill-eval-cell/packs/multi-guard-proof.md. */
+const MULTI_GUARD_BASE_REF = "8d2a49cd8ab3a12e11ee2822f56cd57a106f01e1"
+const NEGATIVE_TOTAL_BUG = "A 150% discount produced a negative order total. The fix, already in the tree, added percent range checks in src/discount.js."
+const NAN_TOTAL_BUG = "A non-numeric manual discount such as \"abc\" produced a NaN order total. The fix, already in the tree, added the Number.isFinite check in parsePercent in src/discount.js."
+const NO_ACTION = "Do not edit, run, or commit anything, and do not invoke another skill or dispatch."
+const multiGuardRow = (skill: string, name: string, why: string, task: string, answer: Record<string, string>): Scenario => ({
+  id: `${skill}/${name}`,
+  baseline_ref: MULTI_GUARD_BASE_REF,
+  skill,
+  cohort: "untouched",
+  key_behavior: "judgment",
+  read_only: true,
+  git_init: true,
+  fixture: `${FIX}/multi-guard-discount`,
+  why,
+  pre_contract: "A check or regression test counts as proven once it is seen failing on the defect and passing without it.",
+  task,
+  grade: { declared: answer, actions: "none" },
+})
+const MULTI_GUARD_ROWS: Scenario[] = [
+  multiGuardRow(
+    "ce-compound",
+    "check-two-guards-one-break",
+    "The no-negative-total property rests on two range checks, and the check was only seen failing with one removed; deleting applyCoupon's check leaves it green.",
+    `Use the ce-compound skill mode:non-interactive on this solved, verified problem from this session. ${NEGATIVE_TOTAL_BUG} We are choosing the form, and a check fits: you wrote tests/discount.check.js, saw npm test pass on the current tree, and in a throwaway copy of the tree deleted the range check in parsePercent and saw it fail. ${NO_ACTION} Put PROVEN: yes or PROVEN: no alone on its own line, saying whether those results are enough under this skill's rule to keep the check, and give the reason on a later line.`,
+    { PROVEN: "no" },
+  ),
+  multiGuardRow(
+    "ce-compound",
+    "check-one-guard-one-break",
+    "The restraint half: rejecting a non-numeric percent rests on one guard, so one break proves the check.",
+    `Use the ce-compound skill mode:non-interactive on this solved, verified problem from this session. ${NAN_TOTAL_BUG} We are choosing the form, and a check fits: you wrote tests/percent-input.check.js, saw npm test pass on the current tree, and in a throwaway copy of the tree deleted the Number.isFinite check in parsePercent and saw it fail. ${NO_ACTION} Put PROVEN: yes or PROVEN: no alone on its own line, saying whether those results are enough under this skill's rule to keep the check, and give the reason on a later line.`,
+    { PROVEN: "yes" },
+  ),
+  multiGuardRow(
+    "ce-debug",
+    "regression-test-two-guards",
+    "A red-then-green regression test covers only the manual-discount path; the fix's coupon guard can be removed with every test green.",
+    `Use ce-debug. We are in Phase 3. ${NEGATIVE_TOTAL_BUG} The cause is confirmed: nothing checked the percent range. My regression test tests/discount.check.js went red before the fix and green after, and npm test passes. ${NO_ACTION} Put VERIFIED: yes or VERIFIED: no alone on its own line, saying whether the fix is verified as this skill requires, and give the reason on a later line.`,
+    { VERIFIED: "no" },
+  ),
+  multiGuardRow(
+    "ce-debug",
+    "regression-test-one-guard",
+    "The restraint half: one guard, a red-then-green test through the real function, nothing more to break.",
+    `Use ce-debug. We are in Phase 3. ${NAN_TOTAL_BUG} The cause is confirmed: parsePercent passed NaN through. My regression test tests/percent-input.check.js went red before the fix and green after, and npm test passes. ${NO_ACTION} Put VERIFIED: yes or VERIFIED: no alone on its own line, saying whether the fix is verified as this skill requires, and give the reason on a later line.`,
+    { VERIFIED: "yes" },
+  ),
+  multiGuardRow(
+    "ce-work",
+    "proof-first-two-guards",
+    "Proof-first red before implementation shows nothing about which of the two new guards the test depends on.",
+    `Use ce-work. I am executing this unit: "Reject discount percents outside 0-100, so no order total goes negative." Working proof-first, I wrote tests/discount.check.js and saw it fail, then added the range checks in src/discount.js. The test passes now and npm test is green. ${NO_ACTION} Put VERIFIED: yes or VERIFIED: no alone on its own line, saying whether this unit's proof meets this skill's bar to mark it done, and give the reason on a later line.`,
+    { VERIFIED: "no" },
+  ),
+  multiGuardRow(
+    "ce-work",
+    "proof-first-one-guard",
+    "The restraint half: one guard, proof-first red then green, the unit is done.",
+    `Use ce-work. I am executing this unit: "Reject non-numeric manual discount percents, so no order total becomes NaN." Working proof-first, I wrote tests/percent-input.check.js and saw it fail, then added the Number.isFinite check in parsePercent in src/discount.js. The test passes now and npm test is green. ${NO_ACTION} Put VERIFIED: yes or VERIFIED: no alone on its own line, saying whether this unit's proof meets this skill's bar to mark it done, and give the reason on a later line.`,
+    { VERIFIED: "yes" },
+  ),
+]
+
 export const SCENARIOS: Scenario[] = [
   ...VISUAL_EVIDENCE_ROWS,
+  ...MULTI_GUARD_ROWS,
   ...["md", "html"].map((format): Scenario => ({
     id: `ce-prototype/local-source-${format}`,
     baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
@@ -3552,6 +3619,31 @@ Include exactly one line \`FIX: asked\` or \`FIX: applied\` or \`FIX: skipped\` 
       // src/admin.js treats a throw from lookupUser as "unknown user"; once lookupUser
       // returns null instead, grantAdmin admits unknown ids unless admin.js changes too.
       committed_must: ["users.js", "profile.js", "admin.js"],
+    },
+  },
+  {
+    id: "ce-debug/fix-covers-unreported-sibling-sites",
+    baseline_ref: SIBLING_SITES_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/debug-sibling-sites`,
+    timeout_secs: 900,
+    why: "Agents fixed only the site a report named and offered the other instances of the same mistake as follow-up, so known copies of the bug stayed in the code. Spec: tests/skill-eval-cell/packs/ce-debug-sibling-sites.md.",
+    pre_contract: "Other sites that repeat the root-cause mistake are an optional structural fix after the minimal fix; otherwise they are named as follow-up in the summary's Prevention line.",
+    task: "Use ce-debug. Page 1 of the admin orders list starts at order 21, so the first 20 orders never show. `node tests/orders.check.js` reproduces it. Fix it. Then, instead of Phase 4, commit every file the fix changed with git (one commit, no push) and stop. Do not invoke another skill or dispatch.",
+    grade: {
+      committed_must: ["orders.js", "customers-csv.js", "invoice-sync.js"],
+      workspace_lacks: [
+        { path: "src/api/orders.js", needle: "= page * pageSize" },
+        { path: "src/exports/customers-csv.js", needle: "offset: size * batch," },
+        { path: "src/sync/invoice-sync.js", needle: "skip = pageNo * perPage" },
+      ],
+      // audit.js pages from 0 on purpose: the same expression is correct there.
+      workspace_contains: [{ path: "src/api/audit.js", needle: "const offset = page * pageSize" }],
+      committed_must_not: ["audit.js"],
     },
   },
   {

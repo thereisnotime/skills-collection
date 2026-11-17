@@ -18,6 +18,9 @@
 #            parser counts that PARTIAL split as done; under LOKI_SPLIT_ONE_PR=0 (conflict e2e) each slice opens its own PR.
 #   one pr:  source level, real git and the real push script: independent, stacked and 8-slice splits give one PR; a conflict is
 #            resolved once or that slice falls back with its reason; the file cap falls back; the block stays within 8 lines.
+#            A rerun whose push is refused as a non-fast-forward still ends in one PR (its own branch name, no forced push)
+#            whose body links the earlier open combined PRs for a person to close; nothing is closed, edited or deleted.
+#            Any other push failure is not retried and keeps its own reason. Plain --no-pr combines nothing.
 #   outcome: the split's aggregate (commands/issues_epic.ts epicOutcome): FAILED (exit 1) when a slice really failed, which
 #            outranks BUDGET_STOP (exit 3), then PARTIAL (exit 6), then VERIFIED; exit codes via exitCodeOf
 #            (LOKI_DURABLE_STATE=1 gives 20). The Cost line sums unrounded slice figures plus every planning session (a
@@ -26,6 +29,14 @@
 #            slice skips only its dependents (issues_epic.ts runEpicSlices, stacksOn allowlist); source level, no dist needed.
 #   labels:  engine10's own sizing sees the issue's labels: when the split is refused (the stub writes no split) and
 #            `loki start acme/search#25` runs the issue as one run, its plan stage still sizes the epic-label issue large.
+#   prove:   Q1 PROVE (engine10/stages/prove.ts, LOKI_E10_PROVE): on the stub listing and prover, two asks copied from the issue pass on head and fail on
+#            base (VERIFIED, wall seconds recorded); a paraphrased listing is retried and a second one is PARTIAL "asks could not be listed"; exit 3 is
+#            "not run here"; a failing setup is PARTIAL and teardown runs; a script that passes on base is not evidence; no script and a timeout are
+#            PARTIAL with the PR kept; a port held before setup is "port was not ours"; SIGINT during an ask leaves no recorded id alive and a resume reuses
+#            the prover's files; the harness stops a recorded id teardown forgot; the prover's brief has the issue and the fixed list, not the implementer's
+#            reply; its cost is in run.completed; the PR table comes first; a text goal, opencode and the opt-out never meet the stage. Data the
+#            prover's own runs left never reaches the harness's clean pass. Repair (LOKI_E10_PROVE_REPAIR): two resumes that fix nothing leave
+#            PARTIAL; one that fixes the ask gives VERIFIED; =0 sends nothing back.
 #   lean:    `loki start "fix the off-by-one in paginate()"` sizes small and takes the lean path (no plan, no Wall).
 #   intake:  that run, on a repo with 1246 files, 240 test files that each pay an 80 ms process startup (the cost
 #            shape of FireLater's vitest suite) and 20 stale loki/e10-* branches holding unpushed commits, reaches
@@ -93,6 +104,17 @@
 #  29b. discover.ts: drop the fanOut early return (fall through to the session); the diet check fails (fan 1 session instead of 0).
 #  29c. discover.ts fanOutSessionEnabled: always false; the diet check fails (fan-on false).
 #  30. manifestModel: members only from tracked package.json files; the diet check fails (packages/gen missing).
+# PROVE (each planted, rebuilt, the prove legs run, reverted):
+#  P1. machine.ts: drop the proveNow call before verify; every e2e prove leg fails (no stage, no record).
+#  P2. seal.ts: drop ...proveNotes from openNotes; the listing, exit-3, setup, base, no-script, timeout and port legs fail (VERIFIED).
+#  P3. prove.ts runPass: skip the final killGroup; the harness leg fails (the hung script's child is left).
+#  P4. prove.ts proverBrief: append the implement brief; the brief leg fails.
+#  P5. prove.ts: drop the ALSO_ON_BASE rewrite after the base pass; the passes-on-base leg fails (VERIFIED).
+#  P6. prove.ts endpointOwned: drop the before.has(port) refusal and the started-this-pass rule; the foreign port leg fails.
+#  P7. worker.ts: drop the cancelProve() call from the SIGINT handler; the interrupt leg fails (the recorded detached id is alive).
+#  P8. prove_list.ts checkAsks: accept any ask; the listing retry and the twice-bad legs fail.
+#  P9. prove.ts: skip the repair loop; the repair leg that fixes the ask fails (PARTIAL).
+#  P10. prove.ts: ignore LOKI_E10_PROVE_REPAIR; the opt-out leg fails (repairs ran).
 # ONE-PR (issues_combine.ts; each planted on the committed tree, the one pr leg run, the file restored; all 13 caught):
 #  O1. commitStaged: amend every slice into one commit; cases A, B, C, H fail (one commit).   O2. onePrEnabled: always false; 9 checks fail.
 #  O3. onePrEnabled: ignore =0; case E fails.   O4. accept a resolve that left markers; case D fails.   O5. skip the resolve session; C, D fail.
@@ -100,6 +122,9 @@
 #  O8. never close an earlier slice PR; A fails.   O9. seal_group.ts composeGroupReceipt: ignore the combined misses; G fails.
 #  O10. prLines: no fold; I fails (11 lines).   O11. maxSlices: ignore LOKI_SPLIT_MAX_SLICES; the split cap check fails.
 #  O12. "Closes" on a partial combine; D fails.   O13. skip the combined impacted tests; G fails.
+#  O14 (measured on 6a44b64b8). issues_combine.ts: never retry the refused push under the run's own branch name; J, K fail.   O15. earlierCombinedPrs returns []; K fails (rerun on ab9315e7c+).
+#  The engine of 6a44b64b8 (it closed earlier combined PRs and retried on any push failure), swapped in for issues_combine.ts, fails K and P.
+#  Q (the gh api tip) fails when nonFastForward reads only git ls-remote.
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need bun
@@ -307,8 +332,10 @@ print(" ".join("%s:%s" % (e["stage"], e["type"].split(".")[1]) for e in ev if e[
 
 # S1b no-loss (issue run): an issue run whose implement reply ends with a finish line has the same stage order, receipt key set, implement key set and
 # normalized implement brief as on the base commit (8c7ae842b, captured by this same leg there).
+# F5 adds one block to an issue run's brief, so this leg runs under LOKI_E10_PROVE_BY_RUNNING=0: the opt-out gives the base brief byte for byte.
+# Q1 PROVE adds a stage and a receipt key to an issue run on claude, so the leg also runs under LOKI_E10_PROVE=0: the opt-out gives the base run byte for byte.
 W3="$T/whole-sig"; make_repo "$W3" 0
-E2E_STUB_MODE=done run_loki "$W3" "$T/whole-sig-stub.log" start acme/search#24 --no-pr --max-cost 5
+LOKI_E10_PROVE=0 LOKI_E10_PROVE_BY_RUNNING=0 E2E_STUB_MODE=done run_loki "$W3" "$T/whole-sig-stub.log" start acme/search#24 --no-pr --max-cost 5
 W3SIG="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$(dirname "$(ls "$W3"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")" "$W3" 2>&1)"
 [ "$W3SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,self_review,task,time,toolchain,tree,verdict,verification,wall; implement=already_done_evidence,brief_files,cascade,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,self_review,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=fa2041fa29ead36e" ] \
     && ok "S1b no-loss (issue run): stage order, receipt key set, implement key set and the normalized implement brief equal the base commit's" || bad "S1b no-loss (issue run) differs from the base commit: $W3SIG"
@@ -403,6 +430,406 @@ echo "    model scope e2e: haiku pin $HK1, sonnet pin $HK2, haiku pin with =1 $H
 [ "$HK1" = "yes/1" ] && ok "whole-first model scope e2e: --session-model haiku on the epic splits as before (one epic record)" || bad "whole-first: --session-model haiku gave split/epic $HK1 (want yes/1)"
 [ "$HK2" = "no/0" ] && ok "whole-first model scope e2e: --session-model sonnet runs the epic whole" || bad "whole-first: --session-model sonnet gave split/epic $HK2 (want no/0)"
 [ "$HK3" = "no/0" ] && ok "whole-first model scope e2e: LOKI_ISSUE_WHOLE_FIRST=1 runs the epic whole on Haiku" || bad "whole-first: =1 on Haiku gave split/epic $HK3 (want no/0)"
+
+# --- candidate 1: an issue run on claude gets its own rules constant, the prove-by-running block, the take-the-time and deliver-each lines, no time sentence,
+# and the small environment card; a text goal, opencode and LOKI_E10_PROVE_BY_RUNNING=0 keep today's brief. Prompts are what the stub session received.
+c1_run() { # c1_run <name> <repo setup: none|pg> <start args...> -- [VAR=value...]: one stub run; sets C1P (implement prompt), C1PATH (implement PATH), C1PLANPATH, C1RUN
+    local name="$1" setup="$2" d="$T/c1-$1"; shift 2; local args=(); while [ "$1" != "--" ]; do args+=("$1"); shift; done; shift
+    make_repo "$d" 0
+    if [ "$setup" = pg ]; then printf '{ "name": "svc", "dependencies": { "pg": "^8.11.0" } }\n' > "$d/package.json"; git -C "$d" add package.json; git -C "$d" commit -q -m "pg dependency"; fi
+    rm -f "$d.prompt".* "$d.path" "$d.env"
+    run_loki_env "$d" "$d.stub.log" E2E_STUB_MODE=done E2E_STUB_PROMPT_LOG="$d.prompt" E2E_STUB_PATH_LOG="$d.path" E2E_STUB_ENV_LOG="$d.env" LOKI_E10_ENV_CARD_ROOTS="$T/fake-opt" "$@" -- "${args[@]}"
+    C1ENV="$(sed -n 's/^implement //p' "$d.env" 2>/dev/null)"; C1ENV="${C1ENV%%$'\n'*}"; C1PLANENV="$(sed -n 's/^plan //p' "$d.env" 2>/dev/null)"; C1PLANENV="${C1PLANENV%%$'\n'*}"
+    C1P="$(cat "$d.prompt.implement0" 2>/dev/null)"; C1PATH="$(sed -n 's/^implement //p' "$d.path" 2>/dev/null | head -1)"; C1PLANPATH="$(sed -n 's/^plan //p' "$d.path" 2>/dev/null | head -1)"
+    C1RUN="$(dirname "$(ls "$d"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")"
+}
+mkdir -p "$T/fake-opt/postgresql@14/bin" "$T/fake-opt/postgresql@15/bin" "$T/fake-opt/redis/bin"
+for b in initdb pg_ctl postgres; do printf '#!/bin/sh\nexit 0\n' > "$T/fake-opt/postgresql@15/bin/$b"; chmod +x "$T/fake-opt/postgresql@15/bin/$b"; done
+printf '#!/bin/sh\nexit 0\n' > "$T/fake-opt/postgresql@14/bin/pg_ctl"; chmod +x "$T/fake-opt/postgresql@14/bin/pg_ctl"
+printf '#!/bin/sh\nexit 0\n' > "$T/fake-opt/redis/bin/redis-server"; chmod +x "$T/fake-opt/redis/bin/redis-server"
+c1_run issue-pg pg start acme/search#24 --no-pr --max-cost 5 --
+ISSUE_P="$C1P" ISSUE_PATH="$C1PATH" ISSUE_PLANPATH="$C1PLANPATH" ISSUE_RUN="$C1RUN"
+c1_has() { grep -qF -- "$2" <<< "$1"; }
+CARD_LINE="Available on this machine: postgres 15 (initdb, pg_ctl, postgres) in $T/fake-opt/postgresql@15/bin. Their directories are on your PATH."
+c1_has "$ISSUE_P" "- You may start this repository's own services and throwaway dependencies to exercise your change. Bind anything you start to 127.0.0.1 or a unix socket, never to all interfaces. Create data directories, sockets and scratch files under \$TMPDIR. Leave what you started running; Loki stops it after the session. Never stop or signal a process you did not start. Use only a database, cache or server you started yourself under \$TMPDIR; never connect to one named in the repository's env files or in your environment, and never apply migrations to it." \
+    && ! c1_has "$ISSUE_P" "Stop every process you started" && ! c1_has "$ISSUE_P" "stop each one by that id" \
+    && ! c1_has "$ISSUE_P" "- Never leave a long-lived server running." && ! c1_has "$ISSUE_P" "- Never kill processes." \
+    && c1_has "$ISSUE_P" "or LOKI_UNFINISHED: <what is left> when something the issue requires is not delivered. An item the issue marks optional is not required: do it or skip it, say which in your reply, and still finish with LOKI_DONE. Use LOKI_SPEC_CONFLICT only when a test in the repository contradicts the task." \
+    && c1_has "$ISSUE_P" "- Run the impacted tests named below" \
+    && ok "candidate 1: the issue run's rules allow starting the repository's own services (loopback or a unix socket, data under \$TMPDIR, left for Loki to stop), drop the two old process rules, keep the targeted-tests rule and add the LOKI_UNFINISHED ending" \
+    || bad "candidate 1: issue-run rules wrong (prompt $(wc -c <<< "$ISSUE_P") bytes)"
+c1_has "$ISSUE_P" "Never use a fixed port number: pick a port you have just checked is free, or a unix socket inside your temporary directory" \
+    && c1_has "$ISSUE_P" "You may say something cannot be run only after you have tried: list each command you tried to find or start it and what it printed. A missing program on PATH is not enough; look where this machine installs it." \
+    && ! c1_has "$ISSUE_P" "If something cannot be run here, say what and why." && ! c1_has "$ISSUE_P" "For this proof the process rules above read as" \
+    && c1_has "$ISSUE_P" "take the time the work needs and finish every item the issue asks for" \
+    && c1_has "$ISSUE_P" "This issue lists several things to deliver. Deliver each one. If a required one is left undone, finish with LOKI_UNFINISHED and say which. An item the issue marks optional may be skipped: say so and finish with LOKI_DONE." \
+    && ! c1_has "$ISSUE_P" "Time budget: about" \
+    && ok "candidate 1: the issue brief has the port rule, the tried-first rule, the take-the-time and deliver-each lines, no reconciling sentences and no time-budget sentence" \
+    || bad "candidate 1: issue-run block lines wrong"
+c1_has "$ISSUE_P" "$CARD_LINE" && [ "$ISSUE_PATH" = "$ISSUE_PLANPATH:$T/fake-opt/postgresql@15/bin" ] && [ -f "$ISSUE_RUN/env-card.json" ] && grep -q '"type":"env.card"' "$ISSUE_RUN/events.jsonl" \
+    && ok "candidate 1 card: a repo needing postgres with a keg off PATH gets the newest keg's line in the brief and its bin appended (not prepended) to the implement session's PATH only; env-card.json and one event" \
+    || bad "candidate 1 card: line $(grep -c 'Available on this machine' <<< "$ISSUE_P"), implement PATH tail '${ISSUE_PATH##*:}', plan PATH equal to implement head: $([ "${ISSUE_PATH%:*}" = "$ISSUE_PLANPATH" ] && echo yes || echo no)"
+c1_run issue-none none start acme/search#24 --no-pr --max-cost 5 --
+c1_has "$C1P" "This issue lists several things to deliver." && ! c1_has "$C1P" "Available on this machine" && [ "$C1PATH" = "$C1PLANPATH" ] \
+    && ok "candidate 1 card: an issue run on a repo that needs no service gets no card line and an unchanged PATH" || bad "candidate 1 card: repo needing nothing got a card or a PATH change"
+c1_run text-pg pg "add a multiply(a, b) function to calc.ts" --no-pr --
+c1_has "$C1P" "- Never kill processes." && c1_has "$C1P" "Time budget: about" && ! c1_has "$C1P" "LOKI_UNFINISHED" && ! c1_has "$C1P" "prove the change works by running it" && ! c1_has "$C1P" "Available on this machine" && [ -n "$C1PATH" ] && ! c1_has "$C1PATH" "$T/fake-opt" \
+    && ok "candidate 1: a text goal keeps today's rules, finish line and time sentence, gets no block and no card, and no keg directory reaches its PATH" \
+    || bad "candidate 1: the text goal changed: old rule $(grep -c 'Never kill processes' <<< "$C1P"), time $(grep -c 'Time budget' <<< "$C1P"), UNFINISHED $(grep -c LOKI_UNFINISHED <<< "$C1P"), block $(grep -c 'prove the change works' <<< "$C1P"), card $(grep -c 'Available on this' <<< "$C1P"), keg on PATH $(grep -c fake-opt <<< "$C1PATH"), PATH set $([ -n "$C1PATH" ] && echo yes || echo no)"
+c1_run issue-off pg start acme/search#24 --no-pr --max-cost 5 -- LOKI_E10_PROVE_BY_RUNNING=0
+c1_has "$C1P" "- Never kill processes." && c1_has "$C1P" "Time budget: about" && ! c1_has "$C1P" "LOKI_UNFINISHED" && ! c1_has "$C1P" "Available on this machine" && [ "$C1PATH" = "$C1PLANPATH" ] \
+    && ok "candidate 1: LOKI_E10_PROVE_BY_RUNNING=0 restores today's issue-run rules, time sentence and PATH, with no block and no card" || bad "candidate 1: the opt-out left a candidate-1 change"
+c1_run issue-cardoff pg start acme/search#24 --no-pr --max-cost 5 -- LOKI_E10_ENV_CARD=0
+c1_has "$C1P" "This issue lists several things to deliver." && ! c1_has "$C1P" "Available on this machine" && [ "$C1PATH" = "$C1PLANPATH" ] \
+    && ok "candidate 1 card: LOKI_E10_ENV_CARD=0 turns off only the card" || bad "candidate 1 card: LOKI_E10_ENV_CARD=0 did not turn the card off"
+# The path a real user hits most: the session cannot do an item, writes LOKI_UNFINISHED, is resumed once, changes nothing. One PR, PARTIAL, the diff committed,
+# and the session's own what-is-left text on the receipt and in the PR body.
+UF="$T/c1-unfinished"; make_repo "$UF" 0; git init -q --bare "$UF-origin.git"; git -C "$UF" remote add origin "$UF-origin.git"; git -C "$UF" push -q origin main
+run_loki_env "$UF" "$UF.stub.log" E2E_STUB_MODE=done E2E_STUB_NOFINISH=unfinished -- start acme/search#24 --max-cost 5
+UFRUN="$(dirname "$(ls "$UF"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")"
+UFPR="$(grep -cE '^PR: +local:///.+#loki/' <<< "$OUT")"
+UFNP="$(python3 -I -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1])).get("not_proven") or []))' "$UFRUN/receipt.json" 2>/dev/null)"
+UFBODY="$(cat "$UFRUN/pr-body.md" 2>/dev/null)"
+[ "$UFPR" = 1 ] && grep -Eq '^Outcome: +PARTIAL' <<< "$OUT" && grep -qF "LOKI_UNFINISHED: the docs for multiply are not written" <<< "$UFNP" && grep -qF "LOKI_UNFINISHED: the docs for multiply are not written" <<< "$UFBODY" \
+    && [ -n "$(git --git-dir="$UF-origin.git" log --format=%H main..loki/"$(basename "$UFRUN")" 2>/dev/null)" ] \
+    && ok "candidate 1: an issue run whose session stays LOKI_UNFINISHED with an unchanged tree seals PARTIAL with one PR, the diff pushed, and its what-is-left text in the receipt and the PR body" \
+    || { bad "candidate 1 LOKI_UNFINISHED issue run: PR lines $UFPR, outcome $(grep '^Outcome:' <<< "$OUT"), receipt line $(grep -c LOKI_UNFINISHED <<< "$UFNP"), PR body line $(grep -c LOKI_UNFINISHED <<< "$UFBODY")"; tail -8 <<< "$OUT" | sed 's/^/    | /'; }
+C1U="$(ROOT="$ROOT" T="$T" bun --no-env-file --config=/dev/null -e '
+const st = await import(process.env.ROOT + "/loki-ts/src/util/stack_tools.ts"), c = await import(process.env.ROOT + "/loki-ts/src/e10ext/context.ts");
+const evs = [], ctx = (repoDir) => ({ repoDir, runDir: process.env.T + "/c1-unit-run", emit: (t) => evs.push(t) });
+const env = { PATH: "/usr/bin:/bin", LOKI_E10_ENV_CARD_ROOTS: process.env.T + "/fake-opt" };
+const errCard = st.envCard(ctx(process.env.T + "/no-such-repo"), env);
+const onPath = st.detectServiceBinaries(["redis"], { PATH: process.env.T + "/fake-opt/redis/bin" }, [process.env.T + "/fake-opt"]);
+console.log([errCard === null, onPath.length === 1 && onPath[0].on_path === true && st.envCardLine(onPath) === null, c.proveByRunningBlock("opencode", "issue") === "", c.proveByRunningBlock("claude", "text") === "", c.fixedRules({}, false) === c.FIXED_RULES].join(" "));
+' 2>&1)"
+[ "$C1U" = "true true true true true" ] && ok "candidate 1 unit: a detection error gives no card and never throws; a service already on PATH adds no line; opencode and a text goal get no block; non-issue rules are today's constant" || bad "candidate 1 unit gave: $C1U"
+# --- Q1 PROVE (stages/prove.ts, LOKI_E10_PROVE default on): an issue run on claude gets a listing call that fixes the asks (each a verbatim line of the
+# issue, stages/prove_list.ts) and a prover session that did not write the change; the harness runs its per-ask scripts and the exit codes cap the label.
+# The stub answers both calls (E2E_STUB_LIST, E2E_STUB_PROVE). PR legs publish to a local bare origin, so a kept pull request is a local:// URL.
+pv_run() { # pv_run <name> [pr] <VAR=value...>: start acme/search#24 on the stub, implement mode done; sets PVD (run dir), PVR (repo) and PVS (summary line)
+    local name="$1" d="$T/pv-$1" pr=""; shift; [ "${1:-}" = pr ] && { pr=1; shift; }
+    make_repo "$d" 0; PVR="$d"
+    if [ -n "$pr" ]; then git init -q --bare "$d-origin.git"; git -C "$d" remote add origin "$d-origin.git"; git -C "$d" push -q origin main
+        run_loki_env "$d" "$T/pv-$name-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE_LOG="$T/pv-$name.prove.log" "$@" -- start acme/search#24 --max-cost 5
+    else run_loki_env "$d" "$T/pv-$name-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE_LOG="$T/pv-$name.prove.log" "$@" -- start acme/search#24 --no-pr --max-cost 5; fi
+    PVD="$(dirname "$(ls "$d"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")"
+    PVS="$(python3 -I - "$PVD" "$d" <<'PY' 2>&1
+import glob, json, sys
+run, repo = sys.argv[1], sys.argv[2]
+ev = [json.loads(l) for l in open(run + "/events.jsonl") if l.strip()]
+rec = json.load(open(run + "/receipt.json"))
+pv = rec.get("prove") or {}
+asks = ",".join("%s=%s" % (a["id"], a["result"]) for a in pv.get("asks", []))
+lines = [n for n in rec.get("not_proven", []) if n.startswith("not proved:")]
+n = lambda t: sum(1 for e in ev if e["type"] == t)
+stages = ",".join(e["stage"] for e in ev if e["type"] == "stage.started").replace("plan,wall", "{plan,wall}").replace("wall,plan", "{plan,wall}")
+done = next((e["data"] for e in ev if e["type"] == "run.completed"), {})
+costs = sum(json.load(open(f)).get("total_cost_usd", 0) for f in glob.glob(repo + "/.loki/metrics/**/result-cost-*.json", recursive=True))
+prover = bool(glob.glob(repo + "/.loki/metrics/**/result-cost-*-prove.json", recursive=True))
+wall = "wall" if isinstance(pv.get("wall_s"), (int, float)) and any(isinstance(e["data"].get("wall_s"), (int, float)) for e in ev if e["type"] == "prove.completed") else "nowall"
+print("verdict=%s; asks=%s; base=%s; events=%d/%d/%d; %s; stages=%s; cost=%s/%.2f/%s; lines=%s" % (rec["verdict"], asks, pv.get("base"), n("prove.started"), n("prove.ask"), n("prove.completed"), wall, stages, done.get("cost_usd"), costs, prover, " || ".join(lines)))
+PY
+)"
+    echo "    prove $name: $PVS"
+}
+pv_kept() { # pv_kept: the PR leg's outcome is PARTIAL with one local PR whose pushed branch holds the change (never BLOCKED, FAILED or a dropped branch)
+    local b; b="$(python3 -I -c 'import json,sys; print(next((json.loads(l)["data"].get("url","") for l in open(sys.argv[1]) if "\"pr.opened\"" in l), ""))' "$PVD/events.jsonl" 2>/dev/null)"
+    grep -Eq '^Outcome: +PARTIAL$' <<< "$OUT" && grep -Eq '^PR: +local:///' <<< "$OUT" && [ -n "$b" ] && grep -q 'export function multiply' <<< "$(git -C "$PVR-origin.git" show "${b##*#}:calc.ts" 2>/dev/null)"
+}
+pv_run pass E2E_STUB_USAGE=10 E2E_STUB_REPLY_MARK=IMPLEMENTER_REPLY_7f3a E2E_STUB_PROVE_BRIEF_LOG="$T/pv-pass.brief"
+case "$PVS" in "verdict=VERIFIED; asks=1=proved,2=proved; base=run; events=1/2/1; wall; stages=intake,{plan,wall},implement,prove,verify,commit,seal; "*"; lines=") pv1=ok ;; *) pv1=bad ;; esac
+pvlist="$(python3 -I -c 'import json,sys; print(" | ".join(a["text"] for a in json.load(open(sys.argv[1]))["prove"]["asks"]))' "$PVD/receipt.json" 2>&1)"
+[ "$pv1" = ok ] && [ "$pvlist" = "Implement PostgreSQL full-text search with ranking | Create advanced filter query builder" ] \
+    && ok "prove: two asks copied from the issue, both scripts pass on head and fail on base: VERIFIED; prove runs after implement and before verify; one event per ask; wall seconds in the event and the receipt" || bad "prove (pass): $PVS; list '$pvlist'"
+pvcost="$(sed -n 's/.*; cost=\([^;]*\); .*/\1/p' <<< "$PVS")"
+python3 -I -c 'import sys; c, s, p = sys.argv[1].split("/"); sys.exit(0 if p == "True" and c not in ("None", "") and abs(float(c) - float(s)) < 0.005 else 1)' "$pvcost" \
+    && ok "prove: the prover session writes a cost record and run.completed cost_usd includes it ($pvcost)" || bad "prove cost: run.completed cost/sum of cost records/prover record = $pvcost"
+pvb="$(cat "$T/pv-pass.brief" 2>/dev/null)"
+pvasks="$(sed -n '/^The asks are fixed/,/^$/p' <<< "$pvb")"
+[ -n "$pvb" ] && ! grep -q 'IMPLEMENTER_REPLY_7f3a' <<< "$pvb" && ! grep -q 'Loki 10 implement stage' <<< "$pvb" && grep -q 'Implement Advanced Search and Filtering' <<< "$pvb" && grep -rq 'IMPLEMENTER_REPLY_7f3a' "$T/pv-pass/.loki/" \
+    && [ "$pvasks" = "$(printf 'The asks are fixed. Do not add, drop, merge or reword them; write one script per ask, by its id:\n1. Implement PostgreSQL full-text search with ranking\n2. Create advanced filter query builder\n')" ] \
+    && ok "prove: the prover's brief carries the issue and exactly the accepted ask list, and not the implementer's reply or brief" || bad "prove brief: asks block [$pvasks], bytes ${#pvb}"
+pv_run para E2E_STUB_LIST=para E2E_STUB_LIST_LOG="$T/pv-para.list"
+[ "$(grep -c '^Loki 10 prove listing' "$T/pv-para.list" 2>/dev/null)" = 2 ] && grep -q '^- Add full text search to the issues list$' "$T/pv-para.list" && case "$PVS" in "verdict=VERIFIED; asks=1=proved,2=proved; "*) true ;; *) false ;; esac \
+    && ok "prove listing: a paraphrased ask is rejected and the listing retried once with that ask named; the verbatim retry is used" || bad "prove listing retry: calls $(grep -c '^Loki 10 prove listing' "$T/pv-para.list" 2>/dev/null); $PVS"
+pv_run badlist pr E2E_STUB_LIST=bad
+case "$PVS" in "verdict=PARTIAL; asks=; "*"lines=not proved: asks could not be listed") pvbl=ok ;; *) pvbl=bad ;; esac
+[ "$pvbl" = ok ] && pv_kept && ok "prove listing: a second paraphrased list gives PARTIAL \"asks could not be listed\"; the diff and the pull request are kept" || bad "prove listing twice bad: $PVS; outcome $(grep '^Outcome:' <<< "$OUT")"
+pv_run notrun E2E_STUB_PROVE=notrun
+case "$PVS" in "verdict=PARTIAL; asks=1=proved,2=not run here; "*"lines=not proved: Create advanced filter query builder: not run here: tried: initdb --version: command not found; needs a GPU to run") ok "prove: an ask whose script exits 3 reads \"not run here\" with its printed reason and keeps the run PARTIAL, never VERIFIED" ;; *) bad "prove (exit 3): $PVS" ;; esac
+pv_run setupfail E2E_STUB_PROVE=setupfail
+case "$PVS" in "verdict=PARTIAL; asks=1=not proved,2=not proved; "*"lines=not proved: Implement PostgreSQL full-text search with ranking: environment could not be built: setup failed (exit 1): migration 042 failed"*) pv4=ok ;; *) pv4=bad ;; esac
+[ "$pv4" = ok ] && [ "$(grep -c '^teardown$' "$T/pv-setupfail.prove.log" 2>/dev/null)" -ge 1 ] \
+    && ok "prove: a setup.sh that fails leaves every ask not proved, the run PARTIAL, and teardown.sh still runs" || bad "prove (setup fails): $PVS; teardown runs $(grep -c '^teardown$' "$T/pv-setupfail.prove.log" 2>/dev/null)"
+pv_run basepass E2E_STUB_PROVE=basepass
+case "$PVS" in "verdict=PARTIAL; asks=1=proved,2=not proved; base=run; "*"lines=not proved: Create advanced filter query builder: check also passes without the change") ok "prove: a script that also passes on the base commit is dropped as evidence; its ask is not proved and the run PARTIAL" ;; *) bad "prove (passes on base): $PVS" ;; esac
+# The prover runs its own scripts (its brief says so) and may leave data behind. The harness's pass gets a clean environment of its own: a fresh mkdtemp
+# $PROVE_TMP, prove/endpoints and prove/pids cleared, and the tree put back (the untracked seed.db the prover's run made is removed).
+pv_run leftover E2E_STUB_PROVE=leftover E2E_STUB_PROVE_BRIEF_LOG="$T/pv-leftover.brief"
+pvlt="$(sed -n 's/^tmp=//p' "$PVD/prove/run-0/ask-2.log" 2>/dev/null)"
+case "$PVS" in "verdict=VERIFIED; asks=1=proved,2=proved; base=run; "*) pvl=ok ;; *) pvl=bad ;; esac
+[ "$pvl" = ok ] && grep -q 'duplicate key' "$PVD/prove/prover-own-run.log" && [ -n "$pvlt" ] && case "$pvlt" in *prover-scratch*) false ;; *) true ;; esac && [ ! -e "$PVR/seed.db" ] && grep -q 'Before you finish, run setup.sh and then every ask script yourself' "$T/pv-leftover.brief" && grep -q 'safe to run more than once' "$T/pv-leftover.brief" \
+    && ok "prove: data the prover's own runs left (a seed marker in its scratch dir, an untracked file, stale endpoints and pids) does not reach the harness's clean pass; the brief makes the prover run and fix its own scripts" || bad "prove (leftover): $PVS; harness tmp '$pvlt'; seed.db $( [ -e "$PVR/seed.db" ] && echo present || echo gone)"
+# Repair (LOKI_E10_PROVE_REPAIR, default on): an unproved ask goes back to the implement session by same-session resume, two rounds at most, and the same
+# scripts run again.
+pvrep() { grep -c '^repair$' "$T/pv-$1.prove.log" 2>/dev/null; }
+pv_run onefail E2E_STUB_PROVE=onefail
+case "$PVS" in "verdict=PARTIAL; asks=1=proved,2=not proved; base=run; events=1/6/1; "*"lines=not proved: Create advanced filter query builder: exit 1: POST /v1/filters returned 404") pvr1=ok ;; *) pvr1=bad ;; esac
+[ "$pvr1" = ok ] && [ "$(pvrep onefail)" = 2 ] && ok "prove repair: an ask that still fails after two repair resumes is named on the receipt and the run is PARTIAL (one prove.ask per ask per round)" || bad "prove repair (not fixed): $PVS; repairs $(pvrep onefail)"
+pv_run fixed E2E_STUB_PROVE=onefail E2E_STUB_PROVE_REPAIR=fix
+pvrid="$(python3 -I -c 'import json,sys; print(",".join(str(r.get("iteration_id","")).rsplit("-",1)[-1] for r in json.load(open(sys.argv[1]))["prove"]["rounds"]))' "$PVD/receipt.json" 2>&1)"
+case "$PVS" in "verdict=VERIFIED; asks=1=proved,2=proved; base=run; events=1/4/1; "*"; lines=") pvr2=ok ;; *) pvr2=bad ;; esac
+[ "$pvr2" = ok ] && [ "$(pvrep fixed)" = 1 ] && [ "$pvrid" = ",pv1" ] && ok "prove repair: after one repair resume (iteration -pv1) makes the failing ask pass, the same scripts pass and the run is VERIFIED" || bad "prove repair (fixed): $PVS; repairs $(pvrep fixed); rounds '$pvrid'"
+pv_run norepair E2E_STUB_PROVE=onefail E2E_STUB_PROVE_REPAIR=fix LOKI_E10_PROVE_REPAIR=0
+case "$PVS" in "verdict=PARTIAL; asks=1=proved,2=not proved; base=run; events=1/2/1; "*) [ "$(pvrep norepair)" = 0 ] && ok "prove repair: LOKI_E10_PROVE_REPAIR=0 sends nothing back; the failing ask keeps the run PARTIAL" || bad "prove repair opt-out resumed $(pvrep norepair) times" ;; *) bad "prove repair opt-out: $PVS" ;; esac
+pv_run editsrc E2E_STUB_PROVE=editsrc
+case "$PVS" in "verdict=PARTIAL; asks=1=proved,2=proved; "*"lines=not proved: the prover changed 1 file(s) in the tree (put back): calc.ts") ! grep -q 'prover was here' "$PVR/calc.ts" && ok "prove: a tracked file the prover edits is put back and caps the run at PARTIAL with a line naming it" || bad "prove (prover edit): calc.ts still holds the prover's line" ;; *) bad "prove (prover edit): $PVS" ;; esac
+pv_run proverdaemon E2E_STUB_PROVE=proverdaemon E2E_STUB_PROVER_PID_LOG="$T/pv-proverdaemon.pid"
+pvdp="$(cat "$T/pv-proverdaemon.pid" 2>/dev/null)"; pvda="$(python3 -I -c 'import os, sys
+try: os.kill(int(sys.argv[1]), 0); print("alive")
+except Exception: print("gone")' "${pvdp:-0}")"
+pvdn="$(python3 -I -c 'import json, sys; r = json.load(open(sys.argv[1])); print(sum(1 for n in r.get("not_proven", []) if "the prover\x27s own runs left 1 process" in n))' "$PVD/receipt.json" 2>&1)"
+[ -n "$pvdp" ] && [ "$pvda" = gone ] && [ "$pvdn" = 1 ] && ok "prove: a daemon the prover's own run left working in its TMPDIR is stopped by the harness after the session and named in the receipt" || { bad "prove (prover daemon): pid '$pvdp' $pvda, receipt lines $pvdn"; [ "$pvda" = alive ] && python3 -I -c 'import os, signal, sys; os.kill(int(sys.argv[1]), signal.SIGTERM)' "$pvdp"; }
+pv_run noscript pr E2E_STUB_PROVE=noscript
+case "$PVS" in "verdict=PARTIAL; asks=1=not proved,2=not proved; "*"lines=not proved: Implement PostgreSQL full-text search with ranking: script ask-1.sh missing || not proved: Create advanced filter query builder: script ask-2.sh missing") pvns=ok ;; *) pvns=bad ;; esac
+[ "$pvns" = ok ] && pv_kept && ok "prove: a prover that writes no ask script gives PARTIAL with the reason; the diff and the pull request are kept" || bad "prove (no script): $PVS; outcome $(grep '^Outcome:' <<< "$OUT")"
+pv_run hang pr E2E_STUB_PROVE=hang LOKI_E10_PROVE_SCRIPT_S=2
+case "$PVS" in "verdict=PARTIAL; asks=1=proved,2=not proved; "*"lines=not proved: Create advanced filter query builder: timed out after 2s") pvh0=ok ;; *) pvh0=bad ;; esac
+[ "$pvh0" = ok ] && pv_kept && ok "prove: a script that times out gives PARTIAL with the reason; the diff and the pull request are kept" || bad "prove (timeout): $PVS; outcome $(grep '^Outcome:' <<< "$OUT")"
+# A port somebody else holds: another process listens on it before setup, setup.sh lists it as its endpoint; no ask runs against it.
+PVPORT="$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
+python3 -I -c 'import socket, sys, time; s=socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("127.0.0.1", int(sys.argv[1]))); s.listen(5); time.sleep(600)' "$PVPORT" &
+PVFOREIGN=$!; for i in $(seq 1 50); do python3 -I -c 'import socket,sys; socket.create_connection(("127.0.0.1", int(sys.argv[1])), 1)' "$PVPORT" 2>/dev/null && break; sleep 0.1; done
+pv_run foreign E2E_STUB_PROVE=foreign E2E_STUB_FOREIGN_PORT="$PVPORT"
+kill "$PVFOREIGN" 2>/dev/null; wait "$PVFOREIGN" 2>/dev/null
+case "$PVS" in "verdict=PARTIAL; asks=1=not proved,2=not proved; "*"lines=not proved: Implement PostgreSQL full-text search with ranking: web $PVPORT: port was not ours (port $PVPORT was listening before setup)"*) ok "prove: an endpoint whose port another process held before setup is refused (\"port was not ours\"); no ask runs against it and the run is PARTIAL" ;; *) bad "prove (foreign port $PVPORT): $PVS" ;; esac
+# Interrupt: SIGINT to the run while an ask script has a server child up, one child in the driver's group and one that left it (its own session), both
+# recorded in prove/pids. Afterwards no recorded id is alive (checked by id). A resume reuses the prover's files: no second listing or prover session.
+PVA="$T/pv-abort"; make_repo "$PVA" 0; rm -f "$T/pv-abort.mark"
+(cd "$PVA" && exec env -u LOKI_ALLOW_AGENT_GITHUB_TOKEN -u LOKI_MODEL_OVERRIDE -u LOKI_RECEIPT_SIGNING_KEY -u LOKI_SPEED LOKI_E10_INVOKER=cli LOKI_CLAUDE_CLI="$FIX/bin/claude" PATH="$T/bin:$FIX/bin:$PATH" \
+    E2E_STUB_LOG="$T/pv-abort-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE=abort E2E_STUB_ABORT_MARK="$T/pv-abort.mark" LOKI_RECEIPT_SIGNING_KEY_FILE="$T/k.pem" \
+    bash "$ROOT/bin/loki" start acme/search#24 --no-pr --max-cost 5 </dev/null >"$T/pv-abort.out" 2>&1) &
+PVAP=$!
+for i in $(seq 1 900); do [ -s "$T/pv-abort.mark" ] && [ "$(grep -c . "$T/pv-abort.mark")" -ge 2 ] && break; sleep 0.1; done
+pvids="$(tr '\n' ' ' < "$T/pv-abort.mark" 2>/dev/null)"
+kill -INT "$PVAP" 2>/dev/null
+for i in $(seq 1 300); do kill -0 "$PVAP" 2>/dev/null || break; sleep 0.1; done
+kill -0 "$PVAP" 2>/dev/null && { kill -KILL "$PVAP" 2>/dev/null; bad "prove interrupt: the run did not exit within 30s of SIGINT"; }
+wait "$PVAP" 2>/dev/null
+sleep 0.5; pvlive=""; for p in $pvids; do kill -0 "$p" 2>/dev/null && pvlive="$pvlive $p"; done
+[ -n "$pvids" ] && [ "$(wc -w <<< "$pvids" | tr -d ' ')" = 2 ] && [ -z "$pvlive" ] \
+    && ok "prove interrupt: after SIGINT during an ask, no recorded process id is alive (one in the driver's group, one in its own session: $pvids)" || { bad "prove interrupt: recorded '$pvids', alive '$pvlive'"; for p in $pvlive; do kill -TERM "$p" 2>/dev/null; done; }
+PVAID="$(basename "$(dirname "$(ls "$PVA"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")")"
+pvcalls0="$(grep -c '^prove' "$T/pv-abort-stub.log" 2>/dev/null)"
+run_loki_env "$PVA" "$T/pv-abort-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE=abort -- start --resume "$PVAID" --no-pr --max-cost 5
+PVD="$PVA/.loki/runs/$PVAID"
+pvres="$(python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); p=r.get("prove",{}); print(r["verdict"], p.get("reused"), ",".join(a["result"] for a in p.get("asks",[])))' "$PVD/receipt.json" 2>&1)"
+[ "$pvcalls0" = 2 ] && [ "$(grep -c '^prove' "$T/pv-abort-stub.log" 2>/dev/null)" = 2 ] && [ "$pvres" = "VERIFIED True proved,proved" ] \
+    && ok "prove interrupt: the resumed run reuses the prover's list and scripts (no second listing or prover session) and seals on their result" || bad "prove resume: prove sessions before $pvcalls0, after $(grep -c '^prove' "$T/pv-abort-stub.log" 2>/dev/null); receipt '$pvres'; $(tail -3 <<< "$OUT" | tr '\n' ' ')"
+# The harness owns the limits and the processes: a hung script is killed at its limit and nothing in the driver's group is left; a listener that left the
+# group (its own session) and is recorded in prove/pids is accepted as ours; a recorded id teardown forgot is stopped by the harness, by id.
+PVH="$T/pv-hang"; mkdir -p "$PVH/root" "$PVH/dir" "$PVH/dir2"
+printf 'echo setup ok\n' > "$PVH/dir/setup.sh"; printf 'echo teardown >> "%s/td.log"\n' "$PVH" > "$PVH/dir/teardown.sh"
+printf 'sleep 287 &\necho $! > "%s/hang.pid"\nsleep 286\n' "$PVH" > "$PVH/dir/ask-1.sh"; printf 'exit 0\n' > "$PVH/dir/ask-2.sh"
+cat > "$PVH/dir2/setup.sh" <<'SETUP'
+python3 -I -c 'import os, socket, time
+s = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen(5); port = s.getsockname()[1]
+if os.fork() == 0:
+    os.setsid()
+    open(os.environ["PROVE_DIR"] + "/pids", "a").write("%d\n" % os.getpid())
+    open(os.environ["PROVE_DIR"] + "/endpoints", "w").write("web %d\n" % port)
+    time.sleep(300)
+os._exit(0)'
+n=0; while [ ! -s "$PROVE_DIR/endpoints" ] && [ "$n" -lt 50 ]; do sleep 0.1; n=$((n + 1)); done
+SETUP
+printf 'exit 0\n' > "$PVH/dir2/teardown.sh"
+printf 'port="$(awk '"'"'$1 == "web" { print $2 }'"'"' "$PROVE_DIR/endpoints")"\npython3 -I -c "import socket,sys; socket.create_connection((\\"127.0.0.1\\", int(sys.argv[1])), 2)" "$port"\n' > "$PVH/dir2/ask-1.sh"
+pvh="$(ROOT="$ROOT" PVH="$PVH" bun --no-env-file --config=/dev/null -e '
+const m = await import(process.env.ROOT + "/loki-ts/src/engine10/stages/prove.ts"), t0 = Date.now(), fs = await import("node:fs");
+const p = await m.runPass(process.env.PVH + "/root", process.env.PVH + "/dir", process.env.PVH + "/out", ["1", "2"], new AbortController().signal, { scriptS: 2, passS: 30 });
+const q = await m.runPass(process.env.PVH + "/root", process.env.PVH + "/dir2", process.env.PVH + "/out2", ["1"], new AbortController().signal, { scriptS: 5, passS: 30 });
+const pid = Number(fs.readFileSync(process.env.PVH + "/dir2/pids", "utf8").trim());
+console.log([m.headVerdict(p, "1", 2).reason, m.headVerdict(p, "2", 2).result, Date.now() - t0 < 40000 ? "fast" : "slow", q.endpoints.map((e) => e.ok + ":" + e.why).join(";"), m.headVerdict(q, "1").result, q.leftovers.map((l) => l.pid === pid && l.stopped).join(","), m.alive(pid)].join(" | "));' 2>&1)"
+pvhp="$(cat "$PVH/hang.pid" 2>/dev/null)"
+[ "$pvh" = "timed out after 2s | proved | fast | true:a process proven the pass's listens on it | proved | true | false" ] && [ -n "$pvhp" ] && ! kill -0 "$pvhp" 2>/dev/null && [ "$(cat "$PVH/td.log" 2>/dev/null)" = teardown ] \
+    && ok "prove harness: a hung script is killed at its limit, the next ask still runs, teardown runs and its child (by recorded id) is gone; a recorded listener in its own session is accepted, and the id teardown forgot is stopped by the harness" || { bad "prove harness: '$pvh'; hang child '${pvhp}' alive $(kill -0 "$pvhp" 2>/dev/null && echo yes || echo no); teardown '$(cat "$PVH/td.log" 2>/dev/null)'"; [ -n "$pvhp" ] && kill -TERM "$pvhp" 2>/dev/null; }
+# Scope: a text goal, opencode and LOKI_E10_PROVE=0 never meet the stage (the issue-run no-loss signature runs under the opt-out; the text-goal one is in scope-and-fix.sh).
+pvsc="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const m = await import(process.env.ROOT + "/loki-ts/src/engine10/stages/prove.ts");
+const o = (source) => ({ intake: { source }, implement: { exit: "done" } });
+const at = (p, s, env = {}) => [m.proveApplies(p, o(s), env), m.proveNotes(p, o(s), env).length, Object.keys(m.proveReceiptBlock(o(s))).length].join("/");
+console.log([at("claude", "issue", { LOKI_E10_PROVE: "1" }), at("claude", "text", { LOKI_E10_PROVE: "1" }), at("opencode", "issue", { LOKI_E10_PROVE: "1" }), at("claude", "issue", { LOKI_E10_PROVE: "0" }), at("claude", "issue", {})].join(" "));' 2>&1)"
+[ "$pvsc" = "true/1/0 false/0/0 false/0/0 false/0/0 false/0/0" ] \
+    && ok "prove scope: off by default; with LOKI_E10_PROVE=1 an issue run on claude needs the stage's record (no record caps it); a text goal, opencode, =0 and unset get no stage, no note and no receipt key" || bad "prove scope: $pvsc"
+# The pull request body: the existing partialHead section opens with the ask, command, result table; with no prove record it is byte-identical to before.
+pvpr="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const m = await import(process.env.ROOT + "/loki-ts/src/engine10/stages/pr.ts");
+const pv = { asks: [{ id: "1", text: "save a filter | template", command: "bash .loki/runs/r/prove/ask-1.sh", cmd_line: "curl -sf -X POST localhost:4010/v1/templates", result: "proved", reason: "exit 0" }, { id: "2", text: "search box on /issues", command: "bash x", cmd_line: "", result: "not proved", reason: "exit 1: GET /api/search 404" }] };
+const p = m.partialHead("PARTIAL", ["not proved: search box on /issues: exit 1: GET /api/search 404"], pv).split("\n"), v = m.partialHead("VERIFIED", [], { asks: [pv.asks[0]] }).split("\n");
+const old = m.partialHead("PARTIAL", ["x"]) === "## Not proven\nThis run sealed PARTIAL: 1 thing is not proven. Opened as a draft so the work is reviewable.\n- x\n\n" && m.partialHead("VERIFIED", []) === "";
+console.log([p[0], p[3], p[5].replace(/`/g, "~"), p[6].replace(/`/g, "~"), p[8].slice(0, 13), v[0], v[2], old].join(" ## "));' 2>&1)"
+[ "$pvpr" = '## Not proven ## | Ask | Command | Result | ## | save a filter \| template | ~curl -sf -X POST localhost:4010/v1/templates~ | proved | ## | search box on /issues | ~bash x~ | not proved: exit 1: GET /api/search 404 | ## - not proved: ## ## Proven by running ## | Ask | Command | Result | ## true' ] \
+    && ok "prove PR body: the Not proven section opens with the ask, command, result table (cells escaped), a VERIFIED run shows the table alone, and without a prove record the section is byte-identical" || bad "prove PR body: $pvpr"
+
+# --- Q1 RUN-SCRATCH: an issue run's implement session gets its own short scratch directory as LOKI_SCRATCH and TMPDIR (plan and other stages do not), one brief
+# line, and after implement the harness stops what the session left running there and removes the directory; a text goal and the opt-out get none of it.
+c1_run scratch none start acme/search#24 --no-pr --max-cost 5 -- E2E_STUB_SCRATCH=leave E2E_STUB_SCRATCH_PID_LOG="$T/c1-scratch.leftpid"
+SC_DIR="$(sed -n 's/^LOKI_SCRATCH=\([^ ]*\) TMPDIR=.*/\1/p' <<< "$C1ENV")"; SC_TMP="$(sed -n 's/.* TMPDIR=\(.*\)$/\1/p' <<< "$C1ENV")"; SC_LEFT="$(cat "$T/c1-scratch.leftpid" 2>/dev/null)"
+SC_REC="$(python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])).get("scratch_cleanup") or {}; print("%s|%s|%s" % (r.get("removed"), sys.argv[2] if sys.argv[2] in [str(x["pid"]) for x in r.get("stopped", [])] else "missing", r.get("dir")))' "$C1RUN/receipt.json" "$SC_LEFT" 2>/dev/null)"
+SC_EV="$(python3 -I -c 'import json,sys; print(sum(1 for l in open(sys.argv[1]) if l.strip() and json.loads(l).get("type") == "scratch.cleanup" and any(str(x.get("pid")) == sys.argv[2] for x in (json.loads(l).get("data") or {}).get("stopped", []))))' "$C1RUN/events.jsonl" "$SC_LEFT" 2>/dev/null)"
+SC_SECRET="$(grep -rl "e2escratchsecret" "$C1RUN" 2>/dev/null | wc -l | tr -d ' ')"
+SC_ALIVE=no; [ -n "$SC_LEFT" ] && kill -0 "$SC_LEFT" 2>/dev/null && SC_ALIVE=yes
+[ -n "$SC_DIR" ] && [ "$SC_TMP" = "$SC_DIR" ] && [ "${#SC_DIR}" -le 40 ] && ! grep -qF '$LOKI_SCRATCH/pids' <<< "$C1P" \
+    && ! grep -q 'LOKI_SCRATCH=/' <<< "$C1PLANENV" \
+    && ok "run scratch: the issue run's implement session gets a short scratch directory (${#SC_DIR} characters) as LOKI_SCRATCH and TMPDIR, and no pids-file instruction; the plan session does not" \
+    || bad "run scratch: implement env '$C1ENV', plan env '$C1PLANENV'"
+[ "$SC_REC" = "True|$SC_LEFT|$SC_DIR" ] && [ "$SC_ALIVE" = no ] && [ ! -e "$SC_DIR" ] \
+    && ok "run scratch: the process the session left running in its scratch directory is stopped by the harness, named in the receipt, and the directory is removed" \
+    || bad "run scratch cleanup: receipt '$SC_REC' (want True|$SC_LEFT|$SC_DIR), left process alive $SC_ALIVE, directory present $([ -e "$SC_DIR" ] && echo yes || echo no)"
+[ "$SC_EV" = 1 ] && [ "$SC_SECRET" = 0 ] && grep -q '"scratch_cleanup"' "$C1RUN/receipt.json" \
+    && ok "scratch final: a normal run writes the scratch.cleanup event and the receipt entry; the daemon's secret-looking argument is in neither, nor in scratch.json or any run log" \
+    || bad "scratch final normal path: events with the stopped pid $SC_EV, run files holding the secret $SC_SECRET"
+[ "$SC_ALIVE" = yes ] && kill "$SC_LEFT" 2>/dev/null # the test's own recorded pid, only if the harness failed to stop it
+c1_run scratch-text none "add a multiply(a, b) function to calc.ts" --no-pr -- E2E_STUB_SCRATCH=leave
+SCT="$C1ENV"; SCTP="$C1P"
+c1_run scratch-off none start acme/search#24 --no-pr --max-cost 5 -- LOKI_E10_PROVE_BY_RUNNING=0 E2E_STUB_SCRATCH=leave
+SCO="$C1ENV"; SCOP="$C1P"
+grep -q '^LOKI_SCRATCH= ' <<< "$SCT" && grep -q '^LOKI_SCRATCH= ' <<< "$SCO" && ! grep -qF 'Your scratch directory is' <<< "$SCTP$SCOP" && [ -z "$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get("scratch_cleanup") or "")' "$C1RUN/receipt.json" 2>/dev/null)" ] \
+    && ok "run scratch: a text goal and LOKI_E10_PROVE_BY_RUNNING=0 get no LOKI_SCRATCH, no brief line and no receipt key" \
+    || bad "run scratch: text goal env '$SCT', opt-out env '$SCO'"
+# Q1 SCRATCH-OWNED: the harness proves ownership itself (the run's nonce in the environment, a working directory or a command-line path inside the scratch
+# directory, or a parent that is the run's), never trusts the session's pids file, and never matches by the work tree. Every pid these legs start is stopped
+# by the leg that started it, from its own handle.
+SOU="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const w = await import(process.env.ROOT + "/loki-ts/src/runner/worker_proc.ts"), fs = await import("node:fs");
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const mine = [], spawn = (cmd, o = {}) => { const p = Bun.spawn(cmd, { stdout: "ignore", stderr: "ignore", stdin: "ignore", ...o }); mine.push(p); return p; };
+const out = [];
+try {
+  const A = w.createSessionScratch(), B = w.createSessionScratch(), envA = { ...process.env, ...w.scratchSessionEnv(A) }, envB = { ...process.env, ...w.scratchSessionEnv(B) };
+  // two-process backend: a launcher carrying the nonce and a child that dropped its environment (env -i), owned through its parent
+  const launcher = spawn(["bash", "-c", "env -i /bin/sleep 297 & wait"], { env: envA }); await Bun.sleep(400);
+  const kid = Number(Bun.spawnSync(["pgrep", "-P", String(launcher.pid)], { stdout: "pipe" }).stdout.toString().trim().split("\n")[0]);
+  // a cut-off session: a daemon in its own session that kept the nonce, and no pids file at all
+  spawn(["python3", "-I", "-c", "import os, sys, time\nif os.fork() == 0:\n    os.setsid()\n    open(sys.argv[1], \"w\").write(str(os.getpid())); time.sleep(296)\n", A.dir + "/daemon.pid"], { env: envA });
+  await Bun.sleep(500); const daemon = Number(fs.readFileSync(A.dir + "/daemon.pid", "utf8"));
+  // the second run: its daemon carries B s nonce and works in B s scratch
+  const other = spawn(["sleep", "295"], { env: envB, cwd: B.dir });
+  // a process the session listed in pids that is not provably the run s (no nonce, cwd elsewhere): left and reported
+  const foreign = spawn(["sleep", "294"]); fs.writeFileSync(A.dir + "/pids", foreign.pid + "\n");
+  await Bun.sleep(300);
+  const r = w.cleanupSessionScratch(A, { termWaitMs: 1500 });
+  const st = new Set(r.stopped.map((x) => x.pid)); await Bun.sleep(300); // Bun reaps the children of this test only once the event loop runs
+  out.push([st.has(launcher.pid), st.has(kid) && r.stopped.find((x) => x.pid === kid)?.why === "child of an owned process", st.has(daemon), !alive(launcher.pid) && !alive(kid) && !alive(daemon)].join(","));
+  out.push([alive(other.pid), !st.has(other.pid), alive(foreign.pid), r.left.some((x) => x.pid === foreign.pid && x.why === "left running, not proven ours"), r.removed, fs.existsSync(B.dir)].join(","));
+  // a process that started before the session (a pid the session could name, or a reused one) is never touched, even with its cwd in scratch
+  const old = spawn(["sleep", "293"], { cwd: B.dir }); await Bun.sleep(1200);
+  const late = { ...B, since: Math.floor(Date.now() / 1000) + 1 }; await Bun.sleep(1200);
+  const r2 = w.cleanupSessionScratch(late, { termWaitMs: 500 }); out.push([alive(old.pid), !r2.stopped.some((x) => x.pid === old.pid)].join(","));
+  // a process the run owns that will not die keeps the directory, and says so
+  const C = w.createSessionScratch(), stuck = spawn(["sleep", "292"], { cwd: C.dir }); await Bun.sleep(300);
+  const r3 = w.cleanupSessionScratch(C, { signal: () => {}, termWaitMs: 300 });
+  out.push([r3.removed, fs.existsSync(C.dir), /did not stop/.test(r3.kept ?? ""), alive(stuck.pid)].join(","));
+  stuck.kill(); await Bun.sleep(300); w.cleanupSessionScratch(C, { termWaitMs: 300 }); w.cleanupSessionScratch(B, { termWaitMs: 500 });
+  // the start-time parser: one or two spaces before a single-digit day
+  out.push([w.lstartEpoch("Mon Nov  6 01:02:03 2026") === Math.floor(Date.UTC(2026, 10, 6, 1, 2, 3) / 1000), w.lstartEpoch("Mon Nov 6 01:02:03 2026") === w.lstartEpoch("Mon Nov  6 01:02:03 2026"), w.lstartEpoch("Mon Nov 16 01:02:03 2026") === Math.floor(Date.UTC(2026, 10, 16, 1, 2, 3) / 1000), w.lstartEpoch("garbage") === null].join(","));
+} finally { for (const p of mine) { try { p.kill(); } catch {} } }
+console.log(out.join(" | "));' 2>&1)"
+[ "$SOU" = "true,true,true,true | true,true,true,true,true,true | true,true | false,true,true,true | true,true,true,true" ] \
+    && ok "scratch owned: a launcher and its env-less child, and a cut-off session's setsid daemon with no pids file, are stopped by proven ownership; a second run's daemon and a listed pid that is not provably ours survive (the latter reported); a process from before the session is untouched; a process that will not die keeps the directory; the start-time parser reads single-digit days" \
+    || bad "scratch owned units: $SOU"
+# the next run: a scratch record whose worker is gone is cleaned up by ownership at the start of the next run (supervisor, cleanupStaleScratches). The
+# stand-in daemon is python3, not /bin/sleep: macOS hides the environment of its own platform binaries from ps, so the nonce is never read there.
+SOS="$(ROOT="$ROOT" SOL="$T/so-stale" bun --no-env-file --config=/dev/null -e '
+const w = await import(process.env.ROOT + "/loki-ts/src/runner/worker_proc.ts"), fs = await import("node:fs"), path = await import("node:path");
+const runDir = path.join(process.env.SOL, ".loki", "runs", "e10-old"); const s = w.createSessionScratch(runDir);
+const dead = Bun.spawn(["true"]); await dead.exited; const rec = JSON.parse(fs.readFileSync(path.join(runDir, "scratch.json"), "utf8")); rec.worker_pid = dead.pid; fs.writeFileSync(path.join(runDir, "scratch.json"), JSON.stringify(rec));
+const live = w.createSessionScratch(path.join(process.env.SOL, ".loki", "runs", "e10-live")); // its worker (this process) is alive: not touched
+const d = Bun.spawn(["python3", "-I", "-c", "import time; time.sleep(291)"], { env: { ...process.env, ...w.scratchSessionEnv(s) }, stdout: "ignore", stderr: "ignore", stdin: "ignore" });
+const e = Bun.spawn(["sleep", "290"], { env: { ...process.env, ...w.scratchSessionEnv(live) }, stdout: "ignore", stderr: "ignore", stdin: "ignore" }); await Bun.sleep(300);
+const r = w.cleanupStaleScratches(path.join(process.env.SOL, ".loki")); await Bun.sleep(300);
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+console.log([r.length, r[0]?.stopped.some((x) => x.pid === d.pid), !fs.existsSync(s.dir), alive(e.pid), fs.existsSync(live.dir)].join(","));
+d.kill(); e.kill(); w.cleanupSessionScratch(live, { termWaitMs: 300 });' 2>&1)"
+[ "$SOS" = "1,true,true,true,true" ] && ok "scratch owned: the next run cleans up a record whose worker is gone (by ownership) and leaves a live run's record alone" || bad "scratch owned stale record: $SOS"
+# Q1 SCRATCH-FINAL: ps runs with TZ=UTC and lstartEpoch reads UTC, so a user TZ far from the system's (Kiritimati, UTC+14) still finds an owned daemon
+# and still leaves a process from before the session alone; the record holds each process's base name, pid, port and why, never its arguments.
+SOTZ="$(ROOT="$ROOT" TZ=Pacific/Kiritimati bun --no-env-file --config=/dev/null -e '
+const w = await import(process.env.ROOT + "/loki-ts/src/runner/worker_proc.ts");
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const mine = [], spawn = (cmd, o = {}) => { const p = Bun.spawn(cmd, { stdout: "ignore", stderr: "ignore", stdin: "ignore", ...o }); mine.push(p); return p; };
+try {
+  const A = w.createSessionScratch(), pre = spawn(["sleep", "288"], { cwd: A.dir }); await Bun.sleep(1200);
+  const S = { ...A, since: Math.floor(Date.now() / 1000) }; await Bun.sleep(1100);
+  const d = spawn(["/bin/sh", "-c", "sleep 287; :", "x", "--password=hunter2secretvalue"], { cwd: A.dir }); await Bun.sleep(400);
+  const r = w.cleanupSessionScratch(S, { termWaitMs: 1500 }); await Bun.sleep(300);
+  const rec = JSON.stringify(r), names = r.stopped.map((x) => Object.keys(x).sort().join("+") + "=" + x.name);
+  console.log([r.stopped.some((x) => x.pid === d.pid), !alive(d.pid), alive(pre.pid), !r.stopped.some((x) => x.pid === pre.pid), !rec.includes("hunter2secretvalue") && !rec.includes("--password"), names.includes("name+pid+port+why=sh")].join(","));
+  pre.kill(); await Bun.sleep(200); w.cleanupSessionScratch(A, { termWaitMs: 300 });
+} finally { for (const p of mine) { try { p.kill(); } catch {} } }' 2>&1)"
+[ "$SOTZ" = "true,true,true,true,true,true" ] && ok "scratch final: with TZ set 14 hours from UTC the cleanup still stops an owned daemon and leaves a pre-session process alone; the record names it by base name, pid, port and why, never its arguments" \
+    || bad "scratch final TZ and record: $SOTZ"
+# e2e: an unrelated process started in the work tree during the session survives; a SIGINT to the run still stops what the session left in scratch
+SOR="$T/so-intree"; make_repo "$SOR" 0
+(cd "$SOR" && exec env -u LOKI_ALLOW_AGENT_GITHUB_TOKEN -u LOKI_MODEL_OVERRIDE -u LOKI_RECEIPT_SIGNING_KEY -u LOKI_SPEED LOKI_E10_INVOKER=cli LOKI_CLAUDE_CLI="$FIX/bin/claude" PATH="$T/bin:$FIX/bin:$PATH" \
+    E2E_STUB_LOG="$T/so-intree-stub.log" E2E_STUB_MODE=done E2E_STUB_SCRATCH=leave E2E_STUB_SCRATCH_PID_LOG="$T/so-intree.left" E2E_STUB_SLEEP=3 LOKI_RECEIPT_SIGNING_KEY_FILE="$T/k.pem" \
+    bash "$ROOT/bin/loki" start acme/search#24 --no-pr --max-cost 5 </dev/null >"$T/so-intree.out" 2>&1) & SOP=$!
+for i in $(seq 1 900); do [ -s "$T/so-intree.left" ] && break; sleep 0.1; done
+(cd "$SOR" && exec sleep 289 >/dev/null 2>&1 </dev/null) & SOT=$!
+wait "$SOP" 2>/dev/null; SOL="$(cat "$T/so-intree.left" 2>/dev/null)"
+so_alive() { python3 -I -c 'import os, sys
+try: os.kill(int(sys.argv[1]), 0); print("yes")
+except Exception: print("no")' "$1"; }
+[ -n "$SOL" ] && [ "$(so_alive "$SOL")" = no ] && [ "$(so_alive "$SOT")" = yes ] \
+    && ok "scratch owned e2e: the session's process in scratch is stopped; a process started in the work tree during the session (not the run's) survives" || bad "scratch owned e2e: left '$SOL' alive $(so_alive "$SOL"), in-tree '$SOT' alive $(so_alive "$SOT")"
+python3 -I -c 'import os, signal, sys; os.kill(int(sys.argv[1]), signal.SIGTERM)' "$SOT" 2>/dev/null
+SOI="$T/so-intr"; make_repo "$SOI" 0
+(cd "$SOI" && exec env -u LOKI_ALLOW_AGENT_GITHUB_TOKEN -u LOKI_MODEL_OVERRIDE -u LOKI_RECEIPT_SIGNING_KEY -u LOKI_SPEED LOKI_E10_INVOKER=cli LOKI_CLAUDE_CLI="$FIX/bin/claude" PATH="$T/bin:$FIX/bin:$PATH" \
+    E2E_STUB_LOG="$T/so-intr-stub.log" E2E_STUB_MODE=done E2E_STUB_SCRATCH=leave E2E_STUB_SCRATCH_PID_LOG="$T/so-intr.left" E2E_STUB_SLEEP=120 LOKI_RECEIPT_SIGNING_KEY_FILE="$T/k.pem" \
+    bash "$ROOT/bin/loki" start acme/search#24 --no-pr --max-cost 5 </dev/null >"$T/so-intr.out" 2>&1) & SOP=$!
+for i in $(seq 1 900); do [ -s "$T/so-intr.left" ] && break; sleep 0.1; done
+sleep 1; python3 -I -c 'import os, signal, sys; os.kill(int(sys.argv[1]), signal.SIGINT)' "$SOP"
+for i in $(seq 1 300); do [ "$(so_alive "$SOP")" = no ] && break; sleep 0.1; done; wait "$SOP" 2>/dev/null
+SOL="$(cat "$T/so-intr.left" 2>/dev/null)"
+[ -n "$SOL" ] && [ "$(so_alive "$SOL")" = no ] && ok "scratch owned e2e: after SIGINT to the run the session's process in scratch is stopped" || bad "scratch owned e2e (interrupt): left '$SOL' alive $(so_alive "$SOL")"
+SOIRUN="$(dirname "$(ls "$SOI"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")"
+SOIEV="$(python3 -I -c 'import json,sys; print(sum(1 for l in open(sys.argv[1]) if l.strip() and json.loads(l).get("type") == "scratch.cleanup"))' "$SOIRUN/events.jsonl" 2>/dev/null)"
+[ "${SOIEV:-0}" -ge 1 ] && [ "$(grep -rl "e2escratchsecret" "$SOIRUN" 2>/dev/null | wc -l | tr -d ' ')" = 0 ] \
+    && ok "scratch final: a cancelled run writes the scratch.cleanup event, with no secret-looking argument in any run file" || bad "scratch final cancelled path: scratch.cleanup events $SOIEV"
+[ -n "$SOL" ] && [ "$(so_alive "$SOL")" = yes ] && python3 -I -c 'import os, signal, sys; os.kill(int(sys.argv[1]), signal.SIGTERM)' "$SOL"
+
+# --- Haiku arm: H1 (a LOKI_SPEC_CONFLICT citing no test is an unfinished implement reply on an issue run on claude; LOKI_E10_CONFLICT_NEEDS_TEST=0 opts out)
+# and the two measurement knobs (LOKI_E10_COMPACT_WINDOW=off, LOKI_E10_TIME_NOTE=0), default unchanged.
+H1U="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const cr = await import(process.env.ROOT + "/loki-ts/src/util/conflict_resume.ts"), pv = await import(process.env.ROOT + "/loki-ts/src/runner/providers.ts"), rc = await import(process.env.ROOT + "/loki-ts/src/util/run_cap.ts");
+const rows = (await Bun.file(process.env.ROOT + "/tests/min/fixtures/e2e/s1b/conflict-reasons.txt").text()).split("\n").filter((l) => l && !l.startsWith("#")).map((l) => l.split("\t"));
+const wrong = rows.filter(([want, reason]) => (want === "test") !== cr.citesTestFile(reason)).length;
+console.log([rows.length, rows.filter(([w]) => w === "test").length, wrong, JSON.stringify(pv.compactWindowSettings("claude-haiku-5-5", false, {})), JSON.stringify(pv.compactWindowSettings("claude-haiku-5-5", false, { LOKI_E10_COMPACT_WINDOW: "off" }) ?? null), JSON.stringify(pv.compactWindowSettings("claude-sonnet-5-5", false, { LOKI_E10_COMPACT_WINDOW: "off" }) ?? null), rc.timeNoteOn({}), rc.timeNoteOn({ LOKI_E10_TIME_NOTE: "0" }), cr.conflictNeedsTestOn({}), cr.conflictNeedsTestOn({ LOKI_E10_CONFLICT_NEEDS_TEST: "1" })].join(" "));
+' 2>&1)"
+[ "$H1U" = '11 7 0 {"autoCompactWindow":100000} null null true false false true' ] \
+    && ok "Haiku arm unit: the 7 stored conflict reasons that cite a test read as conflicts and the 4 that cite none as unfinished; LOKI_E10_COMPACT_WINDOW=off drops only the Haiku 100K window; LOKI_E10_TIME_NOTE=0 and LOKI_E10_CONFLICT_NEEDS_TEST=0 parse" \
+    || bad "Haiku arm unit gave: $H1U"
+h1_facts() { # resumes, -r sessions, implement exit, outcome
+    local ev="$C1RUN/events.jsonl" n_res n_r iex outc
+    n_res="$(grep -c '"type":"s1b.resumed"' "$ev" 2>/dev/null)"; n_r="$(grep -c 'impl-r"' "$ev" 2>/dev/null)"
+    iex="$(python3 -I -c 'import json,sys; print(next((json.loads(l)["data"].get("exit") for l in open(sys.argv[1]) if "\"stage.completed\"" in l and "\"implement\"" in l), "none"))' "$ev" 2>/dev/null)"
+    outc="$(sed -n 's/^Outcome: *//p' <<< "$OUT")"; outc="${outc%%$'\n'*}"
+    printf '%s|%s|%s|%s' "$n_res" "$n_r" "$iex" "$outc"
+}
+c1_run h1-issue none start acme/search#24 --no-pr --max-cost 5 -- E2E_STUB_NOFINISH=conflict LOKI_E10_CONFLICT_NEEDS_TEST=1; H1A="$(h1_facts)"
+c1_run h1-off none start acme/search#24 --no-pr --max-cost 5 -- E2E_STUB_NOFINISH=conflict; H1B="$(h1_facts)"
+c1_run h1-cited none start acme/search#24 --no-pr --max-cost 5 -- E2E_STUB_NOFINISH=conflictcited LOKI_E10_CONFLICT_NEEDS_TEST=1; H1C="$(h1_facts)"
+c1_run h1-text none "add a multiply(a, b) function to calc.ts" --no-pr -- E2E_STUB_NOFINISH=conflict LOKI_E10_CONFLICT_NEEDS_TEST=1; H1D="$(h1_facts)"
+echo "    H1 (resumes|-r sessions|implement exit|outcome): issue $H1A; opt-out $H1B; cited $H1C; text goal $H1D"
+case "$H1A" in "1|0|done|"*) ok "H1: on an issue run a conflict citing no test gets no conflict correction (-r) and exactly one S1b resume, which finishes; never SPEC_CONFLICT" ;; *) bad "H1 issue run gave $H1A (want 1|0|done|...)" ;; esac
+case "$H1B" in "0|"[1-9]*"|spec_conflict|"*) ok "H1: off by default (LOKI_E10_CONFLICT_NEEDS_TEST unset) keeps today's path (the -r correction, then the conflict is believed)" ;; *) bad "H1 opt-out gave $H1B (want 0|>0|spec_conflict|...)" ;; esac
+case "$H1C" in "0|"[1-9]*"|spec_conflict|"*) ok "H1: a conflict citing a test (calc.test.ts:3) behaves exactly as today" ;; *) bad "H1 cited conflict gave $H1C (want 0|>0|spec_conflict|...)" ;; esac
+case "$H1D" in "0|"[1-9]*"|spec_conflict|"*) ok "H1: a text goal keeps today's conflict path (issue runs only)" ;; *) bad "H1 text goal gave $H1D (want 0|>0|spec_conflict|...)" ;; esac
+c1_run tn-default none "add a multiply(a, b) function to calc.ts" --no-pr --; TN0="$C1P"; TNSIG0="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$C1RUN" "$T/c1-tn-default" 2>&1 | sed 's/; brief=.*//')"
+c1_run tn-off none "add a multiply(a, b) function to calc.ts" --no-pr -- LOKI_E10_TIME_NOTE=0; TN1="$C1P"; TNSIG1="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$C1RUN" "$T/c1-tn-off" 2>&1 | sed 's/; brief=.*//')"
+grep -qF "Time budget: about" <<< "$TN0" && ! grep -qF "Time budget: about" <<< "$TN1" && grep -qF -- "- Never kill processes." <<< "$TN1" && [ "$TNSIG0" = "$TNSIG1" ] \
+    && ok "Haiku arm: LOKI_E10_TIME_NOTE=0 drops only the time-budget sentence from the implement prompt; the rules, stage order and receipt keys are unchanged" \
+    || bad "Haiku arm: time-note knob: default has the sentence $(grep -c 'Time budget' <<< "$TN0"), knob has it $(grep -c 'Time budget' <<< "$TN1"), signatures equal $([ "$TNSIG0" = "$TNSIG1" ] && echo yes || echo no)"
 
 # --- split repair: a list detail is repaired, any other refusal is re-asked once with the exact error ------------------------
 # FireLater#24 (v11.116.0): one 520-character acceptance criterion refused the whole split and the epic ran as one 413 s session.
@@ -782,6 +1209,8 @@ const scen = async (tag, slices, edit, opt = {}) => {
   writeFileSync(repo + "/calc.ts", "export const calc = 1;\n"); writeFileSync(repo + "/a.ts", "export const a = 1;\n"); writeFileSync(repo + "/b.ts", "export const b = 1;\n");
   writeFileSync(repo + "/.gitignore", ".loki/\n");
   g(repo, "add", "-A"); g(repo, "commit", "-q", "-m", "base"); g(repo, "remote", "add", "origin", origin); g(repo, "push", "-q", "origin", "main");
+  // J: an earlier run of the same issue already pushed loki/24-combined (other history), as FireLater PR #52 had before the 11.141.6 rerun
+  if (opt.prior) { g(repo, "checkout", "-q", "-b", "loki/24-combined"); writeFileSync(repo + "/prior.ts", "earlier\n"); g(repo, "add", "-A"); g(repo, "commit", "-q", "-m", "earlier run"); g(repo, "push", "-q", "origin", "loki/24-combined"); g(repo, "checkout", "-q", "main"); g(repo, "branch", "-q", "-D", "loki/24-combined"); }
   const runDir = repo + "/.loki/runs/e10-epic";
   mkdirSync(runDir, { recursive: true });
   writeFileSync(runDir + "/issue.json", JSON.stringify({ provider: "github", repo: "acme/search", number: 24, title: process.env.EPIC_TITLE, body: process.env.EPIC_BODY, labels: [] }));
@@ -797,13 +1226,14 @@ const scen = async (tag, slices, edit, opt = {}) => {
     const pr = o.pr ? "PR: https://github.com/acme/search/pull/" + (40 + n) : opt.earlyPr === id ? "PR: https://github.com/acme/search/pull/39" : "";
     return { rc: 0, output: pr, verdict: "VERIFIED", costUsd: 0.1, runId };
   };
-  const rc = await ir.startIssueEpic({ repoDir: repo, runDir, noPr: false, provider: "claude", env: { LOKI_DIR: repo + "/.loki", LOKI_EPIC_PARALLEL: "1", ...(opt.env ?? {}) }, inject: {
+  const rc = await ir.startIssueEpic({ repoDir: repo, runDir, noPr: !!opt.noPr, provider: "claude", env: { LOKI_DIR: repo + "/.loki", LOKI_EPIC_PARALLEL: "1", ...(opt.env ?? {}) }, inject: {
     decompose: async () => JSON.stringify({ slices }),
     runner,
     out: (s) => { out += s; }, err: () => {},
     combineIo: {
       resolve: async ({ cwd, files }) => { if (opt.fix) for (const f of files) writeFileSync(cwd + "/" + f, readFileSync(cwd + "/" + f, "utf8").split("\n").filter((l) => !/^(<{7}|={7}|>{7})/.test(l)).join("\n")); return { usd: 0.05 }; },
-      gh: (a) => { gh.push(a.join(" ")); return { rc: 0, stdout: "", stderr: "" }; },
+      gh: (a) => { gh.push(a.join(" ")); return { rc: 0, stdout: opt.ghOut?.(a) ?? "", stderr: "" }; },
+      ...(opt.push ? { push: opt.push } : {}),
       runTests: async (d, refs) => refs.map(() => ({ pass: 1, fail: opt.red && !d.endsWith("/base") ? 1 : 0, not_run: 0 })), // G: red on the combined tree only
       impacted: () => (opt.red ? [{ runner: "bun", path: "calc.test.ts" }] : []),
     },
@@ -815,10 +1245,11 @@ const scen = async (tag, slices, edit, opt = {}) => {
   console.log(tag + " rc" + rc + " prs" + block.filter((l) => /^PR:/.test(l)).length + " lines" + block.length + " commits[" + subj.join("|") + "] per" + perCommit + " markers" + (/^(<{7}|>{7})/m.test(calc) ? 1 : 0) + " gh[" + gh.join("|") + "]");
   let rec = "none", bodyS = "none";
   try { const r = JSON.parse(readFileSync(runDir + "/combined/seal/receipt.json", "utf8")); rec = r.verdict + " " + r.group.units.map((u) => u.unit_id + "=" + u.verdict).join(","); } catch {}
-  try { const b = readFileSync(runDir + "/combined/pr-body.md", "utf8"); bodyS = [...b.matchAll(/^### (s\d+):/gm)].map((m) => m[1]).join(",") + (/^## Combined proof$/m.test(b) ? " proof" : "") + (/^Cost: /m.test(b) ? " cost" : "") + (/^Not proven: nothing\.$/m.test(b) ? " np" : "") + (/^Closes acme\/search#24$/m.test(b) ? " closes" : ""); } catch {}
+  try { const b = readFileSync(runDir + "/combined/pr-body.md", "utf8"); bodyS = [...b.matchAll(/^### (s\d+):/gm)].map((m) => m[1]).join(",") + (/^## Combined proof$/m.test(b) ? " proof" : "") + (/^Cost: /m.test(b) ? " cost" : "") + (/^Not proven: nothing\.$/m.test(b) ? " np" : "") + (/^Closes acme\/search#24$/m.test(b) ? " closes" : "") + (/^## Earlier pull requests$/m.test(b) ? " earlier[" + [...b.slice(b.indexOf("## Earlier pull requests")).matchAll(/\/pull\/(\d+)/g)].map((m) => m[1]).join(",") + (/please close them yourself\.$/m.test(b) ? "] ask" : "]") : ""); } catch {}
   console.log(tag + "  receipt " + rec + " | body " + bodyS);
   for (const l of block) console.log(tag + "  " + l);
-  for (const l of L.filter((l) => /resolve session|opens its own PR/.test(l))) console.log(tag + "  say " + l);
+  for (const l of L.filter((l) => /resolve session|opens its own PR|already exists on the origin/.test(l))) console.log(tag + "  say " + l);
+  if (opt.refs) console.log(tag + "  refs origin[" + g(origin, "for-each-ref", "--format=%(refname:short)", "refs/heads").split("\n").join(",") + "] local[" + g(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/loki/24-combined*").split("\n").join(",") + "] head=" + g(repo, "rev-parse", "--abbrev-ref", "HEAD") + " subj[" + g(repo, "log", "--reverse", "--format=%s", "main..loki/24-combined").split("\n").join("|") + "]");
 };
 const add = (f) => (id, wt) => appendFileSync(wt + "/" + f, "export const slice_" + id + " = \"" + id + "\";\n");
 await scen("A", [sl("s1", [], ["a.ts"]), sl("s2", [], ["b.ts"])], (id, wt) => add(id === "s1" ? "a.ts" : "b.ts")(id, wt), { earlyPr: "s1" });
@@ -834,6 +1265,40 @@ const eight = [sl("s1", [], []), sl("s2", ["s1"], []), sl("s3", ["s2"], []), sl(
 const own = (id, wt) => add("f_" + id + ".ts")(id, wt);
 await scen("H", eight, own);
 await scen("I", eight, own, { env: { LOKI_SPLIT_ONE_PR_MAX_FILES: "3" } });
+// J: a rerun. The origin already holds loki/24-combined from an earlier run, so the real engine10-push.sh refuses the push; the run publishes on its own
+// branch name instead of falling back to one PR per slice. K: on GitHub (push faked to return PR URLs; the origin holds the earlier run's branch) the
+// earlier runs' open combined PRs, one of which a person may have pushed to, are LINKED in the new PR's body and never closed, edited or deleted; a fork
+// PR, another issue's PR, another branch and the new PR itself are not listed. P: a push that fails for another reason (the origin has no such branch;
+// engine10-push.sh prints the same "push refused or failed" for every git push failure)
+// is not retried and its own cause is the reason. Q: below. N: plain --no-pr combines nothing (as before).
+const two = [sl("s1", [], ["a.ts"]), sl("s2", [], ["b.ts"])], ab = (id, wt) => add(id === "s1" ? "a.ts" : "b.ts")(id, wt);
+await scen("J", two, ab, { prior: true, refs: true });
+const pushes = [];
+await scen("K", two, ab, { prior: true,
+  push: (a) => { pushes.push(a.branch); return a.branch === "loki/24-combined" ? { ok: false, reason: "engine10-push.sh push-pr failed (exit 2): engine10-push: push refused or failed (rc=1)" } : { ok: true, url: "https://github.com/acme/search/pull/61" }; },
+  ghOut: (a) => (a[0] === "pr" && a[1] === "list" ? JSON.stringify([
+    { url: "https://github.com/acme/search/pull/52", headRefName: "loki/24-combined", isCrossRepository: false },
+    { url: "https://github.com/acme/search/pull/57", headRefName: "loki/24-combined-older-run", isCrossRepository: false },
+    { url: "https://github.com/acme/search/pull/58", headRefName: "loki/24-combined", isCrossRepository: true },
+    { url: "https://github.com/acme/search/pull/59", headRefName: "loki/241-combined", isCrossRepository: false },
+    { url: "https://github.com/acme/search/pull/60", headRefName: "feature/24-combined", isCrossRepository: false },
+    { url: "https://github.com/acme/search/pull/61", headRefName: "loki/24-combined-epic", isCrossRepository: false }]) : ""),
+});
+console.log("K  pushes " + pushes.join(","));
+const pushesP = [];
+await scen("P", two, ab, { refs: true,
+  push: (a) => { pushesP.push(a.branch); return a.branch === "loki/24-combined" ? { ok: false, reason: "engine10-push.sh push-pr failed (exit 2): engine10-push: push refused or failed (rc=128)" } : { ok: true, url: "https://github.com/acme/search/pull/7" + pushesP.length }; },
+});
+console.log("P  pushes " + pushesP.join(","));
+// Q: the GitHub path. The origin here has no such branch, but the GitHub API (gh) reports one at a commit this run does not contain: the refused push
+// is a non-fast-forward and is published under the run's own name.
+const pushesQ = [];
+await scen("Q", two, ab, {
+  push: (a) => { pushesQ.push(a.branch); return a.branch === "loki/24-combined" ? { ok: false, reason: "engine10-push.sh push-pr failed (exit 2): engine10-push: push refused or failed (rc=1)" } : { ok: true, url: "https://github.com/acme/search/pull/81" }; },
+  ghOut: (a) => (a[0] === "api" && a[1] === "repos/acme/search/git/ref/heads/loki/24-combined" ? "0123456789abcdef0123456789abcdef01234567\n" : ""),
+});
+console.log("Q  pushes " + pushesQ.join(","));
+await scen("N", two, ab, { noPr: true, refs: true });
 const ep = await import(process.env.ROOT + "/loki-ts/src/commands/issues_epic.ts");
 const nine = JSON.stringify({ slices: Array.from({ length: 9 }, (_, i) => sl("s" + (i + 1), [], [])) });
 console.log("M " + [ep.maxSlices({}), ep.maxSlices({ LOKI_SPLIT_MAX_SLICES: "12" }), ep.maxSlices({ LOKI_SPLIT_MAX_SLICES: "1" }), ep.maxSlices({ LOKI_SPLIT_MAX_SLICES: "x" }), ep.maxSlices({ LOKI_SPLIT_MAX_SLICES: "99" })].join(" ")
@@ -871,6 +1336,22 @@ oneh I | grep -q '^I rc0 prs5 lines8 ' && oneb I | grep -Eq '^I  PR: +\(\+4 more
     && ok "one pr: 8 slices all falling back print 4 PR URLs and a count line, so the block stays at 8 lines" || bad "one pr: case I wrong: $(oneh I)"
 grep -q '^M 8 12 8 8 32 p9=false/true brief=true note=true$' <<< "$ONE" \
     && ok "split cap: LOKI_SPLIT_MAX_SLICES defaults to 8 (12 honored, 1 and x ignored, 99 capped at 32); 9 slices are refused by default and accepted at 9; the brief and re-ask name 8" || bad "split cap wrong: $(printf '%s\n' "$ONE" | grep '^M ')"
+oneh J | grep -q '^J rc0 prs1 lines[1-8] commits\[earlier run\] ' && oneb J | grep -Eq '^J  PR: +local:///.+#loki/24-combined-epic$' && oneb J | grep -Eq '^J  Combined: +2 slices in one PR on loki/24-combined-epic$' \
+    && oneb J | grep -q '^J  say #24 loki/24-combined already exists on the origin from an earlier run; this run.s change is on loki/24-combined-epic$' \
+    && oneb J | grep -q '^J  refs origin\[loki/24-combined,loki/24-combined-epic,main\] ' \
+    && ok "one pr: a rerun whose combined branch is already on the origin from an earlier run still ends in 1 PR, on its own branch name, with the earlier branch untouched (no forced push, no per-slice fallback)" || bad "one pr: case J wrong: $(oneh J); $(oneb J | grep -E 'PR|Combined|refs|say')"
+oneh K | grep -q '^K rc0 prs1 lines[1-8] .* gh\[api repos/acme/search/git/ref/heads/loki/24-combined --jq \.object\.sha|pr list --repo acme/search --state open --limit 200 --json url,headRefName,isCrossRepository\]$' \
+    && ! oneh K | grep -Eq 'pr close|pr edit|pr merge|DELETE|--delete' \
+    && oneb K | grep -q '^K  pushes loki/24-combined,loki/24-combined-epic$' && oneb K | grep -Eq '^K  PR: +https://github.com/acme/search/pull/61$' \
+    && oneb K | grep -q '^K  receipt .* | body s1,s2 proof cost np closes earlier\[52,57\] ask$' \
+    && ok "one pr: on GitHub a rerun links the earlier runs' open combined PRs of this issue (2) in its body and asks a person to close them; gh makes only read calls (no close, edit or delete), and a fork PR, another issue's PR, another branch and the new PR are not listed" || bad "one pr: case K wrong: $(oneh K); $(oneb K | grep -E 'pushes|PR|body')"
+oneb P | grep -Eq '^P  pushes loki/24-combined(,loki/e10-[^,]*)*$' && ! oneb P | grep -q 'combined-' && oneb P | grep -q '^P  Combined: .*push refused or failed (rc=128)' \
+    && ! oneh P | grep -q 'pr list' \
+    && ok "one pr: a push that fails for another reason (no such branch on the origin) is not retried under a new name, and the Combined line carries its real cause" || bad "one pr: case P wrong: $(oneh P); $(oneb P | grep -E 'pushes|Combined|refs')"
+oneb Q | grep -q '^Q  pushes loki/24-combined,loki/24-combined-epic$' && oneb Q | grep -Eq '^Q  PR: +https://github.com/acme/search/pull/81$' \
+    && ok "one pr: on GitHub the remote tip read through the GitHub API (not in this run's history) makes the refused push a non-fast-forward, published under the run's own name" || bad "one pr: case Q wrong: $(oneh Q); $(oneb Q | grep -E 'pushes|PR|Combined')"
+oneh N | grep -q '^N rc0 prs0 ' && ! oneb N | grep -q 'Combined:' && oneb N | grep -q '^N  refs origin\[main\] local\[\] ' \
+    && ok "one pr: plain --no-pr still combines nothing" || bad "one pr: case N wrong: $(oneh N); $(oneb N | grep -E 'Combined|refs')"
 [ "$(printf '%s\n' "$ONE" | grep -cE '^[A-F] rc0 prs[0-9] lines[1-8] ')" = 6 ] && oneh G | grep -q ' lines[1-8] ' \
     && ok "one pr: the final block (Outcome to Cost) stays at 8 lines or fewer in every case (D48)" || bad "one pr: a final block is over 8 lines or a case did not run"
 
@@ -1062,4 +1543,118 @@ console.log(out.join(" | "));
 WPF="[PARTIAL] Retry utility and recovery handlers (#21 s2) | Retry utility and recovery handlers (#21 s2) | [PARTIAL] Implement Advanced Search and Filtering with Full-Text Search Support (#24) | fix the off-by-one in paginate() | clipped | [PARTIAL] Loki change | whole code points | asked 3 | why Retry utility and recovery handlers | ci.yml | none | none | ci.yml | none | none | ci note | returned at once, kept | removed after deep | branch gone | root gone | addendum kept"
 [ "$PFO" = "$WPF" ] && ok "pr face: titles say the slice or issue and its ref, the outcome once, never the run id; inline criteria listed; a filtered-out stacked base is named; a live deep verify hands its worktree to a reaper that keeps the addendum and removes worktree, branch and root" \
     || bad "pr face gave: $PFO (want: $WPF)"
+
+# --- Q1 ISSUE-ACCEPTANCE: an issue's own acceptance list is the run's acceptance set, verbatim; seal caps VERIFIED at PARTIAL with
+# "not addressed: <line>" for every required line the cross-review did not mark MET. FireLater#24's real body (nine "- [ ] " lines).
+FL24_BODY="$(cat "$ROOT/tests/min/fixtures/issue-acceptance/firelater-24-body.md")"
+IA="$(cd "$ROOT/loki-ts" && FL24_BODY="$FL24_BODY" bun --no-env-file --config=/dev/null -e '
+const ic = await import("./src/util/intent_card.ts");
+const fl = ic.issueAcceptance("Implement Advanced Search and Filtering with Full-Text Search Support\n\n" + process.env.FL24_BODY);
+const heading = ic.issueAcceptance("Fix search\n\n**Acceptance criteria**\n- results are ranked\n- an empty query returns nothing\n\n**Notes**\n- not an ask");
+const plainHead = ic.issueAcceptance("Fix\n\nAcceptance criteria:\n1. one works\n2) two works\n- [x] already done\n## Other\n- not an ask");
+const none = ic.issueAcceptance("Fix the off-by-one in paginate()\n\n- it drops the last item\n- see #12");
+const attest = ic.issueAcceptance("Fix\n- [ ] alpha works\n- [x] beta\n- [ ] I have searched existing issues");
+console.log([fl.length, JSON.stringify(fl), JSON.stringify(heading), JSON.stringify(plainHead), JSON.stringify(none), JSON.stringify(attest)].join(" | "));
+' 2>&1)"
+WIA='9 | ["Implement PostgreSQL full-text search with ranking","Create advanced filter query builder","Add filter template save/load functionality","Implement search history tracking","Build faceted search UI","Create search analytics dashboard","Add comprehensive search tests","Document search query syntax","Optimize search performance for large datasets"] | ["results are ranked","an empty query returns nothing"] | ["one works","two works"] | [] | ["alpha works"]'
+[ "$IA" = "$WIA" ] && ok "issue acceptance: FireLater#24 gives its nine lines verbatim, in order; a bold or plain Acceptance criteria heading without checkboxes is read; no list gives none; checked boxes and attestations are left out" \
+    || bad "issue acceptance gave: $IA"
+ia_run() { # ia_run <name> <line-check reply file or -> <VAR=value...>: the FireLater#24 body (or IA_BODY) as acme/search#24 on the stub, the switch on unless IA_ON is set empty; sets IAD, IARUN, IAOUT
+    local name="$1" reply="$2" d="$T/ia-$1"; shift 2
+    make_repo "$d" 0
+    run_loki_env "$d" "$d.stub.log" E2E_STUB_MODE=done EPIC_BODY="${IA_BODY:-$FL24_BODY}" LOKI_E10_ISSUE_ACCEPTANCE="${IA_ON-1}" E2E_STUB_LINECHECK_LOG="$d.linecheck" E2E_STUB_LINECHECK_FILE="$reply" "$@" -- start acme/search#24 --no-pr --max-cost 5
+    IAD="$d"; IAOUT="$OUT"; IARUN="$(dirname "$(ls "$d"/.loki/runs/*/receipt.json 2>/dev/null | head -1)")"
+}
+ia_facts() { python3 -I - "$IARUN/receipt.json" <<'PY2'
+import json, sys
+r = json.load(open(sys.argv[1]))
+ia = r.get("issue_acceptance") or []
+na = [n for n in r.get("not_proven", []) if n.startswith(("not addressed: ", "acceptance not reviewed: "))]
+ev = sum(1 for x in ia if x.get("status") == "met" and x.get("evidence"))
+print(r.get("verdict"), len(ia), sum(1 for x in ia if x.get("status") == "met"), ev, len(na), "check" if r.get("issue_acceptance_check") else "nocheck", json.dumps(na))
+PY2
+}
+{ for i in 1 2 3 4 5 6 7; do printf 'MET %s: src/search.ts and its test cover it\n' "$i"; done; } > "$T/ia-seven.txt"
+{ for i in 1 2 3 4 5 6 7 8 9; do printf 'MET %s: verify check bun test passed\n' "$i"; done; } > "$T/ia-nine.txt"
+{ for i in 1 2 3 4 5 6 7 8; do printf 'MET %s: verify check bun test passed\n' "$i"; done; printf 'MET 9\n'; } > "$T/ia-noevidence.txt"
+ia_run seven "$T/ia-seven.txt"
+IA7="$(ia_facts)"; IA7P="$(cat "$IAD.linecheck" 2>/dev/null)"; IA7OUT="$IAOUT"
+printf '    issue acceptance, seven of nine MET: %s\n' "$IA7"
+[ "$IA7" = 'PARTIAL 9 7 7 2 check ["not addressed: Document search query syntax", "not addressed: Optimize search performance for large datasets"]' ] \
+    && ok "issue acceptance e2e: a line check marking seven of FireLater#24's nine lines MET (with evidence) seals PARTIAL with the two others not addressed, verbatim; the check is on the receipt" || bad "issue acceptance seven of nine gave: $IA7"
+grep -qF "9. Optimize search performance for large datasets" <<< "$IA7P" && grep -qF "1. Implement PostgreSQL full-text search with ranking" <<< "$IA7P" && grep -qF '```diff' <<< "$IA7P" \
+    && ok "issue acceptance e2e: the line check gets the issue's nine lines numbered verbatim and the diff" || bad "issue acceptance: line-check prompt lacks the numbered lines or the diff"
+grep -qF "Acceptance: Document search query syntax" <<< "$IA7OUT" && grep -qF "Acceptance: Implement PostgreSQL full-text search with ranking" <<< "$IA7OUT" \
+    && ok "issue acceptance e2e: the printed Acceptance lines are the issue's own" || bad "issue acceptance: printed Acceptance lines are not the issue's ($(grep -c 'Acceptance:' <<< "$IA7OUT"))"
+ia_run nine "$T/ia-nine.txt"
+IA9="$(ia_facts)"
+[ "$IA9" = 'VERIFIED 9 9 9 0 check []' ] && ok "issue acceptance e2e: all nine MET with evidence keeps VERIFIED" || bad "issue acceptance nine of nine gave: $IA9"
+ia_run noevidence "$T/ia-noevidence.txt"
+IANE="$(ia_facts)"
+[ "$IANE" = 'PARTIAL 9 8 8 1 check ["not addressed: Optimize search performance for large datasets"]' ] && ok "issue acceptance e2e: a MET with no evidence phrase counts as not addressed" || bad "issue acceptance MET without evidence gave: $IANE"
+ia_run fail "$T/ia-missing.txt"
+IAF="$(ia_facts)"
+case "$IAF" in 'PARTIAL 9 0 0 1 check ["acceptance not reviewed: '*) ok "issue acceptance e2e: a line check that cannot answer (after one retry) caps PARTIAL with one 'acceptance not reviewed' line" ;; *) bad "issue acceptance failed check gave: $IAF" ;; esac
+IA_ON=0 ia_run off "$T/ia-seven.txt"
+IAOFF="$(ia_facts)"
+[ "$IAOFF" = 'VERIFIED 0 0 0 0 nocheck []' ] && [ ! -s "$IAD.linecheck" ] && ok "issue acceptance e2e: with LOKI_E10_ISSUE_ACCEPTANCE=0 no check runs and the receipt keys and label are as before the check existed" || bad "issue acceptance default off gave: $IAOFF"
+IA_BODY='Fix the off-by-one in paginate(): the last item of every page is dropped.' ia_run nolist "$T/ia-seven.txt"
+IANL="$(ia_facts)"
+[ "$IANL" = 'VERIFIED 0 0 0 0 nocheck []' ] && [ ! -s "$IAD.linecheck" ] && ! grep -q '"issue_acceptance"' "$IARUN/events.jsonl" 2>/dev/null \
+    && ok "issue acceptance e2e: an issue with no list runs no check and keeps today's keys and label" || bad "issue acceptance with no list gave: $IANL"
+# PROVES THE CHANGE (engine10/proof_rerun.ts proofOnBase, LOKI_E10_PROOF_BASE, LOKI_E10_PROOF_BASE_CAP): the kept proof script is run a second time against
+# the base commit. A check that also passes there proves nothing about the change; a line whose passing checks all pass there is named (and, under the cap,
+# not met). Real git, real bash, no model: a repository whose change adds one file, with installed node_modules that are not in the commit, and a script
+# that names the repository by its literal path (as 17 of 19 stored scripts did) and, on the base side, deletes node_modules (as a script running `npm ci`
+# does: it emptied a linked directory's target when measured).
+PBR="$T/pb-repo"; mkdir -p "$PBR/node_modules/dep" && (cd "$PBR" && git init -q && git config user.email t@example.invalid && git config user.name t \
+    && printf 'node_modules\n.loki\n' > .gitignore && echo old > app.txt && git add .gitignore app.txt && git commit -qm base \
+    && echo new > feature.txt && git add feature.txt && git commit -qm change) || bad "proof on base: fixture repository"
+echo installed > "$PBR/node_modules/dep/index.js"; PBBASE="$(git -C "$PBR" rev-parse HEAD~1)"; PBRUN="$PBR/.loki/runs/r1"; mkdir -p "$PBRUN"
+pb_script() { { printf '. "$LOKI_SCRATCH/loki-check.sh"\nR=%s\n' "$(cd "$PBR" && pwd -P)"; cat; printf 'exit 0\n'; } > "$PBRUN/loki-proof.sh"; }
+pb_run() { ROOT="$ROOT" PBR="$PBR" PBRUN="$PBRUN" PBBASE="${PB_BASE-$PBBASE}" bun --no-env-file --config=/dev/null -e '
+const p = await import(process.env.ROOT + "/loki-ts/src/engine10/proof_rerun.ts"), asks = ["Add the feature file", "The app file is still there", "Ship it", "Install the dependencies"];
+const env = { ...process.env, LOKI_E10_PROOF_BASE: "1", ...JSON.parse(process.env.PB_ENV ?? "{}") }; // the comparison is opt-in; this block tests it switched on
+const head = await p.rerunProof(process.env.PBR, process.env.PBRUN, undefined, env), base = await p.proofOnBase(process.env.PBR, process.env.PBRUN, process.env.PBBASE, head, undefined, env);
+const st = (b) => p.ruleStatus(asks, head, b).map((s) => s.status[0]).join("");
+console.log([head.proved, head.failed, base ? (base.available ? "available" : base.all_same ? "all-same" : "unavailable") : "off", base?.base_checks ?? "-", base?.same_total ?? "-", base?.cached ? "cached" : "ran", st(base), st(p.proofBaseCapOn(env) ? base : null), p.provesNothing(asks, head, base).join(","), p.baseFacts(asks, head, base).length].join(" "));' 2>&1 | tail -1; }
+pb_script <<'EOF'
+loki_cmd 1 "the feature file exists" test -f "$R/feature.txt"
+loki_cmd 2 "the app file is there" test -f "$R/app.txt"
+loki_cmd 3 "nothing at all" true >/dev/null
+loki_cmd 4 "dependencies are installed on port 4123" test -f "$R/node_modules/dep/index.js"
+[ -f "$R/feature.txt" ] || rm -rf "$R/node_modules"/*
+EOF
+PB1="$(pb_run)"; printf '    proof on base, first run: %s\n' "$PB1"
+case "$PB1" in "4 0 available 4 3 ran mmuu mmmm 3,4 2") ok "proof on base: of four passing checks the three that also pass on the base commit are found (the literal repository path is redirected to the base tree, node_modules is carried over); lines 3 and 4, proved only by such checks, are named and are not met under the rule; line 1 stays met; a line that asks that something is still there is left alone; a check whose output the script sent to /dev/null is counted on both sides from the result file; by default the label rule is unchanged" ;; *) bad "proof on base gave: $PB1" ;; esac
+[ "$(cat "$PBR/node_modules/dep/index.js" 2>/dev/null)" = installed ] && ok "proof on base: a script that deletes node_modules on the base side leaves the repository's own node_modules whole (copied, never linked)" || bad "proof on base: the base run reached the repository's own node_modules"
+[ -z "$(git -C "$PBR" status --porcelain)" ] && [ "$(git -C "$PBR" worktree list | wc -l | tr -d ' ')" = 1 ] && [ "$(git -C "$PBR" rev-parse --abbrev-ref HEAD)" != HEAD ] && [ "$(git -C "$PBR" rev-parse HEAD~1)" = "$PBBASE" ] \
+    && ok "proof on base: the working tree, its branch and the worktree list are as before the base run" || bad "proof on base left: $(git -C "$PBR" status --porcelain | head -3) / $(git -C "$PBR" worktree list | wc -l) worktrees"
+PB2="$(PB_ENV='{"LOKI_E10_PROOF_BASE_CAP":"1"}' pb_run)"
+case "$PB2" in "4 0 available 4 3 cached mmuu mmuu 3,4 2") ok "proof on base: LOKI_E10_PROOF_BASE_CAP=1 makes it a cap, and the base result kept in the run directory is reused, so the same script on the same base commit is not run twice" ;; *) bad "proof on base cap and cache gave: $PB2" ;; esac
+PB4="$(PB_ENV='{"LOKI_E10_PROOF_BASE":"0"}' pb_run)"
+case "$PB4" in "4 0 off - - ran mmmm mmmm  0") ok "proof on base: LOKI_E10_PROOF_BASE=0 runs nothing on the base commit" ;; *) bad "proof on base opt-out gave: $PB4" ;; esac
+pb_script <<'EOF'
+test -f "$R/feature.txt" || { echo "setup needs the feature"; exit 1; }
+loki_cmd 1 "the feature file exists" test -f "$R/feature.txt"
+loki_cmd 3 "nothing at all" true
+EOF
+PB5="$(PB_ENV='{"LOKI_E10_PROOF_BASE_CAP":"1"}' pb_run)"
+case "$PB5" in "2 0 unavailable 0 0 ran mumu mumu  0") ok "proof on base: a base run whose setup stops before any check is 'not available': no line loses its mark for it, even under the cap" ;; *) bad "proof on base with a base that cannot start gave: $PB5" ;; esac
+pb_script <<'EOF'
+loki_cmd 1 "the app file is there" test -f "$R/app.txt"
+loki_cmd 3 "nothing at all" true
+loki_cmd 4 "nothing either" true
+EOF
+PB6="$(PB_ENV='{"LOKI_E10_PROOF_BASE_CAP":"1"}' pb_run)"
+case "$PB6" in "3 0 all-same 3 3 ran mumm mumm  0") ok "proof on base: when every passing check also passes on the base commit the comparison says so and strips nothing (the base run cannot be told from the change)" ;; *) bad "proof on base, all checks the same, gave: $PB6" ;; esac
+PB7="$(PB_BASE=0000000000000000000000000000000000000000 PB_ENV='{"LOKI_E10_PROOF_BASE_CAP":"1"}' pb_run)"
+case "$PB7" in "3 0 unavailable 0 0 ran mumm mumm  0") ok "proof on base: a base commit that cannot be checked out is 'not available', never a cap" ;; *) bad "proof on base with no base commit gave: $PB7" ;; esac
+PBK="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const p = await import(process.env.ROOT + "/loki-ts/src/engine10/proof_rerun.ts"), k = p.checkKey;
+const c = (item, what, ok) => ({ item, what: k(what), ok });
+const same = k("GET /v1/items/3f2a9c1e-11aa-4b2c-9d3e-0123456789ab on port 51234 returns 12 rows | status 200 | {\"id\":7}") === k("GET /v1/items/77777777-11aa-4b2c-9d3e-0123456789ab on port 40001 returns 3 rows | status 200 | {\"id\":9}");
+const r = p.compareWithBase([c("1", "a", true), c("1", "a", true), c("2", "b", true), c("3", "c", false)], [c("1", "a", true), c("1", "a", false), c("2", "x", true), c("3", "c", true)]);
+console.log(same, r.available, r.same["1"].passing, r.same["1"].on_base, r.same["2"].on_base, r.same_total, r.head_proved, p.keepsWorkingAsk("Tests passing."), p.keepsWorkingAsk("Build faceted search UI"));' 2>&1 | tail -1)"
+[ "$PBK" = "true true 2 1 0 1 3 true false" ] && ok "proof on base: a check is matched by item and description with ids, ports and counts removed; two checks that read the same are paired by count; a check described differently on base is never stripped; 'Tests passing.' reads as a keep-working line and 'Build faceted search UI' does not" || bad "proof on base matching gave: $PBK"
 finish

@@ -1,8 +1,0 @@
-{
-  "name": "replicate",
-  "description": "Skills for finding, comparing, running, and prompting AI models on Replicate",
-  "version": "2.0.0",
-  "author": {
-    "name": "Replicate"
-  }
-}

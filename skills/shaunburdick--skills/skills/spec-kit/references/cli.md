@@ -102,7 +102,7 @@ FEATURE_DIR=$(ls -d specs/[0-9]* .specify/features/[0-9]* 2>/dev/null | sort -V 
 if [ ! -f ".specify/memory/constitution.md" ]; then
   echo "Phase: constitution → run /speckit.constitution"
 elif [ -z "$FEATURE_DIR" ]; then
-  echo "Phase: specify → run /speckit.specify <description>"
+  echo "Phase: specify → no features yet; propose the capability and who reads it, then wait for the user's yes"
 elif [ -f "$FEATURE_DIR/spec.md" ] && ! grep -q "## Clarifications" "$FEATURE_DIR/spec.md"; then
   echo "Phase: clarify → run /speckit.clarify"
 elif [ ! -f "$FEATURE_DIR/plan.md" ]; then
@@ -124,6 +124,7 @@ The scripts in `.specify/scripts/bash/` are called by the slash commands but can
 
 ```bash
 # Create a new feature branch and spec file, outputs JSON.
+# Same gate as /speckit.specify: run it only after the user's yes to the capability and its reader.
 # Also exports SPECIFY_FEATURE and SPECIFY_FEATURE_DIRECTORY for subsequent scripts.
 .specify/scripts/bash/create-new-feature.sh --json "my-feature-name"
 # → {"BRANCH_NAME": "001-my-feature-name", "SPEC_FILE": "...", "FEATURE_NUM": "001"}

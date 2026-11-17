@@ -66,12 +66,20 @@ export function sessionEffortFor(opts: SessionRunOptions): { effort: string | un
   if (resolved && rr < 0) return { effort: resolved }; // unknown level: pass through untouched
   return { effort: prior };
 }
+/** On by default; LOKI_E10_FULL_SESSION=0 puts the implement session back on the six-tool lean profile. */
+export const fullSessionOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_FULL_SESSION"] ?? "").trim());
+/** Connection settings a session that runs the product must not inherit (it starts its own throwaway services under its scratch directory). */
+export const CONNECTION_ENV = /^(DATABASE_UR[LI]|DB_(URL|URI|HOST|PORT|USER|USERNAME|PASSWORD|PASS|NAME|DATABASE)|REDIS_(URL|URI|HOST|PORT|PASSWORD)|MONGO(DB)?_(URL|URI|HOST)|PG(HOST|HOSTADDR|PORT|USER|PASSWORD|DATABASE|SERVICE|SERVICEFILE|PASSFILE)|MYSQL_(HOST|TCP_PORT|PWD|USER|PASSWORD|DATABASE)|POSTGRES(QL)?_(URL|URI|HOST|PORT|USER|PASSWORD|DB|DATABASE)|ELASTICSEARCH_(URL|HOST)|AMQP_URL|RABBITMQ_URL)$/;
 export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   delete env["LOKI_E10_SEAL_EXISTING_PATCH"]; // CW-12 B2: defense in depth, no session env ever carries the external diff path
   env["LOKI_ITERATION"] = opts.iterationId;
   env["LOKI_E10_STAGE"] = opts.stage;
   env["LOKI_E10_BRIEF"] = opts.brief;
+  delete env["LOKI_SCRATCH"]; delete env["LOKI_SCRATCH_SINCE"]; // Q1 RUN-SCRATCH: never inherited, so a user's own value can never relax the host guard
+  if (opts.sessionEnv) for (const [k, v] of Object.entries(opts.sessionEnv)) env[k] = v;
+  if (opts.sessionEnv?.["LOKI_SCRATCH"]) for (const k of Object.keys(env)) if (CONNECTION_ENV.test(k)) delete env[k]; // an issue run's implement session is told to start its own database and apply migrations: it must never inherit settings that point at the user's
+  if (opts.pathAppend?.length) env["PATH"] = [...(env["PATH"] ?? "").split(":").filter(Boolean), ...opts.pathAppend].join(":"); // candidate 1 env card: append only
   const gap = cfg.lokiRoot ? stageMedianGapMs(cfg.lokiRoot, opts.stage) : null; // #244: the persisted median call gap of this stage picks the cache TTL in engine10CacheTtlEnv
   if (gap !== null) env["LOKI_E10_CACHE_GAP_MS"] = String(gap); else delete env["LOKI_E10_CACHE_GAP_MS"];
   env["LOKI_E10_TIER"] = opts.tier; if (cfg.provider === "claude" && opts.stopChecks?.checks.length) env["LOKI_E10_STOP_CHECKS"] = JSON.stringify(opts.stopChecks); else delete env["LOKI_E10_STOP_CHECKS"]; // in-session fix rounds: only the per-call option sets it
@@ -87,6 +95,7 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
     env["LOKI_HOST_GUARD"] = "1";
     env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] = "1"; // an engine stage never needs background work; a Bash at its timeout stops instead of auto-backgrounding and pinning a finished session
     if (process.env["LOKI_E10_STAGE"]) delete env["LOKI_E10_MAX_TURNS"]; clampBashTimeoutEnv(env, opts.limitS); if (opts.maxTurns && opts.maxTurns > 0) env["LOKI_E10_MAX_TURNS"] = String(Math.min(Number(env["LOKI_E10_MAX_TURNS"]) || opts.maxTurns, opts.maxTurns)); pinBashShellEnv(env); if (opts.maxOutputTokens) env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = String(opts.maxOutputTokens); // a nested run inside a stage session inherits the derived cap, never an explicit user value; Wall author output bound, other stages keep the inherited value
+    if (opts.sessionEnv?.["LOKI_SCRATCH"] && fullSessionOn(process.env)) { env["LOKI_E10_FULL_SESSION"] = "1"; /* background tasks stay off: a headless session that starts its proof as a background task ends its turn "waiting for the completion notification", which never comes (Haiku did this in 4 of 9 runs; those sessions were unfinished and unpriced). Servers still start from the shell with & or nohup; a foreground command has the 600s Bash limit, the same limit Loki gives its own proof run */ if (process.env["LOKI_E10_PREFIX"] === undefined) env["LOKI_E10_PREFIX"] = "off"; } else delete env["LOKI_E10_FULL_SESSION"]; // FULL SESSION: an issue run's implement session and its resumes run as plain Claude Code does (own system prompt, all tools, background shells); every other stage stays lean
     if (env["LOKI_E10_PREFIX"] === undefined) env["LOKI_E10_PREFIX"] = "lean"; // TEN-COST-13: lean cache-stable prefix by default; an explicit user value (including off) wins
     const forced = process.env["LOKI_MODEL_OVERRIDE"] || sessionPinModel(process.env); // the override, else the session pin (after the override, ahead of the per-tier vars; throws on an unrecognized pin)
     if (forced) for (const t of ["PLANNING", "DEVELOPMENT", "FAST"]) env[`LOKI_CLAUDE_MODEL_${t}`] = forced;
@@ -102,7 +111,7 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
     env[`LOKI_CLAUDE_MODEL_${t}`] = pin;
     env[`LOKI_MODEL_${t}`] = pin;
   }
-  const caps = cfg.provider === "claude" ? hooks.effort?.caps?.(opts.stage, process.env["LOKI_MODEL_OVERRIDE"] || sessionPinModel(process.env) || (pin && pin !== PROVIDER_DEFAULT_MODEL ? pin : "") || opts.model || cfg.model || resolveModel(cfg.provider)) : undefined; // E5: the model the call really runs on (override, session pin, router pin, then the run model); Haiku implement and fix sessions stop at a turn and token cap, and a fix with no product edit
+  const caps = cfg.provider === "claude" && env["LOKI_E10_FULL_SESSION"] !== "1" ? hooks.effort?.caps?.(opts.stage, process.env["LOKI_MODEL_OVERRIDE"] || sessionPinModel(process.env) || (pin && pin !== PROVIDER_DEFAULT_MODEL ? pin : "") || opts.model || cfg.model || resolveModel(cfg.provider)) : undefined; // A whole-issue session (LOKI_E10_FULL_SESSION, set above) has no turn or token cap on any model: the 45-turn Haiku cap was sized from small bench tasks and cut every Haiku issue run off mid-work. E5: the model the call really runs on (override, session pin, router pin, then the run model); Haiku implement and fix sessions stop at a turn and token cap, and a fix with no product edit
   if (caps) env["LOKI_E10_STOP_RULES"] = JSON.stringify(caps); else delete env["LOKI_E10_STOP_RULES"];
   return env;
 }

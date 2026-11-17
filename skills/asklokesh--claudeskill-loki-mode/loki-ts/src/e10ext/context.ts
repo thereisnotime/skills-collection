@@ -1,6 +1,6 @@
 // S41-10: the implement/fix brief's repo context. Replaces the first 200 repo paths with up to 20
 // relevant files (plan relevant_files, else keyword selection over the tree-keyed cached map), their
-// impacted tests with one exact command each, and E-126 repo memory's verified command. Data only, no
+// impacted tests with one exact command each (the repo card, e10ext/repomemory.ts, is added by the implement stage). Data only, no
 // verdict logic (D42). plan.ts/verify.ts are stages, so core passes selectRelevantFiles and runnerCmd in.
 import { isOff } from "../council/role_agents.ts";
 import { readRepoMapCache, repoCacheDir, repoKey } from "../engine10/cache.ts";
@@ -11,13 +11,13 @@ import type { RepoMap } from "../engine10/repomap.ts";
 export const planHintsOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_PLAN_HINTS"] ?? "").trim()) /* on by default since 11.141.3 (dev2 2-seed A3.2), =0 opts out */;
 export const PLAN_HINT_LEAD = "A plan from an earlier session (a hint, not the scope: the task decides what to change; cover every case the task states even where the plan leaves it out, and edit any file the fix needs):";
 import { loadRepoMap } from "../engine10/sizing.ts";
-import { FINISH_LINE, type RunContext, type TestMap, type TestRef } from "../engine10/types.ts";
+import { FINISH_LINE, ISSUE_FINISH_LINE, issueRunBrief, proveByRunningOn, type RunContext, type TestMap, type TestRef } from "../engine10/types.ts";
 import { unitBrief } from "../features/speed/unit_mode.ts";
 import { signatureDigest } from "../util/ts_signatures.ts";
 import { contextPack, packEnabled, type ContextPack } from "../util/context_pack.ts";
 import { findDefectPins } from "../util/test_guard.ts";
 import { releaseNoteBrief } from "../project_model/conventions.ts";
-import { readVerifiedCommand } from "./repomemory.ts"; import { profileBrief } from "../runner/repo_profile.ts"; import { exampleFiles } from "../util/pr_lessons.ts";
+import { repoCardOn, SETUP_FIRST_LINE } from "./repomemory.ts"; import { profileBrief } from "../runner/repo_profile.ts"; import { exampleFiles } from "../util/pr_lessons.ts";
 
 export interface ContextDeps {
   select: (task: string, map: RepoMap, max: number) => string[];
@@ -26,13 +26,13 @@ export interface ContextDeps {
 
 // S41-10b: the implement/fix brief's leading block. A plain constant, no task text or interpolation, so
 // every brief starts with the same bytes (cache-stable prefix). Per-task context is appended after it. E-150: repeated verbatim as the brief's last line (recency); same bytes every task.
-export { FINISH_LINE }; // defined in engine10/types.ts, a leaf module, so conflict_resume and steer import it without a cycle through this file
+export { FINISH_LINE, ISSUE_FINISH_LINE, issueRunBrief, proveByRunningOn }; // defined in engine10/types.ts, a leaf module, so conflict_resume and steer import it without a cycle through this file
 // Z2 LOKI_E10_PINNED_TEST_UPDATE (default on, =0 opts out): an existing test that pins the OLD behavior the issue explicitly asks to change is updated, not declared a spec conflict.
 // On the real-world bench this rule's older form ("an existing test that contradicts the task is a spec conflict") made Haiku skip a site the issue named (old tests pinned private
 // state the fix had to change), and stopped two other runs BLOCKED; raw Haiku simply updated those tests. Each update is reported on an UPDATED TEST line that the implement stage
 // checks against base, head and the task and seal lists in the receipt (pinned_test_updates). Every other protection stays.
 export const PINNED_UPDATE_LINE = "UPDATED TEST";
-const PINNED_RULE = "- Exception: when the task names an existing test file or asks to change tests, change only what it asks. An existing assertion that pins the OLD behavior the issue explicitly asks to change is not a spec conflict: change its expected value to the behavior the issue states, change nothing else in that test, and before the last line of your reply write one line per such change: `UPDATED TEST <path>:<line>: <old expectation> -> <new expectation>; issue: \"<the issue sentence that asks for the new behavior>\"`. Never delete a test, add skip, xfail or only, widen a tolerance, or touch a test unrelated to the behavior the issue names; any other existing test that contradicts the task is a spec conflict: cite it.";
+const PINNED_RULE = "- Exception: when the task names an existing test file or asks to change tests, change only what it asks. An existing assertion that pins the OLD behavior the issue explicitly asks to change is not a spec conflict: change its expected value to the behavior the issue states, change nothing else in that test, and before the last line of your reply write one line per such change: `UPDATED TEST <path>:<line>: <old expectation> -> <new expectation>; issue: \"<the issue sentence that asks for the new behavior>\"`. Never delete a test, add skip, xfail or only, widen a tolerance, or touch a test unrelated to the behavior the issue names; any other existing test that contradicts the task is a spec conflict: cite it. Two more cases are not spec conflicts either. A test file this run itself added is yours: change it as the work needs. And when a test only pins the exact order or number of internal calls through a mock (not a result), and your change legitimately adds a call, extend that mock with the new call and keep every assertion about results; say in your reply which test and why.";
 // UD LOKI_E10_DOC_UPDATE_RULE (default on, =0 opts out): the documentation rule asks the model to keep existing docs that enumerate what it changed in step, instead
 // of "write no documentation". The failure: both Loki arms left a rule's README, which lists every option, without the option the change added, while every raw arm
 // updated it. =0 restores DOC_RULE_V139 byte for byte; either text is a constant, so the rules prefix stays cache-stable.
@@ -75,9 +75,30 @@ export const LEGACY_FIXED_RULES = [
   "- If you add a new third-party registry dependency, list it in .loki/supply-declared.json as a JSON array of {ecosystem,name,version_spec,registry}, leaving out workspace, path, git and local packages.",
   FINISH_LINE,
 ].join("\n");
+/** F5 PROVE-BY-RUNNING and candidate 1 (LOKI_E10_PROVE_BY_RUNNING, default on; 0/off/false/no restores today's issue-run brief): an issue run (intake source
+ *  "issue") on the claude provider gets its own rules constant (ISSUE_RULE_LINE in place of "Never leave a long-lived server running." and "Never kill processes.",
+ *  ISSUE_FINISH_LINE in place of FINISH_LINE), the prove-by-running block, the take-the-time and deliver-each lines, the small environment card line, and no
+ *  time-budget sentence (engine10/machine.ts). A text goal, opencode and every other stage keep today's constants and briefs byte for byte. FireLater#24: 27 Loki
+ *  implement sessions never started the product; plain sessions did, unprompted, and scored 8 and 9; the rehearsal with permission inside the block and the
+ *  broad "never" in the rules ran nothing. */
+export const ISSUE_RULE_LINE = "- You may start this repository's own services and throwaway dependencies to exercise your change. Bind anything you start to 127.0.0.1 or a unix socket, never to all interfaces. Create data directories, sockets and scratch files under $TMPDIR. Leave what you started running; Loki stops it after the session. Never stop or signal a process you did not start. Use only a database, cache or server you started yourself under $TMPDIR; never connect to one named in the repository's env files or in your environment, and never apply migrations to it.";
+const SERVER_RULES = "- Never leave a long-lived server running.\n- Never kill processes.";
+/** An issue run's rules: the given rules constant with the two process rules and the finish rule replaced, everything else word for word. */
+export function issueRules(rules: string): string {
+  if (!rules.includes(SERVER_RULES) || !rules.endsWith(FINISH_LINE)) return rules; // a rules text without these lines is left as it is
+  return rules.replace(SERVER_RULES, ISSUE_RULE_LINE).slice(0, -FINISH_LINE.length) + ISSUE_FINISH_LINE;
+}
+export const PROVE_BY_RUNNING_BLOCK = "Before you finish, prove the change works by running it, not by reading it. Exercise each thing the task asks for the way its user or caller reaches it: start the service or program this repository provides (if it needs a database or another dependency, start a throwaway one in a temporary directory), and call every new or changed entry point exactly as its real caller does; for a web or API client, use the exact paths the client code sends. Never use a fixed port number: pick a port you have just checked is free, or a unix socket inside your temporary directory, and call only the processes you started; before the first call, confirm the process answering on that port is the one whose process id you recorded. Prove a fresh install, not only an existing one: start from an empty database or data directory, set it up with the repository's own migrations or setup command, and create the first account, tenant or other record through the product's own code path after your change. Fix whatever fails and run it again. You may say something cannot be run only after you have tried: list each command you tried to find or start it and what it printed. A missing program on PATH is not enough; look where this machine installs it. Before the finish line, list each requested item with the command you ran to prove it and what it returned, then one line starting `Fresh install:` with the commands that built the empty environment and created the first record, and what they returned. Loki checks the label against this list, so an item with no command and result counts as not proved.";
+/** The script the session leaves so Loki can re-run the proof itself (engine10/proof_rerun.ts): the label comes from that run, not from the reply. */
+export const PROOF_SCRIPT_LINE = "Put your proof in one script at exactly $LOKI_SCRATCH/loki-proof.sh (the same directory as $TMPDIR; never inside the repository, so it is not part of the change, and never delete it: Loki copies it from there when you finish) and run it yourself until it passes. The acceptance lines the label is checked against are numbered in $LOKI_SCRATCH/acceptance.txt: read it first. The script takes one argument, an empty directory, and must do everything inside it from nothing: create the database or data directory there, apply the repository's own migrations or setup, start what it needs on ports it has just checked are free (bound to 127.0.0.1), and create the first account, tenant or record through the product's own code. Then it proves each numbered item with the functions in $LOKI_SCRATCH/loki-check.sh (the first argument is the item's number in acceptance.txt, 1, 2, 3 and so on, never a line number of your script), which it must source by that exact path (when Loki runs your script the variable points at Loki's own copy): `loki_http <item number> \"<what is proved>\" <expected status> <curl arguments>` for a request, sent the way the real caller sends it (for a page, every path its client code calls, same method and parameters; set LOKI_BODY_MATCH to a pattern the response must contain), and `loki_cmd <item number> \"<what is proved>\" <command>` for anything else (a test run, a query plan, a file that must exist). Only lines these functions print count: a line with no passing check is not met, and one failing check makes it not met, so give every line, including the fresh-install line if listed, at least one real check. It must stop what it started and exit 0 only when every required line is proved. Use paths relative to the repository root for the repository's own files. Loki runs this same script again by itself after you finish, in a new empty directory, and the label is a count of the checks that pass in that run, not of what you write about it. The same file gives you throwaway services: loki_pg_start <dir> and loki_redis_start <dir> start a new empty PostgreSQL or Redis on a free port and export its connection settings, loki_free_port prints a free port, loki_services_stop stops them. Use these for the proof and for your own runs; never use, and never expect, a database or cache that is already running on this machine.";
+export const TAKE_THE_TIME_LINE = "This is an issue to deliver in full, not a quick fix: take the time the work needs and finish every item the issue asks for. Starting this repository's own services and their dependencies to prove the change is expected here, not discouraged. Your reply ends this session and nothing runs after it: never end your turn while a subagent or a command is still working, and never say you will wait for a notification: none arrives. Run long commands in the foreground (up to ten minutes each), read the result, and only then reply.";
+export const DELIVER_EACH_LINE = "This issue lists several things to deliver. Deliver each one. If a required one is left undone, finish with LOKI_UNFINISHED and say which. An item the issue marks optional may be skipped: say so and finish with LOKI_DONE.";
+/** The per-task issue-run lines (block, take the time, deliver each, and the environment card line when one was made), or "" outside an issue run on claude. */
+export const proveByRunningBlock = (provider: string, source: unknown, env: NodeJS.ProcessEnv = process.env, cardLine: string | null = null): string =>
+  issueRunBrief(provider, source, env) ? [PROVE_BY_RUNNING_BLOCK, PROOF_SCRIPT_LINE, ...(repoCardOn(env) ? [SETUP_FIRST_LINE] : []), TAKE_THE_TIME_LINE, DELIVER_EACH_LINE, ...(cardLine ? [cardLine] : [])].join("\n\n") : "";
 export const pinnedTestUpdateEnabled = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_PINNED_TEST_UPDATE"] ?? "").trim());
 /** The rules block the implement and fix briefs lead with: FIXED_RULES by default, the v11.139.0 text with the knob off. Either way a constant, so the prefix stays cache-stable. */
-export const fixedRules = (env: NodeJS.ProcessEnv = process.env): string => (pinnedTestUpdateEnabled(env) ? (docUpdateRuleOn(env) ? FIXED_RULES : FIXED_RULES_DOC_V139) : LEGACY_FIXED_RULES);
+export const fixedRules = (env: NodeJS.ProcessEnv = process.env, issue = false): string => { const r = pinnedTestUpdateEnabled(env) ? (docUpdateRuleOn(env) ? FIXED_RULES : FIXED_RULES_DOC_V139) : LEGACY_FIXED_RULES; return issue ? issueRules(r) : r; }; // issue: the caller's issueRunBrief(provider, source); each result is a constant, so the prefix stays cache-stable per route
 
 const MAX_FILES = 20;
 const MAX_TESTS = 10;
@@ -104,7 +125,6 @@ export function briefRecord(ctx: RunContext, d: ContextDeps, model?: string): Br
   const rel = (p: string): string => (p.startsWith(`${ctx.repoDir}/`) ? p.slice(ctx.repoDir.length + 1) : p);
   const cmds = refs.map((t) => { const [c, a, , dir] = d.cmd(t, ctx.repoDir); return `${dir && dir !== "." ? `cd ${shq(dir)} && ` : ""}${[rel(c), ...a].map(shq).join(" ")}`; });
   const interps = cmds.length ? [] : detectedInterpreters(tm, ctx.repoDir, d); // no impacted test: still name the interpreter intake detected
-  const verified = readVerifiedCommand(repoCacheDir(repoKey(null, ctx.repoDir)));
   // L020: no plan and no ranked file leaves the Relevant files block out (the head of `git ls-files` named files the task never touches)
   const pack = model !== undefined && packEnabled(model) && files.length ? contextPack(ctx.repoDir, task, files, map?.entries ?? []) : null; // L021: haiku and sonnet only; Opus keeps today's bytes
   const whole = new Set((pack?.spans ?? []).filter((s) => s.symbol === null).map((s) => s.path)); // a file the pack shows whole needs no signatures
@@ -118,7 +138,6 @@ export function briefRecord(ctx: RunContext, d: ContextDeps, model?: string): Br
     interps.length ? `Detected test interpreter (no test file to run yet; use exactly this executable, never a guessed one): ${interps.join(", ")}` : "",
     pins.length ? `Existing assertions that pin the behavior the task reports as wrong (the correct fix is expected to change these expected values; change only these, and make sure each new expected value fails on the unfixed code):\n${pins.map((p) => `${p.file}:${p.line}: ${p.text.slice(0, 140)}`).join("\n")}` : "",
     cmds.length ? `Impacted test commands:\n${cmds.join("\n")}` : "",
-    verified ? `Last verified test command: ${verified}` : "",
     releaseNoteBrief(ctx.repoDir, files), // L3: one per-run line after the cache prefix; "" when the repo has no fragment convention
     profileBrief(ctx.repoDir), // REPOMEM: validated repo commands + baseline-red tests; byte-stable for an unchanged profile
   ].filter(Boolean).join("\n\n");

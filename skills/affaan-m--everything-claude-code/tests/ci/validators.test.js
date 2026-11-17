@@ -1200,6 +1200,20 @@ function runTests() {
     cleanupTestDir(testDir);
   })) passed++; else failed++;
 
+  if (test('errors when a skill name contains a reserved word (strict mode)', () => {
+    const testDir = createTestDir();
+    const skillDir = path.join(testDir, 'claude-devfleet');
+    fs.mkdirSync(skillDir);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'),
+      '---\nname: claude-devfleet\ndescription: "Multi-agent orchestration."\n---\n# Skill');
+
+    const result = runSkillsValidator(testDir, ['--strict']);
+    assert.strictEqual(result.code, 1, '--strict must reject reserved skill names');
+    assert.ok(result.stderr.includes("frontmatter 'name' contains reserved word"),
+      `Should report the reserved skill name; got stderr: ${result.stderr}`);
+    cleanupTestDir(testDir);
+  })) passed++; else failed++;
+
   if (test('warns on literal block-scalar description (|-)', () => {
     const testDir = createTestDir();
     const skillDir = path.join(testDir, 'block-desc-skill');
@@ -3000,6 +3014,120 @@ function runTests() {
     cleanupTestDir(testDir);
   })) passed++; else failed++;
 
+  for (const [file, eventMap] of [['hooks.json', 'hooks'], ['hooks.metadata.json', 'entries']]) {
+    if (test(`reports the second occurrence of a duplicate event in ${file}`, () => {
+      const testDir = createTestDir();
+      try {
+        const hooksFile = path.join(testDir, 'hooks.json');
+        writeJson(hooksFile, { hooks: { Stop: [] } });
+        // JSON.parse decodes both spellings as Stop and discards the first entry.
+        fs.writeFileSync(path.join(testDir, file), String.raw`{
+  "${eventMap}": {
+    "Stop": [],
+    "St\u006fp": []
+  }
+}`);
+
+        const result = runValidatorWithDir('validate-hooks', 'HOOKS_FILE', hooksFile);
+        assert.strictEqual(result.code, 1, result.stdout);
+        assert.ok(result.stderr.includes(file), result.stderr);
+        assert.match(result.stderr, /duplicate/i);
+        assert.match(result.stderr, /Stop/);
+        assert.match(result.stderr, /(?:\bline\s+|:)4\b/i);
+      } finally {
+        cleanupTestDir(testDir);
+      }
+    })) passed++; else failed++;
+
+    if (test(`rejects a repeated root ${eventMap} key in ${file}`, () => {
+      const testDir = createTestDir();
+      try {
+        const hooksFile = path.join(testDir, 'hooks.json');
+        writeJson(hooksFile, { hooks: {} });
+        const firstEntry = eventMap === 'hooks'
+          ? { id: 'first', hooks: [{ type: 'command', command: 'echo first' }] }
+          : { id: 'first', fingerprint: '0123456789ab' };
+        fs.writeFileSync(path.join(testDir, file), `{"${eventMap}":
+  ${JSON.stringify({ Stop: [firstEntry] })},
+  "${eventMap}": {}
+}`);
+        const result = runValidatorWithDirs('validate-hooks', {
+          HOOKS_FILE: hooksFile,
+          HOOKS_SCHEMA_PATH: path.join(repoRoot, 'schemas', 'hooks.schema.json'),
+          METADATA_SCHEMA_PATH: path.join(repoRoot, 'schemas', 'hooks-metadata.schema.json'),
+        });
+        assert.strictEqual(result.code, 1, result.stdout);
+        const diagnostic = `${file}: line 3: duplicate root key '${eventMap}' (first on line 1)`;
+        assert.ok(result.stderr.includes(diagnostic), result.stderr);
+      } finally {
+        cleanupTestDir(testDir);
+      }
+    })) passed++; else failed++;
+  }
+
+  if (test('reports duplicate root events in a schema-free unwrapped hook map', () => {
+    const testDir = createTestDir();
+    try {
+      const hooksFile = path.join(testDir, 'hooks.json');
+      fs.writeFileSync(hooksFile, `{
+  "Stop": [{"hooks": [{"type": "command", "command": "echo first"}]}],
+  "Stop": []
+}`);
+      const result = runValidatorWithDirs('validate-hooks', {
+        HOOKS_FILE: hooksFile,
+        HOOKS_SCHEMA_PATH: path.join(testDir, 'missing-schema.json'),
+      });
+      assert.strictEqual(result.code, 1, result.stdout);
+      assert.match(result.stderr, /hooks\.json: line 3: duplicate event key 'Stop' \(first on line 2\)/);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  })) passed++; else failed++;
+
+  if (test('checks explicit matcher ids in a schema-free unwrapped hook map', () => {
+    const testDir = createTestDir();
+    try {
+      const hooksFile = path.join(testDir, 'hooks.json');
+      const overrides = {
+        HOOKS_FILE: hooksFile,
+        HOOKS_SCHEMA_PATH: path.join(testDir, 'missing-schema.json'),
+      };
+      const entry = { hooks: [{ type: 'command', command: 'echo ok' }] };
+      writeJson(hooksFile, { Stop: [entry], UserPromptSubmit: [entry] });
+      const withoutIds = runValidatorWithDirs('validate-hooks', overrides);
+      assert.strictEqual(withoutIds.code, 0, withoutIds.stderr);
+
+      const shared = JSON.stringify({ ...entry, id: 'shared' });
+      fs.writeFileSync(hooksFile, `{
+  "Stop": [${shared}],
+  "UserPromptSubmit": [${shared}]
+}`);
+      const result = runValidatorWithDirs('validate-hooks', overrides);
+      assert.strictEqual(result.code, 1, result.stdout);
+      assert.ok(result.stderr.includes(
+        "hooks.json: line 3: UserPromptSubmit[0] has duplicate id 'shared' (already used by Stop[0] on line 2)"
+      ), result.stderr);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  })) passed++; else failed++;
+
+  if (test('checks only the active event map when hooks is wrapped', () => {
+    const testDir = createTestDir();
+    try {
+      const hooksFile = path.join(testDir, 'hooks.json');
+      fs.writeFileSync(hooksFile, `{
+  "Stop": [{"id": "ignored"}],
+  "Stop": [{"id": "ignored"}],
+  "hooks": {"Stop": []}
+}`);
+      const result = runValidatorWithDir('validate-hooks', 'HOOKS_FILE', hooksFile);
+      assert.strictEqual(result.code, 0, result.stderr);
+    } finally {
+      cleanupTestDir(testDir);
+    }
+  })) passed++; else failed++;
+
   if (test('rejects duplicate wrapped matcher ids across events', () => {
     const testDir = createTestDir();
     const hooksFile = path.join(testDir, 'hooks.json');
@@ -3016,7 +3144,7 @@ function runTests() {
           hooks: [{ type: 'command', command: 'echo post' }]
         }]
       }
-    }));
+    }, null, 2));
 
     const result = runValidatorWithDir('validate-hooks', 'HOOKS_FILE', hooksFile);
     assert.strictEqual(result.code, 1, 'Should reject matcher ids reused by another event');
@@ -3028,7 +3156,36 @@ function runTests() {
       result.stderr.includes('PreToolUse[0]') && result.stderr.includes('PostToolUse[0]'),
       `Should report both matcher locations, got: ${result.stderr}`
     );
+    assert.ok(result.stderr.includes('hooks.json'), result.stderr);
+    assert.match(result.stderr, /(?:\bline\s+|:)17\b/i);
     cleanupTestDir(testDir);
+  })) passed++; else failed++;
+
+  if (test('reports the source line of a duplicate sidecar id across events', () => {
+    const testDir = createTestDir();
+    try {
+      const hooksFile = path.join(testDir, 'hooks.json');
+      const entry = { hooks: [{ type: 'command', command: 'echo ok' }] };
+      writeJson(hooksFile, { hooks: { Stop: [entry], UserPromptSubmit: [entry] } });
+      const { fingerprintHookEntry } = require('../../scripts/lib/hooks-config');
+      const metadata = JSON.stringify({ id: 'shared:matcher', fingerprint: fingerprintHookEntry(entry) });
+      fs.writeFileSync(path.join(testDir, 'hooks.metadata.json'), `{
+  "entries": {
+    "Stop": [${metadata}],
+    "UserPromptSubmit": [
+      ${metadata}]
+  }
+}`);
+
+      const result = runValidatorWithDir('validate-hooks', 'HOOKS_FILE', hooksFile);
+      assert.strictEqual(result.code, 1, result.stdout);
+      assert.ok(result.stderr.includes('hooks.metadata.json'), result.stderr);
+      assert.match(result.stderr, /duplicate/i);
+      assert.match(result.stderr, /shared:matcher/);
+      assert.match(result.stderr, /(?:\bline\s+|:)5\b/i);
+    } finally {
+      cleanupTestDir(testDir);
+    }
   })) passed++; else failed++;
 
   // ── Round 79: validate-commands.js warnings count suffix in output ──

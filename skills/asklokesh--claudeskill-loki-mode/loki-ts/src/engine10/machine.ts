@@ -5,11 +5,12 @@ import { noteRegenerated, regenDropOn } from "../e10ext/commit_filter.ts";
 import { hooks } from "./hooks.ts"; import { cascadeV0On, wallConcurrent } from "../util/wall_knobs.ts"; import { attemptModel, CASCADE_LEAD, cascadeWallTail, wallFailedOf } from "../features/attempts.ts"; import { wallEnabled } from "./sizing.ts";
 import { safeGit, commitHookBypassOn, treeDiffStat, treeSnapshot } from "../util/safe_git.ts";
 import { assumptionOf, consultAvailable, neverStopActive, readConsults, type NeverStopRecord } from "../features/opus_consult.ts";
-import { rerunOnQuota, sessionKind } from "../runner/retry_class.ts";
+import { rerunOnQuota, sessionKind, usageLimitOf } from "../runner/retry_class.ts";
 import { REGISTRY } from "./registry.ts"; import { environmentShaped } from "./failures.ts";
-import { runControlBoundary } from "../util/run_control.ts"; import { timeBudgetNote } from "../util/run_cap.ts"; import { FINISH_LINE } from "../e10ext/context.ts"; import { withSteer } from "../util/steer.ts"; import { attemptDeps, restoreReadOnly, savedImplementBrief, type ReadOnlyFile } from "./stages/implement.ts"; import { AttemptsRestoreError, attemptsEarly, attemptsK, isClean, MIN_ATTEMPT_WINDOW_S, runExtraAttempts, signalNotProven, type AttemptSignal } from "../features/attempts.ts"; import { stallClimb } from "../runner/router/unit_model.ts"; import { removeHoldout } from "../util/holdout.ts"; import { distrustGreenBase } from "./stages/wall.ts";
+import { runControlBoundary } from "../util/run_control.ts"; import { timeBudgetNote, timeNoteOn } from "../util/run_cap.ts"; import { FINISH_LINE, issueRunBrief } from "../e10ext/context.ts"; import { withSteer } from "../util/steer.ts"; import { attemptDeps, restoreReadOnly, savedImplementBrief, type ReadOnlyFile } from "./stages/implement.ts"; import { AttemptsRestoreError, attemptsEarly, attemptsK, isClean, MIN_ATTEMPT_WINDOW_S, runExtraAttempts, signalNotProven, type AttemptSignal } from "../features/attempts.ts"; import { stallClimb } from "../runner/router/unit_model.ts"; import { removeHoldout } from "../util/holdout.ts"; import { distrustGreenBase } from "./stages/wall.ts";
 import { backstopS, DEEP_IMPLEMENT_LIMIT_S, DEFAULT_CAP_S, MAX_FIX_ROUNDS, STAGE_BUDGETS, VERIFY_STOPPED_NOTE, type EventType, type Obj, type RunContext, type Stage, type StageName, type StageResult } from "./types.ts";
 import { stallSame, stallSignature } from "../util/check_result.ts"; import { repeatedNoopFix } from "../util/anti_loop.ts"; import { deliverOverWallConflict, wallOnlyAfterFix, wallSignature } from "../util/conflict_resume.ts";
+import { PROVE_MIN_S, proveApplies, proveBudgetS, proveNotRun, proveScope, recheckProve, type ProveRecord } from "./stages/prove.ts"; import { capCeilingS } from "../util/run_cap.ts"; import { parseCapUsd } from "../e10ext/budget_cap.ts";
 
 /** WC-01b: optional split halves a wall stage may carry (see wall.ts `stage.split`). */
 interface WallSplit { author(ctx: RunContext, signal: AbortSignal): Promise<{ kind: string } & Record<string, unknown>>; install(ctx: RunContext, a: never, baseDir: string): StageResult; }
@@ -20,7 +21,7 @@ export const FLOW: readonly (StageName | readonly StageName[])[] = [
 /** Stages that still run after the cap or an early exit. */
 const TAIL: readonly StageName[] = ["commit", "seal", "pr"];
 /** Local extension of RunContext (not in types.ts): lets seal and pr see that the cap fired. */
-export interface MachineRunContext extends RunContext { capHit(): boolean; }
+export interface MachineRunContext extends RunContext { capHit(): boolean; proveBudgetS?: number /* Q1 PROVE: the stage budget the machine sized from the run time left */; }
 export interface MachineOptions {
   /** Resolves a stage; default imports <stagesDir>/<name>.ts and takes its `stage` (or default) export. */
   load?: (name: StageName) => Promise<Stage | null>;
@@ -37,9 +38,16 @@ export interface MachineOptions {
 export interface MachineResult {
   outputs: Partial<Record<StageName, Obj>>;
   capHit: boolean;
-  /** Why the run ended early: "intake failed", "stalled" (a fix round left the same failures), "fatal:<auth|quota_exhausted>". */
+  /** Why the run ended early: "intake failed", "stalled" (a fix round left the same failures), "fatal:<auth|quota_exhausted>", USAGE_LIMIT_STOP. */
   stopped: string | null;
+  /** USAGE-LIMIT: set with stopped = USAGE_LIMIT_STOP; the stage whose session hit the limit, the provider's line and the reset it named. */
+  usageLimit?: UsageLimitHit;
 }
+/** USAGE-LIMIT: a session ended on a plan or account usage limit. The run stops there: the cut stage records no result (stage.failed, never a
+ *  stage.completed, so no fix round or attempt is counted), commit and seal never run, and the supervisor closes the run as a resumable stop. */
+export const USAGE_LIMIT_STOP = "usage_limit";
+export interface UsageLimitHit { stage: string; line: string; resets: string | null }
+class UsageLimitCut extends Error { constructor() { super("usage limit"); } }
 /** Dynamically imports an optional module. Absent file: null. A present file that fails to load throws. */
 export async function optional<T = Record<string, unknown>>(path: string): Promise<T | null> {
   const abs = isAbsolute(path) ? path : join(import.meta.dir, path);
@@ -113,13 +121,14 @@ const VERIFY_RESERVE_S = STAGE_BUDGETS.fix.limitS + STAGE_BUDGETS.commit.limitS 
 const ATTEMPTS_TAIL_S = STAGE_BUDGETS.verify.limitS + STAGE_BUDGETS.commit.limitS + STAGE_BUDGETS.seal.limitS + STAGE_BUDGETS.pr.limitS;
 export function softCapS(capS: number): number { const plain = (capS * 14) / 15, budget = backstopS(capS) - ((STAGE_BUDGETS.commit.targetS ?? 0) + (STAGE_BUDGETS.seal.targetS ?? 0) + KILL_GRACE_MS / 1000 + 2); return Math.max(0, Math.min(plain, budget)); } // tightens 14/15 of capS so commit+seal's tail (plus a 2s margin: this clock starts after worker boot, the backstop's starts at spawn) fits before the backstop; when the tail can never fit at all (budget < 0), 0 still maximizes the gap to the backstop instead of the old plain-point fallback, which left as little as 0.17s to seal (E-67 round 5 REJECT finding 1)
 /** Stages that write to the working tree; only these journal a diff_stat. The concurrent wall (split) path runs beside implement and installs into a base copy, so a before/after delta would be implement's: it journals none (unmeasured). */
-const TREE_STAGES: ReadonlySet<string> = new Set(["wall", "implement", "fix"]);
+const TREE_STAGES: ReadonlySet<string> = new Set(["wall", "implement", "prove", "fix"]); // prove: its repair resumes edit the tree
 
 export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Promise<MachineResult> {
   const load = opts.load ?? defaultLoader(opts.stagesDir ?? join(import.meta.dir, "stages"));
   const outputs: Partial<Record<StageName, Obj>> = {};
   const partials: Partial<Record<StageName, Obj>> = {}; // latest evidence a running stage published (verify), kept if the stage is stopped
   let capHit = false, fatal: string | null = null; if (opts.restored) Object.assign(outputs, opts.restored);
+  let limited: UsageLimitHit | null = null; const limitCtl = new AbortController(); // USAGE-LIMIT: the first limit hit; aborting limitCtl cuts every running stage
   const startMs = opts.startedAtMs ?? ctx.clock.now();
   if (ctx.startedAtMs === undefined) ctx.startedAtMs = startMs;
   const timeline: NonNullable<typeof ctx.timeline> = ctx.timeline ??= [], intentRevs = ctx.intentRevisions ??= [];
@@ -130,12 +139,15 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
   const withTimeNote = (brief: string, limitS: number): string => brief.endsWith(FINISH_LINE) ? `${brief.slice(0, -FINISH_LINE.length)}${timeBudgetNote(limitS)}\n\n${FINISH_LINE}` : `${brief}\n\n${timeBudgetNote(limitS)}`;
   const startedIds = new Set<string>(); // TEN-COST-11 r3: every session this run started, whatever its stage later returned; seal unions these into the cost read so a killed or failed stage's spend is never lost
   const sessions = { run: async (o0: Parameters<typeof ctx.sessions.run>[0]) => {
+    if (limited) return { exit: null, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 0, killed: true }; // USAGE-LIMIT: no session starts after a limit
     startedIds.add(o0.iterationId);
     const n0 = intentRevs.length, o = withSteer(o0, ctx.repoDir, intentRevs); // operator steer (.loki/HUMAN_INPUT.md), consumed once
     if (intentRevs.length > n0) ctx.emit("intent.revised", o.stage, { revisions: intentRevs }); // P12-07h will seed ctx from these on re-entry; durable in events.jsonl
-    const left = implementStartMs === null ? Infinity : Math.max(1, implementBudgetS - (ctx.clock.now() - implementStartMs) / 1000), imp = o.stage === "implement" ? { ...o, limitS: Math.min(Math.max(o.limitS, implementBudgetS), left) } : o, r = await rerunOnQuota(() => ctx.sessions.run(imp.stage === "implement" && typeof imp.brief === "string" && imp.limitS > 0 ? { ...imp, brief: withTimeNote(imp.brief, imp.limitS) } : imp), sessionKind, ctx.clock, imp.signal, capAtMs, () => ctx.overCap?.() === true); // FC-21 (c): the time note goes after the byte-stable prefix and body; FC-21b A2: a resumed session gets only the budget left, and the note sits BEFORE the closing FINISH_LINE
+    const left = implementStartMs === null ? Infinity : Math.max(1, implementBudgetS - (ctx.clock.now() - implementStartMs) / 1000), imp = o.stage === "implement" ? { ...o, limitS: Math.min(Math.max(o.limitS, implementBudgetS), left) } : o, r = await rerunOnQuota(() => ctx.sessions.run(imp.stage === "implement" && typeof imp.brief === "string" && imp.limitS > 0 && !issueRunBrief(ctx.provider, outputs.intake?.source) && timeNoteOn() ? { ...imp, brief: withTimeNote(imp.brief, imp.limitS) } : imp), sessionKind, ctx.clock, imp.signal, capAtMs, () => ctx.overCap?.() === true); // FC-21 (c): the time note goes after the byte-stable prefix and body; FC-21b A2: a resumed session gets only the budget left, and the note sits BEFORE the closing FINISH_LINE
     const k = r.exit === 0 ? null : sessionKind(r as { exit: number; stderrTail?: string }); // P12-09: quota waits and reruns inside rerunOnQuota; it is fatal only if no cap ended the wait
     if (k === "auth" || (k === "quota_exhausted" && !capReached())) fatal ??= `fatal:${k}`; if (ctx.overCap?.() || (k === "quota_exhausted" && capReached())) capCtl.abort(); // D60-5: dollar cap reached, stop the running stage too
+    const lim = k === "usage_limit" ? usageLimitOf(r as { exit: number | null; killed?: boolean; stderrTail?: string }) : null;
+    if (lim && !limited) { limited = { stage: o.stage, ...lim }; limitCtl.abort(); } // USAGE-LIMIT: not a failure of the stage; the run stops here
     return r;
   } };
   const sctx: MachineRunContext = { ...ctx, sessions, implementLeftS: () => implementStartMs === null ? Infinity : implementBudgetS - (ctx.clock.now() - implementStartMs) / 1000, outputs: () => ({ ...outputs }), capHit: () => capHit, sessionIds: () => [...startedIds], partial: (n, d) => { partials[n] = d; } };
@@ -155,29 +167,32 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
     capHit = true;
     ctx.emit("cap.hit", name, { elapsed_s: elapsedS() });
   };
-  let implementBudgetS = 0; const implementLimitS = (floorS: number): number => Math.max(floorS, Math.floor(softCapS(ctx.capS) - elapsedS() - (STAGE_BUDGETS.verify.limitS ?? 0))); // leaves verify's window before the soft cap
+  const proveReserveS = (): number => (proveScope(ctx.provider, outputs) ? proveBudgetS() : 0); // Q1 PROVE: 0 on every run the stage does not own, so their budgets are unchanged
+  let implementBudgetS = 0; const implementLimitS = (floorS: number): number => Math.max(floorS, Math.floor(softCapS(ctx.capS) - elapsedS() - (STAGE_BUDGETS.verify.limitS ?? 0) - proveReserveS())); // leaves verify's window (and the prove stage's budget) before the soft cap
   // A fix round scales with the task the plan sized: the cap grows with the packages and files in scope (run_cap.ts), so a round on a 1490 s
   // FireLater-sized cap gets 298 s instead of being killed at 180 s; a default 900 s cap keeps 180 s, and a round never gets more than twice that.
   const fixLimitS = (baseS: number): number => Math.max(baseS, Math.min(2 * baseS, Math.round((baseS * ctx.capS) / DEFAULT_CAP_S)));
   const verifyLimitS = (floorS: number): number => Math.max(floorS, Math.floor(softCapS(ctx.capS) - elapsedS() - VERIFY_RESERVE_S)); // verify gets the run budget left too, so the checks that prove the task are not cut at a fixed 120s; the soft cap still stops it
   /** Runs one stage; returns its result, or null when it was skipped. */
   const runStage = async (name: StageName, underCap: boolean): Promise<StageResult | null> => {
+    if (limited) throw new UsageLimitCut(); // USAGE-LIMIT: nothing runs after a limit, the tail (commit, seal) included
     const st = await load(name);
     if (!st) {
       ctx.emit("stage.skipped", name, { reason: "module not present" });
       return null;
     }
     if (underCap && capReached()) { markCap(name); return null; }
-    const limitS = name === "implement" ? (ctx.deep ? DEEP_IMPLEMENT_LIMIT_S : st.limitS >= STAGE_BUDGETS.implement.limitS ? implementLimitS(st.limitS) : st.limitS) : (name === "verify" && st.limitS >= STAGE_BUDGETS.verify.limitS ? verifyLimitS(st.limitS) : name === "fix" ? fixLimitS(st.limitS) : st.limitS) + (st.extraLimitS?.(sctx) ?? 0); if (name === "implement") { implementBudgetS = limitS; implementStartMs = ctx.clock.now(); } // FC-19: implement gets the run budget left, not a fixed 480s
+    const limitS = name === "implement" ? (ctx.deep ? DEEP_IMPLEMENT_LIMIT_S : st.limitS >= STAGE_BUDGETS.implement.limitS ? implementLimitS(st.limitS) : st.limitS) : (name === "verify" && st.limitS >= STAGE_BUDGETS.verify.limitS ? verifyLimitS(st.limitS) : name === "fix" ? fixLimitS(st.limitS) : name === "prove" ? (sctx.proveBudgetS ?? st.limitS) : st.limitS) + (st.extraLimitS?.(sctx) ?? 0); if (name === "implement") { implementBudgetS = limitS; implementStartMs = ctx.clock.now(); } // FC-19: implement gets the run budget left, not a fixed 480s
     ctx.emit("stage.started", name, { target_s: st.targetS, limit_s: limitS, ...(name === "wall" ? { start_ms: ctx.clock.now() } : {}) });
     const t0 = ctx.clock.now();
     const dur = (): number => (ctx.clock.now() - t0) / 1000;
     const snapBefore = TREE_STAGES.has(name) || (name === "verify" && regenDropOn()) ? treeSnapshot(ctx.repoDir) : null; // RD: verify too, so a file only a check rewrote is known
     const ctl = new AbortController();
-    let why: "limit" | "cap" | null = null;
-    const kill = (w: "limit" | "cap"): void => { if (!why) { why = w; ctl.abort(); } };
+    let why: "limit" | "cap" | "usage" | null = null;
+    const kill = (w: "limit" | "cap" | "usage"): void => { if (!why) { why = w; ctl.abort(); } };
     const limitTimer = setTimeout(() => kill("limit"), limitS * 1000);
-    const onCap = (): void => kill("cap");
+    const onCap = (): void => kill("cap"), onUsage = (): void => kill("usage");
+    limitCtl.signal.addEventListener("abort", onUsage);
     if (underCap) {
       if (capCtl.signal.aborted) onCap();
       else capCtl.signal.addEventListener("abort", onCap);
@@ -194,8 +209,9 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       r = { status: "failed", data: {}, reason: err instanceof Error ? err.message : String(err) };
     } finally {
       clearTimeout(limitTimer);
-      capCtl.signal.removeEventListener("abort", onCap);
+      capCtl.signal.removeEventListener("abort", onCap); limitCtl.signal.removeEventListener("abort", onUsage);
     }
+    if (limited) why = "usage" as "limit" | "cap" | "usage"; // a stage that settled after its session hit the limit is cut too: its result is never kept
     if (why) {
       // Bounded grace so a killed stage is not still running when commit starts.
       if (why === "cap") markCap(name);
@@ -208,6 +224,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
         ]);
         clearTimeout(graceTimer);
       }
+      if (why === "usage") { const hit = limited as UsageLimitHit | null; ctx.emit("stage.failed", name, { duration_s: dur(), reason: `usage limit: ${hit?.line ?? "reached"}`, usage_limit: true }); timeline.push({ stage: name, startMs: t0, endMs: ctx.clock.now() }); throw new UsageLimitCut(); } // no outputs[name], no fix round, no killed-implement record: resume reruns this stage
       r = { status: "failed", data: {}, reason: why, killed: true };
       const kept = name === "verify" ? (settled?.status === "completed" ? settled.data : partials.verify) : undefined;
       if (kept) { const prev = outputs.verify; outputs.verify = { ...kept, failures_grouped: stillFailing(prev?.failures_grouped, kept.checks), holdout_failed: prev?.holdout_failed ?? 0, not_proven: [...(Array.isArray(kept.not_proven) ? kept.not_proven : []), VERIFY_STOPPED_NOTE[why]], stopped_at: why, duration_s: dur() }; } // the checks that ran stay in the receipt; the note keeps the verdict below VERIFIED; the fix loop reads the earlier groups minus those the stopped verify saw pass
@@ -267,6 +284,15 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       if (err instanceof AttemptsRestoreError) { outputs.implement = { ...impl, exit: "killed", attempts: { error: err.message } }; process.stderr.write(`loki: ${err.message}; the run cannot be sealed as delivered work\n`); return { changed: false, ran: true }; } // exit=killed: seal never reads this as VERIFIED (FC-21 (a))
       return note(`attempts could not run: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`); }
     finally { timeline.push({ stage: "implement", startMs: t0, endMs: ctx.clock.now() }); }
+  };
+  /** Q1 PROVE: once, after implement and before the first verify, on the runs stages/prove.ts proveApplies names (issue runs on claude, implement done).
+   *  It gets the run time left before verify's window and the tail; with too little, or when it does not complete, its record says why and seal caps the label. */
+  const proveNow = async (): Promise<void> => {
+    const room = Math.floor(softCapS(ctx.capS) - elapsedS() - (STAGE_BUDGETS.verify.limitS ?? 0) - (STAGE_BUDGETS.commit.limitS + STAGE_BUDGETS.seal.limitS + STAGE_BUDGETS.pr.limitS)); // verify's floor and the tail; a fix round gets what verify leaves
+    if (room < PROVE_MIN_S) { outputs.prove = proveNotRun("not_run", `not enough run time left before verify (${Math.max(room, 0)}s; the stage needs ${PROVE_MIN_S}s)`) as unknown as Obj; ctx.emit("stage.skipped", "prove", { ...outputs.prove, reason: "not enough run time left" }); return; }
+    sctx.proveBudgetS = Math.min(proveBudgetS(), room);
+    const r = await runStage("prove", true);
+    if (r?.status !== "completed") outputs.prove = proveNotRun("killed", r ? String(r.reason ?? "failed") : "the stage did not start (run cap)") as unknown as Obj; // a killed or failed stage leaves no data: the record keeps seal from reading it as proved
   };
   /** True when the flow must jump to the tail (commit, seal, pr). */
   const mustJump = (name: StageName, r: StageResult | null): boolean => {
@@ -347,7 +373,10 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       else if (wallJob && todo.includes("implement") && !(await (wallJob as WallJob).snap)) { const j = wallJob as WallJob, t0 = j.t0; abortWall(); ctx.emit("stage.failed", "wall", { duration_s: (ctx.clock.now() - t0) / 1000, reason: "wall base snapshot unavailable: nothing installed" }); } // the base copy must be complete before implement edits the tree; no copy means no Wall
       if (wallJob && todo[0] === "verify") await installWallJob(); // FC-VACUOUS-WALL-GREEN: a Wall green on base no longer ends the run here
       if (todo[0] === "verify" && !outputs.verify && !jumped) scaffoldNow(); // LOKI_E10_SCAFFOLD: the deterministic release-note fragment, before the first verify so verify and the commit see it
-      const results = await Promise.all(todo.map((n) => runStage(n, !isTail)));
+      if (todo[0] === "verify" && !outputs.verify && !jumped && !outputs.prove && proveApplies(ctx.provider, outputs)) await proveNow(); // Q1 PROVE: after implement's continue loop and review turn, before verify // LOKI_E10_SCAFFOLD: the deterministic release-note fragment, before the first verify so verify and the commit see it
+      const all = await Promise.allSettled(todo.map((n) => runStage(n, !isTail))), cut = all.find((x) => x.status === "rejected"); // allSettled: a parallel stage cut by a usage limit still settles before the run stops
+      if (cut) throw (cut as PromiseRejectedResult).reason;
+      const results = all.map((x) => (x as PromiseFulfilledResult<StageResult | null>).value);
       if (todo[0] === "intake" && results[0]?.status === "failed" && !capHit) {
         return { outputs, capHit, stopped: "intake failed" };
       }
@@ -356,7 +385,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
         if (commitHookBypassOn()) await runStage("seal", false);
         return { outputs, capHit, stopped: "commit failed" };
       }
-      if (opts.resize && !resized && (todo.includes("plan") || todo.includes("wall"))) { resized = true; try { applyResize(opts.resize()); } catch { /* an unreadable plan scope keeps the current cap */ } }
+      if (opts.resize && !resized && (todo.includes("plan") || todo.includes("wall"))) { resized = true; try { const sized = opts.resize(), add = Number(process.env["LOKI_E10_CAP_FIXED_S"]) > 0 ? 0 : proveReserveS(); applyResize(add > 0 ? Math.max(sized, Math.min(sized + add, capCeilingS(!(Number(parseCapUsd(process.env["LOKI_E10_MAX_COST_USD"])) > 0)))) : sized); } catch { /* an unreadable plan scope keeps the current cap */ } } // Q1 PROVE: a sized cap grows by the stage budget, never past the cap ceiling; an explicit cap does not grow
       if (fatal) { stopped = fatal; jumped = true; continue; }
       if (outputs.plan?.out_of_repo === true && !jumped) { // FC-OUT-OF-REPO: seal reads implement.exit, so BLOCKED reuses the spec-conflict path
         outputs.implement = { exit: "spec_conflict", spec_conflict_reason: outputs.plan.spec_conflict_reason ?? "out-of-repo", changed_files: [] };
@@ -451,11 +480,15 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
         }
         const wasConflict = outputs.implement?.exit === "spec_conflict";
         if (!fatal && !capHit && stopped === null && await deliverOverWallConflict(outputs, ctx.repoDir, () => runStage("verify", true), (path, why) => ctx.emit("wall.arbitrated", "wall", { path, discarded: why }), { runDir: ctx.runDir, restored: (v) => ctx.emit("stage.completed", "verify", { ...v, restored: true }) }) && wasConflict) ctx.emit("spec.conflict", "implement", { delivered: true, reason: outputs.implement?.spec_conflict_reason ?? null }); // a Wall defect never discards correct code (util/conflict_resume.ts)
+        if (outputs.prove) outputs.prove = await recheckProve(sctx, outputs.prove as unknown as ProveRecord, fatal || capHit ? 0 : Math.floor(softCapS(ctx.capS) - elapsedS() - (STAGE_BUDGETS.commit.limitS + STAGE_BUDGETS.seal.limitS + STAGE_BUDGETS.pr.limitS)), capCtl.signal) as unknown as Obj; // Q1 PROVE: a fix round, a rule completion or another attempt changed the tree the scripts ran on: rerun them, or cap
         if (fatal) { stopped = fatal; jumped = true; }
         if (capHit) jumped = true;
       }
     }
     return { outputs, capHit, stopped };
+  } catch (err) {
+    if (err instanceof UsageLimitCut && limited) return { outputs, capHit, stopped: USAGE_LIMIT_STOP, usageLimit: limited };
+    throw err;
   } finally {
     abortWall();
     clearTimeout(capTimer); removeHoldout(ctx.runId, ctx.repoDir);

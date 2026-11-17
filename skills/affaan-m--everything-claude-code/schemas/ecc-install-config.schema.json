@@ -22,6 +22,7 @@
         "claude-project",
         "cursor",
         "antigravity",
+        "antigravity-home",
         "codex",
         "copilot",
         "gemini",
@@ -33,7 +34,9 @@
         "hermes",
         "openclaw",
         "kimi",
-        "adal"
+        "grok",
+        "adal",
+        "mistral-vibe"
       ]
     },
     "profile": {

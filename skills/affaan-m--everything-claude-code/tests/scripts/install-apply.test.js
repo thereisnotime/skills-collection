@@ -10,6 +10,7 @@ const { execFileSync, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
 const { applyInstallPlan } = require('../../scripts/lib/install/apply');
+const { canonicalArgs } = require('../../scripts/grok-install');
 
 const SCRIPT = path.join(__dirname, '..', '..', 'scripts', 'install-apply.js');
 const DEFAULT_INSTALL_APPLY_TIMEOUT_MS = process.platform === 'win32' ? 30000 : 10000;
@@ -66,15 +67,16 @@ function runWithGuidedDispatcherFailure(failureMode) {
   const root = createTempDir('install-apply-guided-failure-');
   const preloadPath = path.join(root, 'preload.js');
   const failureMessage = 'guided dispatcher failed\u001b[31m';
-  const replacement = failureMode === 'load'
-    ? `throw new Error(${JSON.stringify(failureMessage)});`
-    : `return { main: () => Promise.reject(new Error(${JSON.stringify(failureMessage)})) };`;
   fs.writeFileSync(preloadPath, `
     const Module = require('module');
     const originalLoad = Module._load;
     Module._load = function(request, parent, isMain) {
       if (request === './install-guided' && /install-apply\\.js$/.test(parent?.filename || '')) {
-        ${replacement}
+        const failureMessage = process.env.ECC_GUIDED_FAILURE_MESSAGE;
+        if (process.env.ECC_GUIDED_FAILURE_MODE === 'load') {
+          throw new Error(failureMessage);
+        }
+        return { main: () => Promise.reject(new Error(failureMessage)) };
       }
       return originalLoad.call(this, request, parent, isMain);
     };
@@ -83,6 +85,7 @@ function runWithGuidedDispatcherFailure(failureMode) {
     return spawnSync(process.execPath, ['--require', preloadPath, SCRIPT, '--guided'], {
       cwd: path.dirname(SCRIPT),
       encoding: 'utf8',
+      env: { ...process.env, ECC_GUIDED_FAILURE_MODE: failureMode, ECC_GUIDED_FAILURE_MESSAGE: failureMessage },
     });
   } finally {
     cleanup(root);
@@ -114,6 +117,35 @@ function runTests() {
     assert.ok(result.stdout.includes('--dry-run'));
     assert.ok(result.stdout.includes('--profile <name>'));
     assert.ok(result.stdout.includes('--modules <id,id,...>'));
+    assert.ok(result.stdout.includes('mistral-vibe'));
+    assert.ok(result.stdout.includes('Install selected skills into ./.vibe/skills/'));
+  })) passed++; else failed++;
+
+  if (test('installs a selected skill into Mistral Vibe without unrelated surfaces', () => {
+    const homeDir = createTempDir('install-apply-vibe-home-');
+    const projectDir = createTempDir('install-apply-vibe-project-');
+    try {
+      const result = run(
+        ['--target', 'mistral-vibe', '--skills', 'tdd-workflow', '--json'],
+        { cwd: projectDir, homeDir }
+      );
+      assert.strictEqual(result.code, 0, result.stderr);
+      assert.ok(fs.existsSync(path.join(projectDir, '.vibe', 'skills', 'tdd-workflow', 'SKILL.md')));
+      assert.ok(!fs.existsSync(path.join(projectDir, '.vibe', 'agents')));
+      assert.ok(!fs.existsSync(path.join(projectDir, '.vibe', 'hooks.toml')));
+
+      const state = readJson(path.join(projectDir, '.vibe', 'ecc-install-state.json'));
+      assert.strictEqual(state.target.id, 'mistral-vibe-project');
+      assert.deepStrictEqual(state.resolution.selectedModules, ['skill-tdd-workflow']);
+      assert.ok(state.operations.every(operation => (
+        operation.destinationPath.startsWith(
+          `${path.join(fs.realpathSync(projectDir), '.vibe', 'skills')}${path.sep}`
+        )
+      )));
+    } finally {
+      cleanup(homeDir);
+      cleanup(projectDir);
+    }
   })) passed++; else failed++;
 
   if (test('Claude hook dry-run validates settings without mutating malformed input', () => {
@@ -154,6 +186,61 @@ function runTests() {
     const result = run(['--profile', 'core', 'typescript']);
     assert.strictEqual(result.code, 1);
     assert.ok(result.stderr.includes('cannot be combined'));
+  })) passed++; else failed++;
+
+  if (test('Grok alias does not add the default profile to positional language selections', () => {
+    assert.deepStrictEqual(canonicalArgs(['typescript']), ['--target', 'grok', 'typescript']);
+    assert.deepStrictEqual(
+      canonicalArgs(['--dry-run']),
+      ['--target', 'grok', '--profile', 'full', '--dry-run']
+    );
+  })) passed++; else failed++;
+
+  if (test('Grok alias rejects option-prefixed values for value flags', () => {
+    assert.throws(() => canonicalArgs(['--target', '--dry-run']), /Missing value for --target/);
+    assert.throws(() => canonicalArgs(['--consent-mcp', '--dry-run']), /Missing value for --consent-mcp/);
+    assert.throws(() => canonicalArgs(['--target', 'claude']), /Invalid value for --target: claude/);
+  })) passed++; else failed++;
+
+  if (test('plans Grok through the canonical request with a local pinned fixture', () => {
+    const homeDir = createTempDir('install-apply-grok-home-');
+    const fixtureRoot = createTempDir('install-apply-grok-source-');
+    const sourceRoot = path.join(fixtureRoot, 'source');
+    try {
+      execFileSync('git', ['clone', '--quiet', '--no-local', path.dirname(path.dirname(SCRIPT)), sourceRoot]);
+      const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: sourceRoot, encoding: 'utf8' }).trim();
+      const marketplacePath = path.join(sourceRoot, '.grok-plugin', 'marketplace.json');
+      const marketplace = readJson(marketplacePath);
+      const updatedMarketplace = {
+        ...marketplace,
+        plugins: [
+          {
+            ...marketplace.plugins[0],
+            source: { source: 'url', url: sourceRoot, sha: sourceSha },
+          },
+          ...marketplace.plugins.slice(1),
+        ],
+      };
+      fs.writeFileSync(marketplacePath, `${JSON.stringify(updatedMarketplace, null, 2)}\n`);
+
+      const result = run(
+        ['--target', 'grok', '--profile', 'minimal', '--dry-run', '--json'],
+        { cwd: sourceRoot, homeDir }
+      );
+      assert.strictEqual(result.code, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.strictEqual(payload.dryRun, true);
+      assert.strictEqual(payload.grok, undefined);
+      assert.strictEqual(payload.plan.target, 'grok');
+      assert.strictEqual(payload.plan.adapter.id, 'grok-home');
+      assert.ok(payload.plan.operations.length > 0);
+      assert.ok(payload.plan.operations.every((operation) => (
+        ['copy-file', 'render-template', 'merge-json', 'remove'].includes(operation.kind)
+      )));
+    } finally {
+      cleanup(homeDir);
+      cleanup(fixtureRoot);
+    }
   })) passed++; else failed++;
 
   if (test('installs Claude rules and writes install-state', () => {
@@ -550,12 +637,22 @@ function runTests() {
       const settingsOperations = parsed.plan.operations.filter(operation => (
         operation.kind === 'update-claude-settings'
       ));
-      assert.strictEqual(settingsOperations.length, 1);
-      assert.strictEqual(
-        settingsOperations[0].destinationPath,
-        path.join(homeDir, '.claude', 'settings.json')
+      // Two modules ship hooks: the runtime, and config-health's own
+      // SessionStart registration. Both merge into the same settings file.
+      assert.strictEqual(settingsOperations.length, 2);
+      for (const operation of settingsOperations) {
+        assert.strictEqual(
+          operation.destinationPath,
+          path.join(homeDir, '.claude', 'settings.json')
+        );
+        assert.ok(operation.managedHooks.SessionStart);
+      }
+      assert.deepStrictEqual(
+        settingsOperations
+          .map(operation => String(operation.sourceRelativePath).replace(/\\/g, '/'))
+          .sort(),
+        ['hooks/hooks.json', 'manifests/install-assets/config-health-hooks.json']
       );
-      assert.ok(settingsOperations[0].managedHooks.SessionStart);
       assert.ok(!parsed.plan.operations.some(operation => (
         operation.kind === 'copy-file'
         && String(operation.sourceRelativePath || '').replace(/\\/g, '/') === 'hooks/hooks.json'
@@ -950,7 +1047,7 @@ function runTests() {
     const projectDir = createTempDir('install-apply-project-');
 
     try {
-      const result = run(['--target', 'antigravity', '--profile', 'core'], { cwd: projectDir, homeDir });
+      const result = run(['--target', 'antigravity', '--profile', 'core', '--enable-hooks'], { cwd: projectDir, homeDir });
       assert.strictEqual(result.code, 0, result.stderr);
 
       assert.ok(fs.existsSync(path.join(projectDir, '.agents', 'rules', 'common-coding-style.md')));
@@ -961,6 +1058,7 @@ function runTests() {
       assert.ok(fs.existsSync(path.join(projectDir, '.agents', 'agents', 'architect.md')));
       assert.ok(fs.existsSync(path.join(projectDir, '.agents', 'workflows', 'plan.md')));
       assert.ok(fs.existsSync(path.join(projectDir, '.agents', 'skills', 'tdd-workflow', 'SKILL.md')));
+      assert.ok(fs.existsSync(path.join(projectDir, '.agents', 'hooks.json')), 'hooks.json should exist');
 
       const state = readJson(path.join(projectDir, '.agents', 'ecc-install-state.json'));
       assert.strictEqual(state.request.profile, 'core');
@@ -971,13 +1069,14 @@ function runTests() {
           'rules-core',
           'agents-core',
           'commands-core',
+          'hooks-runtime',
           'platform-configs',
           'skill-unified-memory',
           'workflow-quality',
           'shared-script-utils'
         ]
       );
-      assert.ok(state.resolution.skippedModules.includes('hooks-runtime'));
+      assert.ok(!state.resolution.skippedModules.includes('hooks-runtime'));
       assert.ok(!state.resolution.skippedModules.includes('workflow-quality'));
       assert.ok(!state.resolution.skippedModules.includes('platform-configs'));
     } finally {
@@ -1222,6 +1321,10 @@ function runTests() {
       assert.ok(
         settings.hooks.UserPromptSubmit.some(entry => entry.id === 'prompt:hookify-runtime'),
         'managed Hookify prompt runtime should be registered alongside user hooks'
+      );
+      assert.ok(
+        settings.hooks.UserPromptSubmit.some(entry => entry.id === 'user-prompt:context-gate'),
+        'managed context gate should be registered alongside user hooks'
       );
       assert.deepStrictEqual(
         settings.hooks.PreToolUse[0],

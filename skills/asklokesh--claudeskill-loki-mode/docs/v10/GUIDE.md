@@ -154,9 +154,8 @@ becomes owner/repo#123 from the checkout's origin ("#N" needs a GitHub origin;
 quote it, since an unquoted # starts a shell comment). Loki prints a `goal:`
 line when it read a ref. Extra words ("fix #123 and add a test") keep the goal
 as text, and LOKI_GOAL_REF=0 turns the reading off. The run itself asks
-nothing: headless intake records its assumptions in the receipt. The only
-terminal prompt is the optional rating after VERIFIED (LOKI_SATISFACTION=0
-turns it off). Models and --deep are not auto-picked yet.
+nothing: headless intake records its assumptions in the receipt, and no
+rating prompt follows a VERIFIED run. Models and --deep are not auto-picked yet.
 
 bin/loki routes GitHub, GitLab (`.../-/issues/N`) and Jira
 (`.../browse/KEY`) issue URLs to the v10 engine, and the issue-fetch step
@@ -396,7 +395,32 @@ is that function's real output, not a mockup.
 
 Both run on your own GitHub Actions minutes; there is no hosted service.
 
-- Issue to PR: copy `.github/workflows/loki-issue-to-pr.yml` into your repository. Label an issue `loki`, or comment `/loki` as an owner, member or collaborator, and it runs `loki owner/repo#N` (the Loki 10 engine) and opens a pull request with an evidence receipt. The agent job holds a read-only token; a separate publish job opens the PR. Set `ANTHROPIC_API_KEY` in repository secrets.
+- Label an issue, get a pull request. Save this as `.github/workflows/loki.yml` in your repository:
+
+```yaml
+name: Loki
+on:
+  issues:
+    types: [labeled]
+jobs:
+  loki:
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    uses: asklokesh/loki-mode/.github/workflows/loki-issue-to-pr.yml@v11.142.0
+    with:
+      version: '11.142.0'
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+  Then, once per repository: add the `ANTHROPIC_API_KEY` secret (Settings > Secrets and variables > Actions), turn on "Allow GitHub Actions to create and approve pull requests" (Settings > Actions > General > Workflow permissions; it is off by default on a new repository), and create a label named `loki`. Put that label on an issue. Loki runs `loki owner/repo#N --no-pr` and you get:
+  - one pull request for the issue, on a branch `loki/issue-<number>-<run id>-<run attempt>`, whose body is the evidence receipt. The title carries the result when it is not VERIFIED, and only a VERIFIED result says "Resolves #N". A large issue that Loki splits into slices gets no pull request from this workflow: the comment lists the slices and their results and says that no single pull request was opened.
+  - one comment on the issue: the result label (VERIFIED, PARTIAL, ...), how many checks passed outside the model and how many items are not proven, the cost, the receipt digest and the link to the pull request and the run log.
+  - if the secret or the setting is missing, the same comment says which one and where to set it. The job must grant the three permissions above: a called workflow cannot raise them.
+
+  Put the label on again (remove it, add it back) to run again: the new run opens a new pull request on a new branch, and its body and the comment link the earlier open Loki pull request for you to close. Loki never closes, edits or deletes a pull request or branch. The comment is edited in place. The agent job holds a read-only token; a separate job that runs no agent applies its patch and opens the pull request. A change that touches `.github/workflows/` cannot be pushed with the workflow token; the comment says so. GitHub documents that events made with the workflow token do not start other workflows, so a pull request this workflow opens does not start your `pull_request` CI by itself. Keep the tag (`@v11.142.0`) and `with: version:` (the loki-mode npm version, an exact release) the same; `with: label:` changes the label. The workflow is checked offline (its own scripts against a local mirror with a stub model and a stub `gh`); it has not yet been run on GitHub. [docs/examples/loki-issue-to-pr.yml.example](../examples/loki-issue-to-pr.yml.example) adds the `/loki` comment trigger, a manual trigger and the `/loki fix`, `/loki explain` and `/loki reseal` pull request commands.
 - Nightly backlog: add a workflow in `.github/workflows/`. Its `schedule:` trigger runs `loki backlog owner/repo --label loki`, one Loki 10 run per labeled open issue:
 
 ```yaml

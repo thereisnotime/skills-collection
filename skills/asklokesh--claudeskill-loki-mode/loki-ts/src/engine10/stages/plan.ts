@@ -6,14 +6,14 @@ import type { RepoMap } from "../repomap.ts";
 import { selectRelevantFiles } from "../relevant_files.ts";
 import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; import { classifyExitCause } from "../session.ts"; // E-68 reuse: never re-classify exit codes here
 import { cascadeEnabled, hardReason, hasRelevantTests, loadRepoMap, namedFiles, planMode, sizeTask, smallTaskPath, wallEnabled, wallFirstModel, wallModel } from "../sizing.ts";
-import { type RunContext, type Stage, type StageResult, type TestMap, taskBlock } from "../types.ts";
+import { type RunContext, type Stage, type StageResult, type TestMap, issueRunBrief, taskBlock } from "../types.ts"; import { startSetupCheck } from "../../e10ext/repomemory.ts"; import { runSetupScript } from "../proof_rerun.ts";
 import { withStagePrefix } from "../../features/lean_prefix.ts";
 import { PLAN_SCOPE_FILE, outOfRepoInstruction, planOutOfRepo, seedPlanScope } from "../../util/run_cap.ts";
 import { assumptionsBlock } from "../../features/spec_ambiguity.ts";
 import { loadTaskText } from "./wall.ts";
 import { fastTierModel } from "../../runner/model_downgrades.ts";
 import { planFallbackModel, planRoute, PRESET_PLAN_INSTRUCTION, ROUTER_UNITS_INSTRUCTION } from "../../runner/router/plan_route.ts";
-import { applyIntent, confirmRequested, intentCardEnabled, INTENT_CARD_INSTRUCTION } from "../../util/intent_card.ts";
+import { applyIntent, confirmRequested, intentCardEnabled, INTENT_CARD_INSTRUCTION, issueAcceptanceOf } from "../../util/intent_card.ts";
 import { loadProjectApi } from "../../project_model/resolve.ts";
 import { behaviorChangeInstruction, mutationStrict, readBehaviorChange } from "../../util/mutation_proof.ts";
 import { reviewerBriefEnabled } from "../../util/reviewer_brief.ts";
@@ -62,6 +62,7 @@ export const planStage: Stage = {
 
   async run(ctx: RunContext, signal: AbortSignal): Promise<StageResult> {
     const prior = ctx.outputs();
+    if (issueRunBrief(ctx.provider, prior.intake?.source)) startSetupCheck(ctx.repoDir, ctx.runDir, (s) => runSetupScript(ctx.repoDir, s)); // SETUP CHECK (e10ext/repomemory.ts): Loki's own run of the stored setup starts beside this session and only reads the tree; implement waits for it
     const task = loadTaskText(ctx, prior.intake?.task as string | undefined);
     const repomapRef = prior.intake?.repomap_ref as string | undefined;
     const loaded = loadRepoMap(repomapRef);
@@ -116,7 +117,7 @@ export const planStage: Stage = {
 
     const rawPlan = existsSync(outputPath) ? readFileSync(outputPath, "utf8") : "";
     // T3: empty plan or LOKI_INTENT_CARD=0 is silent and changes nothing.
-    const ic = await applyIntent(rawPlan, cardOn, ctx.runDir, (d) => ctx.emit("variant", "plan", d));
+    const ic = await applyIntent(rawPlan, cardOn, ctx.runDir, (d) => ctx.emit("variant", "plan", d), issueAcceptanceOf(prior.intake));
     const plan = truncatePlan(ic.rest);
     const route_record = pr.record({ planModel, planModelNote }), oor = planOutOfRepo(ctx.runDir); // FC-OUT-OF-REPO: ends the run as BLOCKED before implement/fix spend anything
     return {

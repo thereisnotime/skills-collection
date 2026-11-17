@@ -1,4 +1,5 @@
 // Loki 10 supervisor (P0, docs/v10/ENGINE.md sections 5, 6, 10): eval marker first, origin pinned once, worker spawned with withheld tokens; single writer of events.jsonl (seq, hash, tamper refusal) id; post-PR: detached deep verify, then Slack notify.
+import { cleanupScratchRecord, cleanupStaleScratches, readExitCleanup } from "../runner/worker_proc.ts";
 import { routeStartLine } from "../runner/router/route_block.ts";
 import { execFileSync, spawnSync } from "node:child_process"; import { currentBranch, restoreBranch } from "../e10ext/stop_restore.ts";
 import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
@@ -6,7 +7,7 @@ import { redactEventData } from "../util/redact.ts"; import { deadlineCapS, loca
 import { terminalWidth } from "../util/term_width.ts";
 import { diffStat, runHead, formatRunSummary, handoffSection, readRiskSummary, writeHandoff, withNextLine, withFoldLine, withRiskLine, nextOf, resultOf, summaryObject, useColor } from "../util/run_summary.ts"; // OC-OUTPUT, RISKTIER
 import { commitUnsealedWork, guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
-import { kidOf, loadSigningKey } from "./stages/seal.ts";
+import { kidOf, loadSigningKey, secretPushLine, secretPushRefusal } from "./stages/seal.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ISSUE_LABELS_ENV, issueWholeFirst } from "../features/decompose.ts";
 import { dirname, join, relative, resolve } from "node:path"; import { writeRunState } from "../util/seal_drift.ts";
@@ -20,8 +21,8 @@ import { resolveRunProvider } from "../runner/state.ts";
 import { budgetNext, capNote, groupEnv, parseCapUsd, priorSpend, resolveCap, SUBSCRIPTION_NOTE, unenforceableNote, writeBudgetStop } from "../e10ext/budget_cap.ts";
 import { fetchIssueToFile } from "./fetch_issue.ts";
 import { fetchTrackerIssueToFile, parseTrackerRef } from "../features/tracker_intake.ts";
-import { formatHeartbeatLine, formatStageLine, spendSoFar, formatSummary, preModelTiming, EXIT, exitCodeOf, outcomeOf, reasonOf, type Outcome } from "./output.ts";
-import { CandidateView, LiveLine } from "../e10ext/liveline.ts";
+import { formatHeartbeatLine, formatStageLine, spendSoFar, formatSummary, preModelTiming, EXIT, exitCodeOf, outcomeOf, reasonOf, currentAttempt, usageLimitOfRun, type Outcome } from "./output.ts";
+import { CandidateView, LiveLine } from "../e10ext/liveline.ts"; import { consoleOn, LiveConsole } from "../e10ext/console.ts";
 import { SAFE_BUN_FLAGS, envWithPwd, killGroup, spawnDetached, spawnWorker, ulimitArgv } from "../runner/worker_proc.ts";
 import { askIntent } from "../util/intent_card.ts";
 import { assertPreflight, PreflightError } from "./preflight.ts"; import { noteRefusal, noteRefusalFromEvents, type PreflightBlocker } from "../util/funnel.ts";
@@ -193,6 +194,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const t0 = Date.now();
   const startedProvider = opts.started?.["provider"]; // E-36: provider read off opts.started, not a dedicated field (main(), below, is the only populater)
   const env = opts.env ?? process.env;
+  try { for (const sc of cleanupStaleScratches(join(opts.repoDir, ".loki"))) if (sc.stopped.length) process.stderr.write(`loki: stopped ${sc.stopped.length} process(es) an earlier run left (${sc.stopped.map((x) => x.pid).join(", ")}), by ownership\n`); } catch { /* never blocks a run */ } // Q1 SCRATCH-OWNED: a record whose worker is gone
   await assertPreflight({ repoDir: opts.repoDir, provider: typeof startedProvider === "string" ? startedProvider : "claude", pr: opts.pr !== undefined, env, runDir: join(opts.repoDir, ".loki", "runs", opts.runId) });
   writeEngineMarker(opts.repoDir, opts.runId); // first: a failing run still leaves it
   const origin = readOriginUrl(opts.repoDir); const rmRunPid = writeRunPid(join(opts.repoDir, ".loki", "runs", opts.runId), opts.runId); process.once("exit", rmRunPid); // origin pinned once, before any provider runs; CPE-09 run.pid for Control Plane Stop, removed on every exit path
@@ -225,6 +227,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   };
   let workerStopped = false;
   let worker = await spawnWorker(opts.workerArgv, workerEnv, opts.repoDir, backstopMs, escalateMs, onWorkerLine, (stopped) => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); workerStopped = stopped; if (stopped && !(backstopSealOn(env) && !sealed)) restoreBranch(opts.repoDir, origBranch); }).finally(() => clearInterval(beat)); // BACKSTOP-SEAL: a kill with no receipt keeps the tree on the run branch for the seal pass
+  { const rdir = join(opts.repoDir, ".loki", "runs", opts.runId), own = cleanupScratchRecord(rdir), sc = own ?? readExitCleanup(rdir); if (sc && (sc.stopped.length || sc.left.length)) log.append("scratch.cleanup", null, { when: own ? "after the worker exited" : "at the worker's exit", stopped: sc.stopped, left: sc.left, removed: sc.removed, ...(sc.kept ? { kept: sc.kept } : {}) }); } // Q1 SCRATCH-OWNED: a worker stopped by a signal or the backstop never ran its own cleanup
   // BACKSTOP-SEAL (dev4 gitoxide on 11.141.5: the worker's own soft cap never fired, the backstop killed it at 1141 s and no receipt existed): a worker killed by the
   // backstop before it sealed gets one seal pass. A fresh worker resumes from the durable log with only commit and seal (LOKI_E10_SEAL_ONLY), seals the current tree as
   // PARTIAL "time ran out", and is itself bounded so the whole run still ends inside the ceiling plus the deadline margin. Off with LOKI_E10_BACKSTOP_SEAL=0.
@@ -245,7 +248,8 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const v = sealedData?.verdict;
   const receiptVerdict = workerExit === 0 && typeof v === "string" && VERDICTS.has(v), verdict: Verdict = receiptVerdict ? (v as Verdict) : "FAILED"; // FC-21b (3): a sealed receipt is the one source of truth for the outcome
   const notProven = Array.isArray(sealedData?.not_proven) ? (sealedData.not_proven as unknown[]).map(String) : [];
-  if (worker.killed) notProven.push(sealPass && sealed ? BACKSTOP_SEALED_NOTE : BACKSTOP_NOT_PROVEN); const cancelled: string | null = worker.cancelled ?? (readEvents(log.path).some((e) => e.type === "cancel_effective") ? "request" : null); /* P12-10b: a loki cancel honoured at a stage boundary completes as cancelled too */ if (cancelled) notProven.push(`run cancelled by ${cancelled}`); // SIGINT/SIGTERM: usage so far is kept, no PR or backstop commit
+  if (worker.killed) notProven.push(sealPass && sealed ? BACKSTOP_SEALED_NOTE : BACKSTOP_NOT_PROVEN); const ev0 = readEvents(log.path), usage = worker.cancelled ? null : usageLimitOfRun(ev0); // USAGE-LIMIT: a session hit a provider usage limit; the run closes as a resumable stop, never sealed FAILED
+  const cancelled: string | null = worker.cancelled ?? (ev0.some((e) => e.type === "cancel_effective") ? "request" : usage ? "usage limit" : null); /* P12-10b: a loki cancel honoured at a stage boundary completes as cancelled too */ if (cancelled) notProven.push(usage && cancelled === "usage limit" ? `not sealed: run paused by a provider usage limit at stage ${usage.stage}` : `run cancelled by ${cancelled}`); // the Reason line (output.ts usagePauseLine) is the one line naming the limit and its reset // SIGINT/SIGTERM: usage so far is kept, no PR or backstop commit
   let prUrl: string | null = null;
   const intact = log.verify(); // unconditional re-check before the PR
   if (!intact) notProven.push(TAMPER_NOT_PROVEN);
@@ -259,8 +263,13 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
       safeGit(opts.repoDir, ["diff", "--quiet", String(base), "HEAD", "--", ".", ":(exclude).loki"], { env: workerEnv, stdio: "ignore" });
     } catch { hasDiff = base !== null; }
   }
-  if (opts.pr && !cancelled && intact && origin && verdict !== "ALREADY_SATISFIED" && verdict !== "VERIFIED" && verdict !== "PARTIAL" && hasDiff) process.stderr.write(localBranchNote(opts.runId, verdict, opts.repoDir)); // FC-NO-PUSH-UNVERIFIED
-  if (opts.pr && !cancelled && intact && origin && (verdict === "VERIFIED" || verdict === "PARTIAL") && hasDiff) { // FC-NO-PUSH-UNVERIFIED: VERIFIED opens a ready PR, PARTIAL a labelled DRAFT PR ("[PARTIAL]" title, Not proven first; a PR beats no PR, 2026-10-31); FAILED, SPEC_CONFLICT and cancelled stay local; ALREADY_SATISFIED opens no PR (E-66)
+  // FAILED-PR: a FAILED run with a sealed receipt and committed work opens a labelled DRAFT PR ("[FAILED: <check>]", the failing checks first), so committed work is never kept silently local.
+  // SECRET-PUSH: the one exception is a security scan secret match (stages/seal.ts secretPushRefusal): that change must not leave the machine before a review, whatever the verdict.
+  const pushable = !!opts.pr && !cancelled && intact && !!origin && hasDiff, failedPr = verdict === "FAILED" && receiptVerdict;
+  const refusal = pushable ? secretPushRefusal(readEvents(log.path).findLast((e) => e.type === "stage.completed" && e.stage === "verify")?.data, opts.runId) : null;
+  if (pushable && refusal) process.stderr.write(`engine10: run ${opts.runId}: ${secretPushLine(refusal)}\n`);
+  else if (pushable && verdict !== "ALREADY_SATISFIED" && verdict !== "VERIFIED" && verdict !== "PARTIAL" && !failedPr) process.stderr.write(localBranchNote(opts.runId, verdict, opts.repoDir)); // FC-NO-PUSH-UNVERIFIED: SPEC_CONFLICT, and a FAILED run with no receipt
+  if (opts.pr && pushable && !refusal && origin && (verdict === "VERIFIED" || verdict === "PARTIAL" || failedPr)) { // FC-NO-PUSH-UNVERIFIED: VERIFIED opens a ready PR, PARTIAL and FAILED a labelled DRAFT PR ("[PARTIAL]" title, Not proven first; a PR beats no PR, 2026-10-31; a FAILED run with a receipt, 2026-11-16); SPEC_CONFLICT, a FAILED run with no receipt, a secret match and cancelled stay local; ALREADY_SATISFIED opens no PR (E-66)
     const pushEnv: PushEnv = { _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: origin };
     const out = await opts.pr({ env, pushEnv, runId: opts.runId, repoDir: opts.repoDir, verdict, notProven, recordSpawnEnv: (spawnEnv) => { log.append("capability.recorded", "pr", { stages: [stageCapability("pr", spawnEnv)] }); } });
     notProven.push(...(out?.notProven ?? []));
@@ -269,11 +278,11 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
       log.append("pr.opened", "pr", { url: out.url, draft: out.draft, existing: out.existing });
       await opts.status?.({ prUrl: out.url }); await slackEvent(env, "pr_opened", { repo: githubRepoFromUrl(origin) ?? undefined, issue: String(opts.started?.["issue_ref"] ?? ""), prUrl: out.url, outcome: verdict }); // D51-A4
       // E-48: deep verify (stages/deep.ts) runs detached, never keeping the supervisor alive; deep.started records the pid so it is never orphaned untracked.
-      if (opts.deepArgv) notProven.push(...spawnDeep(opts.deepArgv, origin, { workerEnv, env, repoDir: opts.repoDir, append: (d) => log.append(d.type as never, "deep", d.data) }));
+      if (opts.deepArgv && verdict !== "FAILED") notProven.push(...spawnDeep(opts.deepArgv, origin, { workerEnv, env, repoDir: opts.repoDir, append: (d) => log.append(d.type as never, "deep", d.data) }));
     }
   }
   const allEvents = readEvents(log.path), folded = fold(allEvents), lokiRoot = join(opts.repoDir, ".loki"), costUsd = runCostUsd(allEvents, log.tampered, lokiRoot), wallS = (Date.now() - t0) / 1000; // one read, reused for cost and the Slack summary; unknown cost stays null
-  const stopRaw = folded.run.escalated?.data.stop, stop = typeof stopRaw === "string" ? stopRaw : null;
+  const stopRaw = currentAttempt(allEvents).findLast((e) => e.type === "escalated")?.data.stop, stop = typeof stopRaw === "string" ? stopRaw : null;
   const outcome: Outcome = cancelled ? "CANCELLED" : outcomeOf(verdict, allEvents.some((e) => e.type === "cap.hit"), stop, log.tampered, receiptVerdict), blocked = outcome === "BLOCKED"; let statusReason: string | undefined;
   if (blocked || (verdict === "FAILED" && prUrl === null && !cancelled)) { // E-67: never vanish silently -- an issue run gets a comment naming the reason, anything else is printed. A-110: BLOCKED always posts its one question
     const why = conflictReasonOf(allEvents);
@@ -283,10 +292,10 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
     if (isIssueWithRef && opts.comment && !opts.status) {
       const out = await opts.comment({ env, runId: opts.runId, issueRef: issueRef as string, reason, prUrl });
       log.append("issue.commented", null, { argv: out?.argv ?? [], ok: out?.ok ?? false, ...(out?.skipped ? { skipped: true } : {}), reason });
-    } else if (!blocked) process.stderr.write(`engine10: run ${opts.runId} ended FAILED with no PR: ${reason}\n`);
+    } else if (!blocked && !refusal) process.stderr.write(`engine10: run ${opts.runId} ended FAILED with no PR: ${reason}\n`); // SECRET-PUSH: the refusal line above already says why there is no PR
   }
   if (opts.status) { const st = await opts.status({ prUrl, outcome: String(outcome), reason: statusReason }); log.append("issue.commented", null, { argv: st?.argv ?? [], ok: st?.ok ?? false, ...(st?.skipped ? { skipped: true } : {}), reason: statusReason ?? String(outcome) }); }
-  log.append("run.completed", null, { verdict, ...(cancelled ? { cancelled: true, signal: cancelled, outcome: "CANCELLED" } : {}), pr_url: prUrl, not_proven: notProven, cost_usd: costUsd, wall_s: wallS, pre_model: preModelTiming(allEvents, t0) }); // D61-1
+  log.append("run.completed", null, { verdict, ...(cancelled ? { cancelled: true, signal: cancelled, outcome: "CANCELLED", ...(usage && cancelled === "usage limit" ? { paused: "usage_limit", usage_limit: usage } : {}) } : {}), pr_url: prUrl, not_proven: notProven, cost_usd: costUsd, wall_s: wallS, pre_model: preModelTiming(allEvents, t0) }); // D61-1
   log.sealLog(); log.state("closed", outcome); recordFingerprints(join(opts.repoDir, ".loki", "state"), opts.runId, "failed", failedCheckNames(folded.stages["verify"]?.data.checks, folded.stages["verify"]?.data.pre_red_checks as string[] | undefined), cleanTreeId(opts.repoDir)); // Q17-03/FC-LINT-PRE-RED: real failing checks minus base-red, read by decideRecovery so a flaky check does not mask them
   try { const pl = await import("../util/pr_lessons.ts"); if (cancelled) pl.takeStopBlocks(opts.repoDir, opts.runId); else pl.learnFromRun(opts.repoDir, opts.runId, allEvents, verdict); } catch { /* memory is best-effort; a cancelled run learns nothing but still drops its stop-block lines */ } // learn from runs: every run's mistakes become categorized lessons the next brief can retrieve; here because only the supervisor holds the complete log, killed workers included
   const stages = allEvents.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number").map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })), // E-48 notify: Slack when configured, no-op otherwise
@@ -303,7 +312,7 @@ export { partialCost }; // E-69: defined in events.ts, next to fold(); re-export
 export const runSummaryCost = (events: EventEnvelope[], tampered: boolean, repoDir: string): ReturnType<typeof summaryCost> => summaryCost(events, tampered, join(repoDir, ".loki"));
 export async function main(args: string[]): Promise<number> { // `loki "<task>"` (cli.ts routes every run here): P0 of one run, ending in the 5-line summary
   const words: string[] = [];
-  let eoo = false, resume = false, fresh = false, quiet = false, specFile: string | null = null, maxCost: string | null = null, noPr = false, sealPatch: string | null = null, deep = false, json = false, verbose = false, provider = process.env.LOKI_PROVIDER || "claude", providerNamed = Boolean(process.env.LOKI_PROVIDER);
+  let eoo = false, resume = false, fresh = false, quiet = false, label: string | null = null, specFile: string | null = null, maxCost: string | null = null, noPr = false, sealPatch: string | null = null, deep = false, json = false, verbose = false, provider = process.env.LOKI_PROVIDER || "claude", providerNamed = Boolean(process.env.LOKI_PROVIDER);
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === "--no-pr") noPr = true;
@@ -318,6 +327,8 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     else if (a.startsWith("--spec=")) specFile = a.slice(7);
     else if (a === "--resume") resume = true;
     else if (a === "--fresh") fresh = true; // SB-12: skip the interrupted-run offer
+    else if (a === "--label") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --label needs a value\n"); noteRefusal("unsupported_flag"); return 2; } label = v; i++; } // MANY: `loki start owner/repo --label L` runs every open issue carrying the label
+    else if (a.startsWith("--label=")) label = a.slice(8);
     else if (a === "--seal-existing") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --seal-existing needs a patch file\n"); noteRefusal("unsupported_flag"); return 2; } sealPatch = resolve(v); noPr = true; i++; } // CW-12: the changes already exist as this patch; implement applies it instead of running a session, and no PR is ever opened
     else if (a === "--" && !eoo) eoo = true; // TEN-STABILITY-37: `--` ends options, the rest is task text
     else if (!eoo && /^--?[A-Za-z][\w-]*(=\S*)?$/.test(a)) { process.stderr.write(`engine10: unknown flag ${a}\nusage: loki "<task>" [--no-pr] [--deep] [--json] [--verbose] [--quiet] [--max-cost N] [--provider P] [--spec F] [--seal-existing PATCH] [--resume] [--fresh] [-- <task>]\n`); noteRefusal("unsupported_flag"); return 2; } // flag-shaped only: a PRD body starting with "- item" or "---" has whitespace and stays task text
@@ -346,6 +357,11 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     const rp = resolveRunProvider(undefined, process.env, repoDir);
     if (rp.refusal) { process.stderr.write(rp.refusal); noteRefusal("no_provider"); return 2; }
     if (rp.source === "saved") { provider = rp.provider; providerNamed = true; process.env.LOKI_PROVIDER = rp.provider; }
+  }
+  if (spec === null && sealPatch === null && !process.env.LOKI_UNIT_ID) { // MANY: several issues of one repository (two or more refs, or owner/repo --label L) run at once, each a whole-issue run in its own worktree with its own pull request and label (commands/issues_run.ts startMany); one issue takes the single path below
+    const ir = await import("../commands/issues_run.ts"), many = ir.manyIssueRefs(task, label);
+    if (typeof many === "string") { process.stderr.write(`loki: ${many}\n`); noteRefusal("unsupported_flag"); return 2; }
+    if (many) { const cap = resolveCap(maxCost, repoDir); if ("error" in cap) { process.stderr.write(`engine10: ${cap.error}\n`); return 2; } return ir.startMany({ repoDir, slug: many.slug, numbers: many.numbers, label: many.label, noPr, capUsd: cap.usd, provider: providerNamed ? provider : null }); }
   }
   const olg = await import("../util/one_line_goal.ts"); // R01: infer provider and publish mode instead of refusing; the one-line note says what was assumed
   if (spec === null) { const g = olg.goalRef(task, readOriginUrl(repoDir), (s) => ISSUE_RE.test(s) || parseTrackerRef(s) !== null); if (g) { task = g.ref; process.stderr.write(`${g.note}\n`); } } // FR01: a pasted issue URL, "#N" or "fix #N" reaches the issue path
@@ -420,7 +436,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     if (verbose && !json && existsSync(eventsPath)) { clearInterval(tailTimer); stopTail = tail(eventsPath, live, { intervalMs: 250 }); }
   }, 100);
   let liveStop = (): void => {}; // D82: quiet-mode progress (verbose already prints stage lines)
-  const liveLine = !verbose && !json ? new LiveLine({ tty: !!process.stdout.isTTY, write: (x) => { process.stdout.write(x); }, columns: terminalWidth(), graceS: 3, repoDir }) : null;
+  const liveLine: { setUrl(u: string): void; tick(): void; onEvent(e: Parameters<LiveLine["onEvent"]>[0]): void; clear(): void } | null = verbose || json ? null : consoleOn() ? new LiveConsole({ write: (x) => { process.stdout.write(x); }, repoDir }) : new LiveLine({ tty: !!process.stdout.isTTY, write: (x) => { process.stdout.write(x); }, columns: terminalWidth(), graceS: 3, repoDir }); // a terminal gets the live console (LOKI_CONSOLE=0 keeps the one-line status); pipes and CI keep the plain lines
   if (liveLine) {
     if (process.env.LOKI_CONTROL_PLANE_URL) liveLine.setUrl(process.env.LOKI_CONTROL_PLANE_URL);
     let stopLiveTail = (): void => {}; const tick = setInterval(() => liveLine.tick(), 1000);
@@ -499,6 +515,5 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   const rs = await import("../util/receipt_surface.ts"), card = !json && !quiet && rs.aweOn("LOKI_AWE_PROOF_CARD") ? rs.proofCardOf(res.tampered ? null : rs.readReceiptAt(events.findLast((e) => e.type === "receipt.sealed")?.data.path)) : null; // AWE-2: proof card from receipt.json; a tampered run reads "not run"
   process.stdout.write(json ? `${JSON.stringify({ ...JSON.parse(out), summary: { ...summaryObject(ui), ...(riskLine ? { risk: riskLine } : {}) } })}\n` : quiet ? withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99) + (handoffRef ? `${handoffRef}\n` : "") : verbose ? `${out}\n${withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99)}${handoffRef ? `${handoffRef}\n` : ""}` : withFoldLine(withRiskLine(foldTail ? withNextLine(out, ui).replace(/\n$/, `; ${foldTail}\n`) : withNextLine(out, ui), riskLine, 7, capLine ? 1 : 0), card ? rs.renderAweProofLine(card) : null, 7, capLine ? 1 : 0)); // D48: default output stays within 8 lines, so the summary collapses to one line and the proof card to one line
   if (card && verbose) process.stdout.write(`\n${rs.renderAweProofCard(card, useColor())}\n`); // AWE-2: the full proof card, after the summary, under --verbose
-  if (!json && res.outcome === "VERIFIED") await import("../util/satisfaction.ts").then((m) => m.maybeAsk({ runId, env: process.env, isTTY: process.stdin.isTTY === true && process.stdout.isTTY === true })).catch(() => {});
   return res.outcome === "CANCELLED" && res.notProven.some((n) => n.endsWith("SIGTERM")) ? 143 : exitCodeOf(res.outcome); // a SIGTERM cancel keeps the conventional 128+15
 }

@@ -9,7 +9,8 @@
 #   slice: the implement session appends slice_<id>() for the "Slice <id> of N" it was given (tests/min/decompose-and-intake.sh)
 #   coverage: multiply() and subtract() on the first turn; negate() only when the prompt carries the coverage brief, or all three on a first turn whose brief carries the folded coverage line (tests/min/scope-and-fix.sh, LOKI_E10_COVERAGE_RESUME)
 #   wrong: the implement session appends a multiply() that adds (calc.test.ts then fails)
-# E2E_STUB_NOFINISH=once|never|still: the first implement reply has no finish line (LOKI_BLOCKED summary); a continue then finishes (once), keeps editing
+# E2E_STUB_NOFINISH=once|never|still|unfinished|conflict|conflictcited (unfinished: every reply ends LOKI_UNFINISHED, the continue changes nothing; conflict: the first reply
+#   is a LOKI_SPEC_CONFLICT citing no test and a continue finishes; conflictcited: every non-continue reply is a conflict citing calc.test.ts:3): the first implement reply has no finish line (LOKI_BLOCKED summary); a continue then finishes (once), keeps editing
 #   without finishing (never) or changes nothing (still). once writes multiply() only on the continue; never and still write it on the first turn.
 #   attempts: EXP-0010 (tests/min/engine10-e2e-stub.sh). Every implement session writes a wrong multiply() (calc.ts, or calc.py when the repo has one) except
 #     the session running in <temp>/loki-attempts-<random>/B<n> where n is E2E_STUB_RIGHT (unset or none: every session is wrong; the primary is attempt 0);
@@ -32,9 +33,24 @@
 # nothing; wallconflict does the same citing loki_wall_multiply.test.ts; noprogress edits calc.ts without fixing multiply();
 # fixit turns the wrong multiply() right; twostep needs two rounds. E2E_STUB_ITER_LOG gets "<stage> <iteration> <prompt bytes>"
 # per call; E2E_STUB_USAGE=<n> records n output tokens per session (input = prompt bytes / 4) as the session's cost.
+# E2E_STUB_SECRET=1: the implement session also appends a searchConfig line to calc.ts that the security scan matches as a secret (tests/min/engine10-e2e-stub.sh).
+# E2E_STUB_LIMIT=<engine stage> with E2E_STUB_LIMIT_MARK=<file>: that stage's first session hits a weekly usage limit (stderr line, exit 1).
 # E2E_STUB_REVIEW=PASS|FLAG|BLOCK: the seal cross-review session replies with that verdict (tests/min/engine10-e2e-stub.sh).
 #   overlay: a plain `-p <task>` call copies E2E_STUB_OVERLAY over the cwd (h2h benchmark harness)
 # E2E_STUB_SLEEP=<s>: the implement session sleeps after its edit, so a test can signal the run mid-session (tests/min/run-safety.sh).
+# Q1 PROVE. The listing call ("Loki 10 prove listing"): E2E_STUB_LIST unset writes two asks copied from issue #24's acceptance list (another issue: its
+#   title line, verbatim); para writes a
+#   paraphrased ask first and the verbatim list on the retry; bad paraphrases both times. E2E_STUB_LIST_LOG gets each listing prompt.
+# The prover session ("Loki 10 prove stage", E2E_STUB_PROVE): pass (default) writes ask scripts that pass once multiply() exists (so they fail on base);
+#   notrun: ask 2 exits 3; setupfail: setup.sh fails; none writes nothing; noscript writes setup and teardown but no ask script; hang: ask 2 sleeps 60 s;
+#   basepass: ask 2 exits 0 on any tree; leftover: the prover's own runs leave a seed marker in its scratch dir, an untracked seed.db and stale
+#   endpoints and pids, which fail ask 2 unless the harness's run is clean; editsrc: the prover appends a line to the tracked calc.ts;
+#   proverdaemon: the prover's own run leaves a setsid daemon working in its TMPDIR, its pid in E2E_STUB_PROVER_PID_LOG; foreign: setup.sh lists endpoint "web $E2E_STUB_FOREIGN_PORT"; abort: ask 1 starts a child that leaves the group
+#   (its own session, id recorded in prove/pids) plus one that stays, writes $E2E_STUB_ABORT_MARK and waits, until prove/resumed exists.
+#   E2E_STUB_PROVE_LOG gets "teardown" each time teardown.sh runs; E2E_STUB_PROVE_BRIEF_LOG gets the prover's prompt.
+#   E2E_STUB_REPLY_MARK: the done-mode implement reply prints this line before LOKI_DONE.
+#   onefail (repair legs): ask 2 fails until calc.ts carries PROVE_FIXED. A repair resume ("Prove repair, round") logs "repair" to E2E_STUB_PROVE_LOG and,
+#   with E2E_STUB_PROVE_REPAIR=fix, appends // PROVE_FIXED to calc.ts; it never replays the first turn's edit.
 # E2E_STUB_SPLIT (JSON text): the MASS-2 split planning session writes it to the file its brief names.
 # E2E_STUB_SPEC_REPLY (text): the exec-spec generator session (its brief names spec_reply.md, LOKI_E10_EXEC_SPEC) writes it there.
 # E2E_STUB_IMPL_CONFLICT=<text>: an implement session not on sonnet answers LOKI_SPEC_CONFLICT: <text>; on sonnet it implements.
@@ -60,13 +76,17 @@ while [ $# -gt 0 ]; do
   shift
 done
 case "$prompt" in
+  "Finish pass."*) stage=implement ;; # VF LOKI_E10_VERIFIED_FINISH: the fresh finish session (self_review.ts verifiedFinishBrief); its brief carries the diff, so it is matched first
+  "Loki acceptance line check."*) stage=linecheck ;; # Q1 ISSUE-ACCEPTANCE: the seal's tool-less per-line check (stages/xreview.ts issueLineCheck); E2E_STUB_LINECHECK_FILE holds the reply
   "Loki attempts review"*) stage=attemptsreview ;; # LOKI_E10_ATTEMPTS: the tool-less tie review (features/attempts.ts reviewTie); before every other match, the diffs it quotes can hold any text
+  "Loki 10 prove stage"*) stage=prove ;; # Q1 PROVE: the prover session (engine10/stages/prove.ts proverBrief); before the issue text it quotes can match anything below
+  "Loki 10 prove listing"*) stage=provelist ;; # Q1 PROVE: the listing call (engine10/stages/prove_list.ts listBrief)
   *"Loki remedy check"*) stage=remedy ;; # F1 LOKI_E10_RANKED_REMEDY: the tool-less check of the diff against the first-ranked remedy (util/conflict_resume.ts)
   *"Loki Opus consult"*) stage=consult ;; # LOKI_E10_OPUS_CONSULT: the tool-less consult call (features/opus_consult.ts)
   *"implement stage in patch mode"*) stage=patch ;; # LOKI_E10_PATCH: the tool-less patch call (features/patch_protocol.ts), before the implement match
   *"code reviewer"*) stage=review ;; # any model review session: the seal cross-review, or a post-PR reviewer
   *"Loki 10 plan stage"*) stage=plan ;;
-  *"Loki 10 implement stage"*|"Any earlier request to stop and write a text-only summary is over"*) stage=implement ;; # S1b: a resumed continue (SDK invoker) carries only the continue brief
+  *"Loki 10 implement stage"*|"Any earlier request to stop and write a text-only summary is over"*|"Prove repair, round"*) stage=implement ;; # S1b: a resumed continue (SDK invoker) carries only the continue brief
   *) stage=other ;;
 esac
 is_wall=0; case "$prompt" in *"Loki 10 Wall author"*) is_wall=1 ;; esac
@@ -90,10 +110,25 @@ if [ -n "${E2E_STUB_ROUTE_LOG:-}" ]; then # one line per session: engine stage, 
   echo "${LOKI_E10_STAGE:-none} ${LOKI_ITERATION:-none} model=${r_model:-none} advisor=${r_adv:-none} wall=$is_wall window=${r_win:-none}" >> "$E2E_STUB_ROUTE_LOG"
 fi
 if [ -n "${E2E_STUB_BUDGET_LOG:-}" ]; then echo "$stage limit=${LOKI_BUDGET_LIMIT:-} ledger=${LOKI_BUDGET_LEDGER:-}" >> "$E2E_STUB_BUDGET_LOG"; fi
+if [ -n "${E2E_STUB_ENV_LOG:-}" ]; then printf '%s LOKI_SCRATCH=%s TMPDIR=%s\n' "$stage" "${LOKI_SCRATCH:-}" "${TMPDIR:-}" >> "$E2E_STUB_ENV_LOG"; fi # Q1 RUN-SCRATCH: what each stage's session got
+if [ "$stage" = implement ] && [ "${E2E_STUB_SCRATCH:-}" = leave ] && [ -n "${LOKI_SCRATCH:-}" ] && [ ! -f "$LOKI_SCRATCH/pids" ]; then # RUN-SCRATCH: start a daemon-like process in the scratch directory and leave it running
+  # a daemon (pg_ctl, redis --daemonize) in its own session with no inherited std fds, so it survives a process-group kill and never holds the session's stdout pipe
+  perl -e 'setpgrp(0,0); open(STDIN,"</dev/null"); open(STDOUT,">/dev/null"); open(STDERR,">/dev/null"); chdir($ENV{LOKI_SCRATCH}); exec("/bin/sh","-c","sleep 300; :","x","--token=e2escratchsecret")' </dev/null >/dev/null 2>&1 &
+  _spid=$!; _n=0; while [ "$(ps -o pgid= -p "$_spid" 2>/dev/null | tr -d ' ')" != "$_spid" ] && [ "$_n" -lt 100 ]; do sleep 0.05; _n=$((_n + 1)); done # out of the session's group before the session ends: else session.ts reaps it with the group under load
+  echo "$_spid" > "$LOKI_SCRATCH/pids"; echo "$_spid" > "${E2E_STUB_SCRATCH_PID_LOG:-/dev/null}"
+fi
+if [ -n "${E2E_STUB_PATH_LOG:-}" ]; then printf '%s %s\n' "$stage" "$PATH" >> "$E2E_STUB_PATH_LOG"; fi # candidate 1 env card: the PATH each stage's session got
 if [ -n "${E2E_STUB_PROMPT_LOG:-}" ]; then printf '%s\n' "$prompt" >> "$E2E_STUB_PROMPT_LOG.$stage$is_wall"; fi # CW-12: the full prompt of every call, one file per stage (wall prompts land in .other1)
 # What the session can see: the canary test asserts no GitHub token and no LOKI_LEGACY_BASH.
 if [ -n "${E2E_STUB_ENV_LOG:-}" ]; then echo "$stage GH_TOKEN=${GH_TOKEN:-} LOKI_LEGACY_BASH=${LOKI_LEGACY_BASH:-} SEAL_PATCH=${LOKI_E10_SEAL_EXISTING_PATCH:-}" >> "$E2E_STUB_ENV_LOG"; fi
 if [ -n "${E2E_STUB_ITER_LOG:-}" ]; then echo "${LOKI_E10_STAGE:-none} ${LOKI_ITERATION:-none} ${#prompt}" >> "$E2E_STUB_ITER_LOG"; fi
+# USAGE-LIMIT (tests/min/run-safety.sh): the first session of engine stage E2E_STUB_LIMIT ends the way the claude CLI does on a plan usage
+# limit: the provider's line on stderr, exit 1, no edit. E2E_STUB_LIMIT_MARK is the file that makes it once (the resumed run gets a normal session).
+if [ -n "${E2E_STUB_LIMIT:-}" ] && [ "${LOKI_E10_STAGE:-}" = "$E2E_STUB_LIMIT" ] && [ -n "${E2E_STUB_LIMIT_MARK:-}" ] && [ ! -f "$E2E_STUB_LIMIT_MARK" ]; then
+  : > "$E2E_STUB_LIMIT_MARK"
+  echo "You've hit your weekly limit · resets Nov 18 at 12pm (America/New_York)" >&2
+  exit 1
+fi
 if [ -n "${E2E_STUB_USAGE:-}" ] && [ -n "${LOKI_ITERATION:-}" ]; then
   mkdir -p .loki/metrics
   printf '{"total_cost_usd":0.01,"input_tokens":%s,"output_tokens":%s,"cache_read_tokens":0,"cache_creation_tokens":0,"model":"stub","source":"e2e-stub"}\n' "$(( ${#prompt} / 4 ))" "$E2E_STUB_USAGE" > ".loki/metrics/result-cost-$LOKI_ITERATION.json"
@@ -112,6 +147,70 @@ if [ "$stage" = consult ]; then # E2E_STUB_CONSULT=fail: an error reply (no advi
   if [ "${E2E_STUB_CONSULT:-}" = "fail" ]; then echo '{"type":"result","subtype":"error_during_execution","is_error":true,"total_cost_usd":0.002,"usage":{"input_tokens":10,"output_tokens":0}}'; exit 0; fi
   echo '{"type":"result","subtype":"success","is_error":false,"result":"DIAGNOSIS: multiply adds instead of multiplying.\nINTENDED: STUB_ADVICE multiply(a, b) returns a * b.","total_cost_usd":0.002,"usage":{"input_tokens":100,"output_tokens":20}}'
   exit 0
+fi
+if [ "$stage" = provelist ]; then
+  [ -n "${E2E_STUB_LIST_LOG:-}" ] && printf '%s\n=====\n' "$prompt" >> "$E2E_STUB_LIST_LOG"
+  out="$(sed -n 's/^Write only this JSON to the file \(.*\): {"asks".*$/\1/p' <<< "$prompt" | head -1)"
+  good='{"asks": ["Implement PostgreSQL full-text search with ranking", "Create advanced filter query builder"]}'
+  para='{"asks": ["Add full text search to the issues list", "Create advanced filter query builder"]}'
+  retry=no; case "$prompt" in *"Your last list was rejected"*) retry=yes ;; esac
+  case "$prompt" in *"Implement PostgreSQL full-text search with ranking"*) ;; *) good="$(python3 -I -c 'import json,sys; t=sys.argv[1].split("The issue:\n",1)[-1].strip().split("\n")[0]; print(json.dumps({"asks": [t]}))' "$prompt")" ;; esac # another issue: its title line, verbatim
+  case "${E2E_STUB_LIST:-}:$retry" in para:no|bad:*) body="$para" ;; *) body="$good" ;; esac
+  [ -n "$out" ] && printf '%s\n' "$body" > "$out"
+  echo "LOKI_DONE"; exit 0
+fi
+if [ "$stage" = prove ]; then
+  [ -n "${E2E_STUB_PROVE_BRIEF_LOG:-}" ] && printf '%s\n' "$prompt" > "$E2E_STUB_PROVE_BRIEF_LOG"
+  pdir="$(sed -n 's/^Write these files into \(.*\) and nowhere else:$/\1/p' <<< "$prompt" | head -1)"
+  mode="${E2E_STUB_PROVE:-pass}"
+  if [ -n "$pdir" ] && [ "$mode" != none ]; then
+    mkdir -p "$pdir"
+    printf 'echo teardown >> "%s"\nfor p in $(cat "$PROVE_DIR/pids" 2>/dev/null); do kill "$p" 2>/dev/null; done\n' "${E2E_STUB_PROVE_LOG:-/dev/null}" > "$pdir/teardown.sh"
+    printf 'echo setup done\n' > "$pdir/setup.sh"
+    if [ "$mode" != noscript ]; then
+      printf '# ask 1\ngrep -q "export function multiply" calc.ts || { echo "multiply is not exported"; exit 1; }\n' > "$pdir/ask-1.sh"
+      printf '# ask 2\ngrep -q "export function multiply" calc.ts || { echo "the filter builder is not reachable"; exit 1; }\n' > "$pdir/ask-2.sh"
+    fi
+    case "$mode" in
+      notrun) printf 'echo "tried: initdb --version: command not found; needs a GPU to run"; exit 3\n' > "$pdir/ask-2.sh" ;;
+      setupfail) printf 'echo "migration 042 failed"; exit 1\n' > "$pdir/setup.sh" ;;
+      hang) printf 'sleep 60\n' > "$pdir/ask-2.sh" ;;
+      basepass) printf 'echo "always fine"; exit 0\n' > "$pdir/ask-2.sh" ;;
+      onefail) printf 'grep -q PROVE_FIXED calc.ts || { echo "POST /v1/filters returned 404"; exit 1; }\n' > "$pdir/ask-2.sh" ;;
+      editsrc) printf '// prover was here\n' >> calc.ts ;; # a tracked file the prover must not touch
+      proverdaemon) # the prover's own run leaves a daemon working in its TMPDIR (FireLater ps-1); it leaves the session's group before the session ends
+        python3 -I -c 'import os, sys, time
+if os.fork() == 0:
+    os.setsid(); os.chdir(os.environ["TMPDIR"])
+    open(sys.argv[1], "w").write(str(os.getpid())); time.sleep(300)
+os._exit(0)' "${E2E_STUB_PROVER_PID_LOG:-/dev/null}" > /dev/null 2>&1 < /dev/null
+        _n=0; while [ ! -s "${E2E_STUB_PROVER_PID_LOG:-/dev/null}" ] && [ "$_n" -lt 100 ]; do sleep 0.05; _n=$((_n + 1)); done ;;
+      leftover) # the prover runs its own scripts twice in its own scratch dir and leaves data behind: a seed marker, an untracked seed.db, stale endpoints and pids
+        printf 'if [ -f "$PROVE_TMP/seeded" ]; then echo dup > "$PROVE_TMP/dup"; fi\ntouch "$PROVE_TMP/seeded"\necho setup done\n' > "$pdir/setup.sh"
+        printf 'echo "tmp=$PROVE_TMP"\n[ -f "$PROVE_TMP/dup" ] && { echo "duplicate key value violates unique constraint"; exit 1; }\n[ -f seed.db ] && { echo "leftover seed.db from an earlier run"; exit 1; }\ngrep -q "export function multiply" calc.ts\n' > "$pdir/ask-2.sh"
+        mkdir -p "$pdir/prover-scratch"
+        for _ in 1 2; do PROVE_TMP="$pdir/prover-scratch" PROVE_DIR="$pdir" PROVE_ROOT="$PWD" bash "$pdir/setup.sh" > /dev/null; done
+        PROVE_TMP="$pdir/prover-scratch" PROVE_DIR="$pdir" PROVE_ROOT="$PWD" bash "$pdir/ask-2.sh" > "$pdir/prover-own-run.log" 2>&1
+        touch seed.db; printf 'web 1\n' > "$pdir/endpoints"; printf '99999999\n' > "$pdir/pids" ;;
+      foreign) printf 'echo "web %s" > "$PROVE_DIR/endpoints"\n' "${E2E_STUB_FOREIGN_PORT:-1}" > "$pdir/setup.sh" ;;
+      abort) cat > "$pdir/ask-1.sh" <<'ASK'
+if [ -f "$PROVE_DIR/resumed" ]; then grep -q "export function multiply" calc.ts; exit $?; fi
+touch "$PROVE_DIR/resumed"
+python3 -I -c 'import os, time
+if os.fork() == 0:
+    os.setsid()
+    open(os.environ["PROVE_DIR"] + "/pids", "a").write("%d\n" % os.getpid())
+    time.sleep(300)' &
+sleep 300 &
+echo $! >> "$PROVE_DIR/pids"
+n=0; while [ "$(grep -c . "$PROVE_DIR/pids")" -lt 2 ] && [ "$n" -lt 50 ]; do sleep 0.1; n=$((n + 1)); done
+cp "$PROVE_DIR/pids" "$E2E_STUB_ABORT_MARK"
+wait
+ASK
+      ;;
+    esac
+  fi
+  echo "LOKI_DONE"; exit 0
 fi
 if [ "$stage" = patch ]; then # E2E_STUB_PATCH: green appends a right multiply(); repair writes a wrong one first and fixes it in the repair call;
   # wrongtwice stays wrong (the agentic session then runs); cfg also edits bunfig.toml (refused), the repair call leaves it out;
@@ -206,8 +305,13 @@ case "$prompt" in # `loki plan --spec` (tests/min/triage-router.sh): write the s
     fi ;;
 esac
 case "$flags" in *"--model claude (provider default)"*) echo "There's an issue with the selected model (claude (provider default)). It may not exist or you may not have access to it." >&2; exit 1 ;; esac # the real CLI rejects the recorded label as a model id (FireLater#24 s2: every default-model review exited 1)
+if [ "$stage" = linecheck ]; then
+  if [ -n "${E2E_STUB_LINECHECK_LOG:-}" ]; then printf '%s\n' "$prompt" > "$E2E_STUB_LINECHECK_LOG"; fi
+  if [ -f "${E2E_STUB_LINECHECK_FILE:-}" ]; then python3 -I -c 'import json, sys; print(json.dumps({"type": "result", "result": open(sys.argv[1]).read(), "total_cost_usd": 0.002}))' "$E2E_STUB_LINECHECK_FILE"; else echo '{"type":"result","is_error":true,"result":"","total_cost_usd":0}'; fi
+  exit 0
+fi
 if [ "$stage" = review ]; then # the seal cross-review (stages/xreview.ts): E2E_STUB_REVIEW=PASS|FLAG|BLOCK answers in claude's --output-format json shape, with a cost
-  if [ -n "${E2E_STUB_REVIEW:-}" ]; then printf '{"type":"result","result":"VERDICT: %s\\n- stub reviewer concern","total_cost_usd":0.01}\n' "$E2E_STUB_REVIEW"; fi
+  if [ -n "${E2E_STUB_REVIEW:-}" ]; then printf '{"type":"result","result":"VERDICT: %s\\n- stub reviewer concern%s","total_cost_usd":0.01}\n' "$E2E_STUB_REVIEW" "${E2E_STUB_REVIEW_EXTRA:+\\n- $E2E_STUB_REVIEW_EXTRA}"; fi # E2E_STUB_REVIEW_EXTRA: one more reason line (F3 UNMET legs)
   exit 0
 fi
 if [ "$stage" = "other" ] && [ "${E2E_STUB_MODE:-}" = "overlay" ]; then # tests/min/h2h-harness.sh: a raw `claude -p <task> --output-format json` contestant
@@ -237,7 +341,12 @@ fi
 if [ "$stage" = "implement" ] && printf '%s' "$prompt" | grep -q "first-choice remedy is not in your change"; then
   printf '// remedy resume\n' >> calc.ts; echo "LOKI_DONE"; exit 0 # F1: the targeted "-rr" resume; a marker edit, never a second copy of the first turn's change
 fi
+if [ "$stage" = "implement" ]; then case "$prompt" in *"Prove repair, round"*) # Q1 PROVE repair resume: never the first turn's edit again
+  [ -n "${E2E_STUB_PROVE_LOG:-}" ] && echo repair >> "$E2E_STUB_PROVE_LOG"
+  [ "${E2E_STUB_PROVE_REPAIR:-}" = fix ] && printf '// PROVE_FIXED\n' >> calc.ts
+  echo "LOKI_DONE"; exit 0 ;; esac; fi
 if [ "$stage" = "implement" ] && [ -n "${E2E_STUB_RV:-}" ] && printf '%s' "$prompt" | grep -q "Pre-delivery review\. Before this change"; then # TG legs: the -rv review turn adds a test to calc.test.ts
+  if [ -n "${E2E_STUB_RV_LOG:-}" ]; then printf '%s' "$prompt" > "$E2E_STUB_RV_LOG"; printf '%s\n' "$flags" > "$E2E_STUB_RV_LOG.flags"; fi # VF legs: the review turn's whole prompt and its CLI flags
   case "$E2E_STUB_RV" in # breaktest: the added test comes with a beforeEach hook that turns the existing add test red; goodtest: a plain passing test
     breaktest) printf '%s\n' '' 'import { beforeEach } from "bun:test";' 'beforeEach(() => { expect(calc.add(2, 3)).toBe(6); });' 'test("add twice", () => { expect(calc.add(calc.add(1, 1), 1)).toBe(3); });' >> calc.test.ts ;;
     goodtest) printf '%s\n' '' 'test("add twice", () => { expect(calc.add(calc.add(1, 1), 1)).toBe(3); });' >> calc.test.ts ;;
@@ -250,9 +359,14 @@ if [ "$stage" = "implement" ] && [ -n "${E2E_STUB_NOFINISH:-}" ]; then # S1b (te
       once) printf '\nexport function multiply(a: number, b: number): number {\n  return a * b;\n}\n' >> calc.ts; echo "LOKI_DONE"; exit 0 ;; # finishes on the first continue
       never) printf '// continue pass %s\n' "$$-$RANDOM" >> calc.ts; echo "Progress made. Still outstanding: the docs for multiply."; exit 0 ;; # changes the tree, never finishes
       still) echo "Still outstanding: the docs for multiply."; exit 0 ;; # changes nothing, never finishes
+      unfinished) echo "I could not write the docs here."; echo "LOKI_UNFINISHED: the docs for multiply are not written"; exit 0 ;; # candidate 1: the named ending, again, with no change
+      conflict|conflictcited) printf '\nexport function multiply(a: number, b: number): number {\n  return a * b;\n}\n' >> calc.ts; echo "LOKI_DONE"; exit 0 ;; # H1: the continue finishes the work
     esac
   fi
   if [ "$E2E_STUB_NOFINISH" = once ]; then printf '\n// multiply() pending\n' >> calc.ts; else printf '\nexport function multiply(a: number, b: number): number {\n  return a * b;\n}\n' >> calc.ts; fi
+  if [ "$E2E_STUB_NOFINISH" = unfinished ]; then echo "multiply() is done."; echo "LOKI_UNFINISHED: the docs for multiply are not written"; exit 0; fi
+  if [ "$E2E_STUB_NOFINISH" = conflict ]; then echo "LOKI_SPEC_CONFLICT: stage incomplete. multiply() is not implemented yet; no conflicting test was found."; exit 0; fi # H1: a conflict that cites no test
+  if [ "$E2E_STUB_NOFINISH" = conflictcited ]; then echo "LOKI_SPEC_CONFLICT: calc.test.ts:3 asserts add(2, 2) is 5, which contradicts the task"; exit 0; fi # H1: a conflict that cites a test
   echo "Context was compacted. Summary of progress."; echo "**Result:** LOKI_BLOCKED: the docs for multiply and the impacted test runs are still outstanding."; exit 0
 fi
 if [ "$stage" = "implement" ] && [ "${E2E_STUB_MODE:-done}" != "coverage" ] && printf '%s' "$prompt" | grep -q "List each site, symbol, example or case"; then
@@ -301,6 +415,7 @@ if [ "$stage" = "implement" ]; then
     if [ "${E2E_STUB_SCOPE_EDIT:-}" = "1" ] && [ -f util.ts ]; then printf 'export const MODE = 2;\n' >> util.ts; fi
     if [ "${E2E_STUB_BREAK_CFG:-}" = "1" ] && [ -f cfg.json ]; then printf '{"ok": false}\n' > cfg.json; fi
     if [ "${E2E_STUB_LINTBAD:-}" = "1" ]; then printf '#!/usr/bin/env bash\nif true; then\n  echo BROKEN_A\n' > tool.sh; fi
+    if [ "${E2E_STUB_SECRET:-}" = "1" ] && ! grep -q searchConfig calc.ts; then printf '\nexport const searchConfig = { apiKey: globalThis.ELASTICSEARCH_API_KEY_VALUE };\n' >> calc.ts; fi # SECRET-PUSH: a config key the security scan's tier 2 matches (calc.ts line 5)
     if [ "${E2E_STUB_MODE:-}" = "attempts" ]; then # EXP-0010: the session in attempts/B<E2E_STUB_RIGHT> is right, every other one wrong
       n=0; case "$(pwd -P)" in */loki-attempts-*/B[0-9]*) n="$(pwd -P)"; n="${n##*/B}" ;; esac
       op='+'; [ "$n" = "${E2E_STUB_RIGHT:-none}" ] && op='*'
@@ -324,6 +439,7 @@ if [ "$stage" = "implement" ]; then
     else
     printf '\nexport function multiply(a: number, b: number): number {\n  return a * b;\n}\n' >> calc.ts
     fi
+    [ -n "${E2E_STUB_REPLY_MARK:-}" ] && echo "$E2E_STUB_REPLY_MARK" # Q1 PROVE: a line only the implementer's reply carries (the prover's brief must not)
     echo "LOKI_DONE"
   fi
 fi

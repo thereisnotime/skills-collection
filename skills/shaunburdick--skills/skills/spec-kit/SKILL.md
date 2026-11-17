@@ -4,7 +4,7 @@ description: "Practical guide for setting up and using the spec-kit CLI on a pro
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Spec-Kit
@@ -72,7 +72,7 @@ After `specify init`, these commands (or skills) are available in your agent:
 | Command | Purpose |
 | --- | --- |
 | `/speckit.constitution` | Create or update the project constitution (Phase 1) |
-| `/speckit.specify <description>` | Create a feature spec from a description (Phase 2) |
+| `/speckit.specify <description>` | Create a feature spec from a description (Phase 2) — only after the user's yes to the capability and who reads it |
 | `/speckit.clarify` | Resolve ambiguities before planning (Phase 3) |
 | `/speckit.plan <tech notes>` | Generate implementation plan (Phase 4) |
 | `/speckit.tasks` | Break plan into ordered tasks (Phase 5, same handoff as the plan) |
@@ -90,6 +90,7 @@ them again.
 ```
 /speckit.constitution Focus on simplicity, TypeScript strict mode, no suppressions
 
+# Say which capability this spec names and who reads it later, then wait for the user's yes
 /speckit.specify A dashboard showing real-time sensor readings with alerting thresholds
 
 /speckit.clarify

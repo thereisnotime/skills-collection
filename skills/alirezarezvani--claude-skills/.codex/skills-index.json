@@ -3,7 +3,7 @@
   "name": "claude-code-skills",
   "description": "Production-ready skill packages for AI agents - Marketing, Engineering, Product, C-Level, PM, and RA/QM",
   "repository": "https://github.com/alirezarezvani/claude-skills",
-  "total_skills": 416,
+  "total_skills": 427,
   "skills": [
     {
       "name": "agent-launcher-orchestrator",
@@ -45,7 +45,7 @@
       "name": "business-growth-skills",
       "source": "../../business-growth/skills/business-growth-skills",
       "category": "business-growth",
-      "description": "Use when a growth request needs routing between customer-success-manager, sales-engineer, revenue-operations and contract-and-proposal-writer."
+      "description": "Use when a growth request needs routing between customer-success-manager, sales-engineer, revenue-operations, contract-and-proposal-writer and support-ops."
     },
     {
       "name": "contract-and-proposal-writer",
@@ -70,6 +70,18 @@
       "source": "../../business-growth/skills/sales-engineer",
       "category": "business-growth",
       "description": "Use for pre-sales work: RFP coverage gaps, competitive feature matrices or planning and scoring a proof of concept. Runs rfp_response_analyzer.py, competitive_matrix_builder.py and poc_planner.py."
+    },
+    {
+      "name": "support-ops",
+      "source": "../../business-growth/skills/support-ops",
+      "category": "business-growth",
+      "description": "Use for any customer support operations question - SLA attainment and breaches (first response, resolution, business hours, weekends, tickets about to breach), how many agents to schedule per hour for a phone, chat or email queue and where the roster is short (Erlang C, service level, handle time, shrinkage, occupancy, backlog), or which ticket topics to deflect with help-center articles, automate with macros or fix as product bugs. Works from a helpdesk ticket export with stdlib scripts."
+    },
+    {
+      "name": "support-ops",
+      "source": "../../business-growth/support-ops/skills/support-ops",
+      "category": "business-growth",
+      "description": "Use for any customer support operations question - SLA attainment and breaches (first response, resolution, business hours, weekends, tickets about to breach), how many agents to schedule per hour for a phone, chat or email queue and where the roster is short (Erlang C, service level, handle time, shrinkage, occupancy, backlog), or which ticket topics to deflect with help-center articles, automate with macros or fix as product bugs. Works from a helpdesk ticket export with stdlib scripts."
     },
     {
       "name": "business-operations-skills",
@@ -1140,6 +1152,18 @@
       "description": "Use when the user wants to get better at using Claude ('coach me', 'teach me Claude tricks', 'make me a power user'). Rates their prompts with prompt_rater.py and surfaces one relevant power-user tip per turn after activation."
     },
     {
+      "name": "cloud-finops",
+      "source": "../../engineering/skills/cloud-finops",
+      "category": "engineering-advanced",
+      "description": "Use for any cloud cost question on AWS, Azure or Google Cloud - a bill that jumped or one service that spiked (NAT gateway, egress, storage), cost anomaly alert thresholds, untagged or unallocated spend and tag cleanup for showback or chargeback, Savings Plans, Reserved Instances or committed use discounts (utilization, coverage, unused commitment, effective savings rate, whether to buy more), or whether cost per order or per customer got worse. Reads a FOCUS billing export with stdlib scripts."
+    },
+    {
+      "name": "cloud-finops",
+      "source": "../../engineering/cloud-finops/skills/cloud-finops",
+      "category": "engineering-advanced",
+      "description": "Use for any cloud cost question on AWS, Azure or Google Cloud - a bill that jumped or one service that spiked (NAT gateway, egress, storage), cost anomaly alert thresholds, untagged or unallocated spend and tag cleanup for showback or chargeback, Savings Plans, Reserved Instances or committed use discounts (utilization, coverage, unused commitment, effective savings rate, whether to buy more), or whether cost per order or per customer got worse. Reads a FOCUS billing export with stdlib scripts."
+    },
+    {
       "name": "code-tour",
       "source": "../../engineering/code-tour/skills/code-tour",
       "category": "engineering-advanced",
@@ -1416,6 +1440,18 @@
       "description": "Write the least code: no over-engineering, fewer dependencies. Use whenever the user wants it simpler; applies a ladder first: YAGNI, reuse, stdlib, native platform, existing deps."
     },
     {
+      "name": "mobile-release",
+      "source": "../../engineering/skills/mobile-release",
+      "category": "engineering-advanced",
+      "description": "Use when shipping an iOS or Android app update to the App Store or Google Play - Apple or Google rejected or warned about a build (ITMS-91053 privacy manifest, required reason API, missing usage description, target API level, 16 KB page size, exported activity, SMS or call log permission, Data safety), a readiness check before submitting an iOS, Android, Flutter or React Native release, or whether to pause, halt or widen a phased or staged rollout from crash rate, ANR rate or Play's bad behavior thresholds. Checks the project with stdlib scripts."
+    },
+    {
+      "name": "mobile-release",
+      "source": "../../engineering/mobile-release/skills/mobile-release",
+      "category": "engineering-advanced",
+      "description": "Use when shipping an iOS or Android app update to the App Store or Google Play - Apple or Google rejected or warned about a build (ITMS-91053 privacy manifest, required reason API, missing usage description, target API level, 16 KB page size, exported activity, SMS or call log permission, Data safety), a readiness check before submitting an iOS, Android, Flutter or React Native release, or whether to pause, halt or widen a phased or staged rollout from crash rate, ANR rate or Play's bad behavior thresholds. Checks the project with stdlib scripts."
+    },
+    {
       "name": "monorepo-navigator",
       "source": "../../engineering/skills/monorepo-navigator",
       "category": "engineering-advanced",
@@ -1450,6 +1486,12 @@
       "source": "../../engineering/skills/rag-architect",
       "category": "engineering-advanced",
       "description": "Design a RAG pipeline: chunk size, embedding model, vector database and retrieval quality metrics. Use whenever the user builds search over their docs, picks a vector store or finds answers miss the right context."
+    },
+    {
+      "name": "readme-polish",
+      "source": "../../engineering/readme-polish",
+      "category": "engineering-advanced",
+      "description": "Use when an existing README must be upgraded, audited, or made scannable: polish/\u7f8e\u5316/\u5347\u7ea7/\u4f18\u5316/\u6253\u78e8 README, add badges, mermaid, callouts, or collapsible sections, compare against top repos in the same ecosystem, or fix a plain/ugly first screen. Calibrates to the repo's own category, rewrites the hero and information hierarchy, and enforces a deterministic lint gate. Not for brand-new READMEs from scratch or hero-image design."
     },
     {
       "name": "runbook-generator",
@@ -2292,6 +2334,18 @@
       "description": "Use when a company that sells software, connected devices or firmware in the EU asks whether the Cyber Resilience Act (CRA, Regulation 2024/2847) applies, has to report an actively exploited vulnerability or security incident under Article 14 (24h/72h deadlines, ENISA Single Reporting Platform), must classify products as important or critical, pick a conformity route or support period, check an SBOM, or get to CE marking by December 2027. Four deterministic scripts with cited articles."
     },
     {
+      "name": "dora-readiness",
+      "source": "../../ra-qm-team/skills/dora-readiness",
+      "category": "ra-qm",
+      "description": "Use when a bank, payment or e-money institution, investment firm, insurer, crypto-asset service provider or fund manager in the EU faces DORA (Regulation 2022/2554, Digital Operational Resilience Act) - is an ICT outage or cyber incident major, when the initial (4h/24h), intermediate (72h) and final reports are due, weekends included; the register of information; ICT or cloud contracts missing audit rights, exit plans or other Article 30 terms; scope and the simplified framework for small firms. Not for DORA DevOps metrics. Three deterministic scripts with cited articles."
+    },
+    {
+      "name": "dora-readiness",
+      "source": "../../ra-qm-team/dora-readiness/skills/dora-readiness",
+      "category": "ra-qm",
+      "description": "Use when a bank, payment or e-money institution, investment firm, insurer, crypto-asset service provider or fund manager in the EU faces DORA (Regulation 2022/2554, Digital Operational Resilience Act) - is an ICT outage or cyber incident major, when the initial (4h/24h), intermediate (72h) and final reports are due, weekends included; the register of information; ICT or cloud contracts missing audit rights, exit plans or other Article 30 terms; scope and the simplified framework for small firms. Not for DORA DevOps metrics. Three deterministic scripts with cited articles."
+    },
+    {
       "name": "eu-ai-act-specialist",
       "source": "../../ra-qm-team/skills/eu-ai-act-specialist",
       "category": "ra-qm",
@@ -2356,6 +2410,18 @@
       "source": "../../ra-qm-team/medical-device-software/skills/medical-device-software",
       "category": "ra-qm",
       "description": "Use for any question about the software inside a medical device, SaMD or regulated health app - which IEC 62304 safety class (A/B/C) it is and how much process and documentation that class needs, what to record about open-source or third-party libraries (SOUP, SBOM), trace matrix and release testing, IEC 81001-5-1 security, or the FDA documentation level and 524B cyber-device duties. Checks the user's files with four scripts that cite the clause."
+    },
+    {
+      "name": "nis2-readiness",
+      "source": "../../ra-qm-team/skills/nis2-readiness",
+      "category": "ra-qm",
+      "description": "Use when a cyberattack, ransomware or outage hits a hospital, utility, transport, digital-infrastructure or other EU company and it must report under NIS2 (Directive 2022/2555) or the German NIS2UmsuCG/BSIG - 24h early warning, 72h notification, one-month final report. Also for whether a company is an essential or important entity, BSI registration, management-board liability and training (Article 20), an Article 21 gap analysis, or one incident that also triggers DORA, CRA or GDPR reports. Four deterministic scripts with cited articles."
+    },
+    {
+      "name": "nis2-readiness",
+      "source": "../../ra-qm-team/nis2-readiness/skills/nis2-readiness",
+      "category": "ra-qm",
+      "description": "Use when a cyberattack, ransomware or outage hits a hospital, utility, transport, digital-infrastructure or other EU company and it must report under NIS2 (Directive 2022/2555) or the German NIS2UmsuCG/BSIG - 24h early warning, 72h notification, one-month final report. Also for whether a company is an essential or important entity, BSI registration, management-board liability and training (Article 20), an Article 21 gap analysis, or one incident that also triggers DORA, CRA or GDPR reports. Four deterministic scripts with cited articles."
     },
     {
       "name": "qms-audit-expert",
@@ -2509,7 +2575,7 @@
       "description": "Claude Managed Agent launcher (unreleased, post-v2.11.2): session-goal orchestrator (context: fork) + interview + stage-launch (BYOK curl) + grade-iterate (bounded outcome loop) + run-without-you (cron deployment loop) + wrap-up. Re-implements anthropics/launch-your-agent (Apache-2.0)."
     },
     "business-growth": {
-      "count": 5,
+      "count": 7,
       "source": "../../business-growth",
       "description": "Customer success, sales engineering, and revenue operations skills"
     },
@@ -2544,7 +2610,7 @@
       "description": "Software engineering and technical skills"
     },
     "engineering-advanced": {
-      "count": 104,
+      "count": 109,
       "source": "../../engineering",
       "description": "Advanced engineering skills - agents, RAG, MCP, CI/CD, databases, observability"
     },
@@ -2574,7 +2640,7 @@
       "description": "Project management and Atlassian skills"
     },
     "ra-qm": {
-      "count": 27,
+      "count": 31,
       "source": "../../ra-qm-team",
       "description": "Regulatory affairs and quality management skills"
     },

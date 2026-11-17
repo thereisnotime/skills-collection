@@ -1,0 +1,28 @@
+{
+  "phase": "review",
+  "feature": "002-release-tagging",
+  "branch": "fix/tag-skills-transition-log",
+  "wave": 0,
+  "completed": [
+    "Small-lane change: tag-skills.sh prints one line per published tag naming the skill and version transition",
+    "Engineer pass and conformance re-check both returned done; holds fixed on the branch"
+  ],
+  "in_progress": ["Opening the pull request for fix/tag-skills-transition-log"],
+  "blocked": [],
+  "decisions": [
+    "Small lane, two dispatches (engineer, conformance). No spec amendment: this is log output, not tag behavior; the reviewer recommended an FR/AC sentence as a later change",
+    "Hop 1 modern-architect-engineer, hop 2 spec-challenger; one revision round via the same two sessions. Four-hop budget intact",
+    "Conformance CONCEDED F1: dispatch mode claimed '(first tag)' for skills carrying older tags; fixed by consulting git tag -l at print time and dropping the associative array (bash 4 construct)",
+    "Deferred, recorded not fixed: prerelease versions rank above releases under -v:refname (unreachable while every metadata.version is plain x.y.z)",
+    "Reviewer ledger was untracked in the main worktree; moved to /tmp/opencode/tag-skills-ledger to keep the branch to one script change"
+  ],
+  "evidence": [
+    ".github/scripts/tag-skills.sh",
+    "specs/002-release-tagging/spec.md",
+    "specs/002-release-tagging/plan.md",
+    "specs/002-release-tagging/tasks.md"
+  ],
+  "verification": "pass: bash -n and shellcheck 0.10.0 exit 0; scratch-clone tag lists identical to the pre-change script across single bump, two-skill bump, rerun, unbumped push and dispatch; dispatch with an older tag now prints '1.6.1 -> 1.6.2'",
+  "budget": "unknown",
+  "next_action": "Push fix/tag-skills-transition-log and open the PR; relay engineer and reviewer reports in the body"
+}

@@ -287,6 +287,7 @@
 # 249. testmap.ts mochaTargets: ignore devDependencies (the R5 leg maps a mocha package to nothing).
 # 250. attempts.ts attemptModel: always entry 1 (the cascade leg runs the extra attempt on Haiku).
 # 251. testmap.ts buildTestMap: stop passing `marks` to scopeRunnersByPackage (the multi-module go map leg reads no tests).
+# 283. implement.ts: `verifiedFinishOn() && false` in the SR block (rebuild dist): the VF cut-context and revert legs read a -rv resume and no finish.
 # 252. check_result.ts jsAssertionFailure: drop JS_MISSING_API (the assert-js unit's missing-function case reads true).
 # 253. check_result.ts spawnFailedTool: drop the 6-line bound (the spawn-not-run leg's long ENOENT output reads missing).
 # 254. testmap.ts buildTestMap: ignore pyCfg (the pytest-fallback leg's conftest.py case reads unittest).
@@ -544,7 +545,7 @@ out.push(ups.map((u) => u.verified ? "ok" : u.why).join(";"));
 out.push(tg.pinnedUpdateNotes(ups).length, JSON.stringify(Object.keys(seal.pinnedUpdatesBlock({ pinned_test_updates: ups }))), JSON.stringify(seal.pinnedUpdatesBlock({})));
 console.log(out.join(" | "));' 2>&1)"
 [ "$Z2R" = 'true | true | true | ok;the old expectation is not at that line on base;the new expectation is not in the edited file;the quoted sentence is not in the task;not a test file | 4 | ["pinned_test_updates"] | {}' ] && ok "Z2 pinned test update: the Rules block updates a test that pins the old behavior the issue asks to change and names every other protection; =0 restores the v11.139.0 text; both briefs lead with a cache-stable rules block; a reported update is verified against base, head and the task, each failure named, and the receipt lists them ($Z2R)" || bad "Z2 pinned test update gave: $Z2R"
-grep -q 'fixedRules(), // Z2: the pinned-test rule' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -q 'fixedRules(), // Z2: same rules block as implement' "$ROOT/loki-ts/src/engine10/stages/fix.ts" && grep -q 'pinned_test_updates: pinnedUpdates' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -q '...pinnedUpdatesBlock(o.implement),' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && grep -q 'for (const n of pinnedUpdateNotes(pinnedUpdatesOf(o.implement))) notProven.add(n);' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && ok "Z2 wiring: implement and fix lead with fixedRules(); implement records the checked updates; seal lists them in the receipt and names each unverified one" || bad "Z2 wiring: the rules block, the update record or the receipt block is not wired"
+grep -q 'fixedRules(process.env, issue), // Z2: the pinned-test rule' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -q 'fixedRules(), // Z2: same rules block as implement' "$ROOT/loki-ts/src/engine10/stages/fix.ts" && grep -q 'pinned_test_updates: pinnedUpdates' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -q '...pinnedUpdatesBlock(o.implement),' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && grep -q 'for (const n of pinnedUpdateNotes(pinnedUpdatesOf(o.implement))) notProven.add(n);' "$ROOT/loki-ts/src/engine10/stages/seal.ts" && ok "Z2 wiring: implement and fix lead with fixedRules(); implement records the checked updates; seal lists them in the receipt and names each unverified one" || bad "Z2 wiring: the rules block, the update record or the receipt block is not wired"
 
 run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=conflict # the default (consult and never-stop off) keeps the legacy stop; the opted-in never-stop legs follow this block
 n="$(fix_sessions)"
@@ -648,6 +649,10 @@ has "S1b never: the NOT PROVEN line names why and what the reply said was outsta
 run_engine "$TASK" E2E_STUB_NOFINISH=still
 [ "$(kits)" = 1 ] && [ "$(fin)" = "1|tree unchanged|None" ] && [ "$(iexit)" = incomplete ] && [ "$(outcome)" = PARTIAL ] && committed_multiply \
     && ok "S1b still: a resume that changes nothing ends the loop at once; exit incomplete, PARTIAL, the work committed" || { bad "S1b still: resumes $(kits), finish '$(fin)', exit $(iexit), outcome $(outcome)"; dump; }
+run_engine "$TASK" E2E_STUB_NOFINISH=unfinished # candidate 1: the named ending LOKI_UNFINISHED is not a finish line (finishLineOf reads only the three)
+[ "$(kits)" = 1 ] && [ "$(fin)" = "1|tree unchanged|None" ] && [ "$(iexit)" = incomplete ] && [ "$(outcome)" = PARTIAL ] && committed_multiply \
+    && has "S1b LOKI_UNFINISHED: a reply ending LOKI_UNFINISHED is resumed once; unchanged, it exits incomplete, PARTIAL (never VERIFIED), with its own what-is-left text on the receipt" "$(rnp)" "LOKI_UNFINISHED: the docs for multiply are not written" \
+    || { bad "S1b LOKI_UNFINISHED: resumes $(kits), finish '$(fin)', exit $(iexit), outcome $(outcome)"; dump; }
 run_engine "$TASK" E2E_STUB_NOFINISH=never LOKI_E10_CONTINUE_MAX=0
 [ "$(kits)" = 0 ] && [ "$(fin)" = "0|continue off|None" ] && [ "$(iexit)" = incomplete ] && [ "$(outcome)" = PARTIAL ] \
     && ok "S1b LOKI_E10_CONTINUE_MAX=0: no resume, and the unfinished session still exits incomplete (PARTIAL)" || { bad "S1b resume off: resumes $(kits), finish '$(fin)', exit $(iexit), outcome $(outcome)"; dump; }
@@ -685,6 +690,18 @@ run_engine "fix the off-by-one in calc.ts add" E2E_STUB_MODE=done LOKI_E10_SELF_
 case "$(tgrec)" in "False  False") grep -q 'add twice' "$REPO/calc.test.ts" && ok "TG keep: a review turn whose added test passes is kept, nothing reverted" || { bad "TG keep: the passing added test is gone"; dump; } ;; *) bad "TG keep: turn_guard '$(tgrec)'"; dump ;; esac
 run_engine "fix the off-by-one in calc.ts add" E2E_STUB_MODE=done LOKI_E10_SELF_REVIEW=always E2E_STUB_RV=breaktest
 grep -q 'add twice' "$REPO/calc.test.ts" && [ "$(tgrec)" = "None  False" ] && ok "TG default (off): no guard, the review turn's edit stays" || { bad "TG default (off): turn_guard '$(tgrec)', plant $(grep -c 'add twice' "$REPO/calc.test.ts")"; dump; }
+# VF LOKI_E10_VERIFIED_FINISH (acc-168, off by default until measured; =1 on): the review turn becomes a fresh "-fin" session (no resume of the implement
+# transcript) whose prompt is only the review items, the diff, the touched files' pre-fix text and the repo's rules (never the task text); the turn
+# guard always runs on it, so a finish that breaks a passing test is taken back. Unset keeps the -rv resume and records no finish.
+finrec() { [ -n "$RUNDIR" ] && python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); s=r.get("self_review") or {}; f=s.get("finish") or {}; g=s.get("turn_guard") or {}; print(f.get("fired"), "calc.ts" in (f.get("diff_files") or []), g.get("reverted"))' "$RUNDIR/receipt.json" 2>/dev/null; }
+FL="$T/fin.prompt"; rm -f "$FL" "$FL.flags"
+run_engine "fix the off-by-one in calc.ts add" E2E_STUB_MODE=done LOKI_E10_SELF_REVIEW=always LOKI_E10_VERIFIED_FINISH=1 E2E_STUB_RV=goodtest E2E_STUB_RV_LOG="$FL"
+fincut="$(python3 -I -c 'import sys; p=open(sys.argv[1]).read(); print(",".join(k for k, v in [("lead", p.startswith("Finish pass.")), ("diff", "=== DIFF (against the base commit) ===" in p and "calc.ts" in p), ("prefix", "=== PRE-FIX FILE: calc.ts" in p), ("rules", "contribution guide" in p or "Contribution rules" in p), ("no-task", "off-by-one" not in p)] if v))' "$FL" 2>/dev/null)"
+[ "$fincut" = "lead,diff,prefix,rules,no-task" ] && ! grep -q -- '--resume' "$FL.flags" && grep -q '^implement .*-fin ' "$ITERS" && ! grep -q -- '-rv ' "$ITERS" && [ "$(finrec)" = "True True False" ] && grep -q 'add twice' "$REPO/calc.test.ts" && ok "VF cut context: one fresh -fin session (no --resume, no -rv), its prompt holds the diff, the pre-fix calc.ts and the rules but not the task text; the receipt marks the finish as fired; the guard ran and kept the passing finish ($(finrec))" || { bad "VF cut context: prompt parts '$fincut', resume $(grep -c -- '--resume' "$FL.flags" 2>/dev/null), record '$(finrec)'"; dump; }
+run_engine "fix the off-by-one in calc.ts add" E2E_STUB_MODE=done LOKI_E10_SELF_REVIEW=always LOKI_E10_VERIFIED_FINISH=1 E2E_STUB_RV=breaktest
+[ "$(finrec)" = "True True True" ] && ! grep -q 'add twice' "$REPO/calc.test.ts" && grep -q 'export function multiply' "$REPO/calc.ts" && [ "$(outcome)" != "BLOCKED" ] && ok "VF revert: a finish that breaks the passing calc.test.ts is taken back with LOKI_E10_REVIEW_TURN_GUARD unset; the implement fix stays (outcome $(outcome))" || { bad "VF revert: record '$(finrec)', plant $(grep -c 'add twice' "$REPO/calc.test.ts"), outcome '$(outcome)'"; dump; }
+run_engine "fix the off-by-one in calc.ts add" E2E_STUB_MODE=done LOKI_E10_SELF_REVIEW=always E2E_STUB_RV=goodtest
+grep -q -- '-rv ' "$ITERS" && ! grep -q -- '-fin ' "$ITERS" && [ "$(finrec)" = "None False None" ] && ok "VF default (off): the review turn stays the -rv resume and the receipt records no finish" || { bad "VF default: record '$(finrec)'"; dump; }
 CTASK="add multiply(a, b), subtract(a, b) and negate(a) to calc.ts"
 covrec() { ev 'next((e["data"].get("coverage_resume") for e in E if e["type"]=="stage.completed" and e["stage"]=="implement"), None)'; }
 run_engine "$CTASK" E2E_STUB_MODE=coverage LOKI_E10_PLAN=auto LOKI_E10_SMALL_MAX_CHARS=10 LOKI_E10_COVERAGE_RESUME=0
@@ -992,6 +1009,14 @@ res("L026 parser: result-cost records full_suite_runs per session (2 of 3 Bash c
   await consumeSdkStream([am("c1"), { type: "system", subtype: "compact_boundary", compact_metadata: { trigger: "auto", pre_tokens: 67825 } }, am("c2"), fin] as never, { cwd: "$T/l026", iteration: "s1b-c", hookEventsEnabled: false, write: () => {} } as never);
   const cc = JSON.parse(readFileSync("$T/l026/.loki/metrics/result-cost-s1b-c.json", "utf8")), c0 = JSON.parse(readFileSync("$T/l026/.loki/metrics/result-cost-s1b-a-k1.json", "utf8"));
   res("S1b compactions: the SDK parser counts compact_boundary into the result-cost file (1), and writes no key for a session without one", cc.compactions === 1 && !("compactions" in c0));
+  // the resumed-session cost proof (contrib/cost_records.ts cumulativeDelta) on the stored sc-a1 -impl-r numbers: a call that compacted carries the summary's output in
+  // its cumulative model_usage but not in its own output_tokens, so equality fails by 7,241 tokens; with the call's compaction count it bills the delta, without it stays ambiguous
+  const cd = await import("$ROOT/loki-ts/src/contrib/cost_records.ts");
+  const prevRec = { total_cost_usd: 0.04, model_usage: { "claude-haiku-5-5": { output_tokens: 31535, cost_usd: 0.04 } } };
+  const resumed = (extra: Record<string, unknown>) => ({ total_cost_usd: 0.07, output_tokens: 10833, model_usage: { "claude-haiku-5-5": { output_tokens: 49609, cost_usd: 0.07 } }, ...extra });
+  const exact = { total_cost_usd: 0.06, output_tokens: 10833, model_usage: { "claude-haiku-5-5": { output_tokens: 42368, cost_usd: 0.06 } } };
+  const dC = cd.cumulativeDelta(prevRec, resumed({ compactions: 1 })), dN = cd.cumulativeDelta(prevRec, resumed({})), dE = cd.cumulativeDelta(prevRec, exact);
+  res("cost proof: a resumed call that compacted (compactions 1) bills its delta (0.03) although its cumulative output exceeds predecessor plus own; without a compaction count it stays ambiguous; the exact case is unchanged", dC !== null && Math.abs((dC.total_cost_usd as number) - 0.03) < 1e-9 && dN === null && dE !== null);
   // the run-level bounds, on a fake session runner: the dollar line stops before any resume, the count cap after LOKI_E10_CONTINUE_MAX resumes; a cap stop is never a finish
   const cr = await import("$ROOT/loki-ts/src/util/conflict_resume.ts");
   const runs: string[] = [], evs: string[] = []; let tree = 0;
@@ -3603,7 +3628,7 @@ res("wiring: resumeForCoverage appends siteHints to the coverage brief (claim or
 const im = readFileSync(root + "/loki-ts/src/engine10/stages/implement.ts", "utf8");
 res("wiring: the plan-skipped implement brief adds coverageFoldLines right after FOLD_PLAN_INSTRUCTION, and fold mode runs only the claim check on the implement session (no -c turn)", /\.\.\.\(plan \? \[\] : \[FOLD_PLAN_INSTRUCTION, \.\.\.coverageFoldLines\(\)\]\)/.test(im) && /else if \(coverageMode\(\) === "fold" && !plan\) \{/.test(im) && /const r = await reaskFoldedClaims\(ctx, /.test(im) && /if \(coverageResumeEnabled\(\) && !plan\)/.test(im));
 const inF1 = readFileSync(root + "/loki-ts/src/engine10/stages/intake.ts", "utf8");
-res("wiring: intake records rankedRemedy as ranked_remedy under its knob; implement passes it to the brief and runs resumeForRemedy only after a clean done with a non-empty diff", /const remedy = rankedRemedyEnabled\(\) \? rankedRemedy\(task\) : null;/.test(inF1) && /\.\.\.\(remedy \? \{ ranked_remedy: remedy\.first \} : \{\}\)/.test(inF1) && /prior\.intake\?\.assumptions, rankedRemedyEnabled\(\) \? prior\.intake\?\.ranked_remedy : undefined\)/.test(im) && /if \(remedy && patch\?\.status !== "green" && !signal\.aborted && !session\.killed && session\.exit === 0 && session\.markers\.done && !session\.markers\.specConflict && !session\.markers\.alreadyDone && !treeIsEmpty\(ctx\)\) \{ const r = await resumeForRemedy\(/.test(im));
+res("wiring: intake records rankedRemedy as ranked_remedy under its knob; implement passes it to the brief and runs resumeForRemedy only after a clean done with a non-empty diff", /const remedy = rankedRemedyEnabled\(\) \? rankedRemedy\(task\) : null;/.test(inF1) && /\.\.\.\(remedy \? \{ ranked_remedy: remedy\.first \} : \{\}\)/.test(inF1) && /prior\.intake\?\.assumptions, rankedRemedyEnabled\(\) \? prior\.intake\?\.ranked_remedy : undefined, issue\)/.test(im) && /if \(remedy && patch\?\.status !== "green" && !signal\.aborted && !session\.killed && session\.exit === 0 && session\.markers\.done && !session\.markers\.specConflict && !session\.markers\.alreadyDone && !treeIsEmpty\(ctx\)\) \{ const r = await resumeForRemedy\(/.test(im));
 TS
 out="$(cd "$ROOT/loki-ts" && bun "$T/site-hints.ts" "$ROOT" 2>&1; echo "EXIT $?")"
 grep -q '^EXIT 0$' <<< "$out" || bad "site-hints unit script crashed or exited non-zero"
@@ -3861,6 +3886,70 @@ TS
 out="$(cd "$ROOT/loki-ts" && bun "$T/tcarry.ts" "$ROOT" 2>&1; echo "EXIT $?")"
 grep -q '^EXIT 0$' <<< "$out" || bad "tcarry unit script crashed or exited non-zero"
 [ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 7 ] || bad "tcarry unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 7"
+# ---------------------------------------------------------------- LINT-UNTOUCHED (acc-174): a tsc red only in files the change did not touch is disclosed, not a cap
+cat > "$T/acc174.ts" <<'TS'
+const root = process.argv[2]!;
+const vf = await import(root + "/loki-ts/src/engine10/stages/verify.ts");
+const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
+const touched = new Set(["packages/router-core/src/router.ts", "packages/router-core/tests/x.test.ts"]);
+const out = "scripts/benchmarks/bundle-size/analyze.mjs(27,46): error TS7006: Parameter 'item' implicitly has an 'any' type.\nFound 1 error.\n";
+// Every refusing leg passes a base output equal to the head output, so only the rule under test can refuse.
+const same = (o: string, pkg: string, t: Set<string>, syms: string[]) => vf.tscUntouchedOnly(o, pkg, t, syms, o);
+res("LINT-UNTOUCHED a tsc error only in a file the change did not touch, and already on base, is disclosed, not blocking", same(out, ".", touched, ["matchRoutes"]));
+res("LINT-UNTOUCHED a tsc error in a touched file still caps", !same("packages/router-core/src/router.ts(10,3): error TS2322: Type 'x' is not assignable.\n", ".", touched, []));
+res("LINT-UNTOUCHED a package-relative path is joined with the package dir before the touched check", !same("src/router.ts(10,3): error TS2322: bad.\n", "packages/router-core", touched, []));
+res("LINT-UNTOUCHED an error naming a changed symbol still caps (the change can break an importer)", !same("src/other.ts(4,1): error TS2339: Property 'matchRoutes' does not exist on type 'Router'.\n", ".", touched, ["matchRoutes"]));
+res("LINT-UNTOUCHED a changed tsconfig or linter config still caps", !same(out, ".", new Set([...touched, "tsconfig.json"]), []));
+res("LINT-UNTOUCHED an error line that does not parse still caps (fail-closed)", !same(out + "weird.ts: error TS1005: ';' expected.\n", ".", touched, []));
+res("LINT-UNTOUCHED a tail cut at its cap still caps", !same(out + "x".repeat(60000), ".", touched, []));
+res("LINT-UNTOUCHED off by default, =1 opts in", !vf.lintUntouchedOn({}) && !vf.lintUntouchedOn({ LOKI_E10_LINT_UNTOUCHED: "0" }) && vf.lintUntouchedOn({ LOKI_E10_LINT_UNTOUCHED: "1" }));
+// A changed signature breaks an untouched importer; the message names only types, so the symbol rule cannot see it. Base is green for that line: it caps.
+const importer = "packages/other/src/caller.ts(12,9): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.\n";
+res("LINT-UNTOUCHED an untouched importer broken by the change (types-only message, not on base) still caps", !vf.tscUntouchedOnly(out + importer, ".", touched, ["matchRoutes"], out));
+res("LINT-UNTOUCHED base clean for the file still caps", !vf.tscUntouchedOnly(out, ".", touched, ["matchRoutes"], ""));
+res("LINT-UNTOUCHED no base output still caps (fail-closed)", !vf.tscUntouchedOnly(out, ".", touched, ["matchRoutes"], null));
+res("LINT-UNTOUCHED the same file and code on base with another message still caps", !vf.tscUntouchedOnly(out, ".", touched, [], out.replace("'item'", "'other'")));
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/acc174.ts" "$ROOT" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || bad "acc174 unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 12 ] || bad "acc174 unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 12"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+
+# ---------------------------------------------------------------- SUITE-TIMEOUT (dev2 ink, pipx): a full suite killed at its limit is not_run, not a failed check
+cat > "$T/vh.ts" <<'TS'
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+const root = process.argv[2]!, T = process.argv[3]!;
+const dp = await import(root + "/loki-ts/src/engine10/stages/deep.ts");
+const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
+const R = join(T, "vh"); rmSync(R, { recursive: true, force: true }); mkdirSync(R, { recursive: true });
+const g = (...a: string[]) => execFileSync("git", ["-C", R, "-c", "user.name=t", "-c", "user.email=t@e.invalid", ...a], { encoding: "utf8" }).trim();
+g("init", "-q", "-b", "main"); writeFileSync(join(R, "package.json"), JSON.stringify({ name: "slow", scripts: { test: "sleep 30" } })); g("add", "-A"); g("commit", "-q", "-m", "base"); const sha = g("rev-parse", "HEAD");
+const setTest = (t: string) => writeFileSync(join(R, "package.json"), JSON.stringify({ name: "slow", scripts: { test: t } }));
+// (a) SUITE-TIMEOUT
+const ctx: any = { repoDir: R, baseSha: sha, outputs: () => ({ intake: {} }), tests: { detect: async () => ({ runners: ["npm"], tests: [] }) } };
+const run = async (env?: string) => { if (env) process.env.LOKI_E10_SUITE_TIMEOUT_NOT_RUN = env; else delete process.env.LOKI_E10_SUITE_TIMEOUT_NOT_RUN; const checks: any[] = [], np = new Set<string>(), t0 = Date.now(); await dp.runFullSuite(ctx, new AbortController().signal, { fullSuiteTimeoutMs: 1500 }, checks, np); return { checks, np, secs: (Date.now() - t0) / 1000 }; };
+const a = await run();
+const c = a.checks.find((x: any) => x.name.startsWith("full suite"));
+res("SUITE-TIMEOUT a full suite stopped by its timeout is not_run 'timed out', not a failed check", !!c && c.result === "not_run" && /timed out after/.test(c.reason ?? "") && [...a.np].some((n) => /timed out after/.test(n)));
+res(`SUITE-TIMEOUT the suite stops at its limit (${a.secs.toFixed(1)} s for a 1.5 s limit)`, a.secs < 8);
+const off = await run("0"); const c0 = off.checks.find((x: any) => x.name.startsWith("full suite"));
+res("SUITE-TIMEOUT =0 keeps the old reading (a failed check)", !!c0 && c0.result === "fail"); delete process.env.LOKI_E10_SUITE_TIMEOUT_NOT_RUN;
+// The suite has its own process group, so an abort has to reach it through the signal: it stops then, and reads aborted, not timed out.
+const ac = new AbortController(); setTimeout(() => ac.abort(), 500);
+const abChecks: any[] = [], abNp = new Set<string>(), ab0 = Date.now(); await dp.runFullSuite(ctx, ac.signal, { fullSuiteTimeoutMs: 20000 }, abChecks, abNp); const abSecs = (Date.now() - ab0) / 1000;
+res(`SUITE-TIMEOUT an abort stops the suite (${abSecs.toFixed(1)} s of a 30 s suite) and reads not_run (aborted), not timed out`, abSecs < 8 && [...abNp].some((n) => /\(aborted\)/.test(n)) && ![...abNp].some((n) => /timed out/.test(n)));
+setTest("echo boom; exit 1");
+const red = await run(); const cr = red.checks.find((x: any) => x.name.startsWith("full suite"));
+res("SUITE-TIMEOUT a suite that finishes red stays a failed check", !!cr && cr.result === "fail");
+rmSync(R, { recursive: true, force: true });
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/vh.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || bad "vh unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 5 ] || bad "vh unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 5"
 while IFS= read -r line; do
     case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
 done <<< "$out"

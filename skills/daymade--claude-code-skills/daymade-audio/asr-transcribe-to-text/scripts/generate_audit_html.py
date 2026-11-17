@@ -19,10 +19,13 @@ import html
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from datetime import datetime
 
+DEFAULT_SUBTITLE = "Qwen3-ASR + pyannote 说话人分割 · 本地审核"
+DEFAULT_TITLE = "ASR 转写审核"
 
 class Config:
     """Runtime paths and labels for the audit generator."""
@@ -2595,6 +2598,49 @@ window.addEventListener('keydown', e => {{
     return html_out
 
 
+def dispatch_registered_viewer(args):
+    """Honor an explicitly adopted shared-reader project before standalone output."""
+    registry = Path(os.environ.get('MESSAGE_VIEWER_CONFIG', Path.home() / '.config/daymade/message-viewer/service.json'))
+    if not registry.exists():
+        return False
+    config = json.loads(registry.read_text(encoding='utf-8'))
+    entry = next((e for e in config.get('datasets', []) if e.get('type') == 'asr'
+                  and Path(e['assets_root']).resolve() == args.project_dir.resolve()), None)
+    if entry is None:
+        return False
+    if entry.get('adopted') is not True:
+        raise RuntimeError('Shared viewer migration is incomplete; retaining the existing reader')
+    if getattr(args, 'storage_key', None):
+        raise RuntimeError('storage_key is managed by the adopted shared viewer; retaining the existing reader')
+    script = config.get('service_script')
+    bridge = Path(script).with_name('asr_entry.py') if script else None
+    if not bridge or not bridge.is_file():
+        raise RuntimeError('Registered shared viewer entry is unavailable; retaining the existing reader')
+    if args.original_dir and (not entry.get('original_root') or args.original_dir.resolve() != Path(entry['original_root']).resolve()):
+        raise RuntimeError('Original media directory differs from the shared viewer registry')
+    command = [sys.executable, str(bridge), str(args.project_dir), '--config', str(registry)]
+    for field in ['output', 'csv_dir', 'txt_dir', 'diarization_dir', 'audio_dir', 'manifest']:
+        value = getattr(args, field)
+        if value is not None:
+            command.extend(['--' + field.replace('_', '-'), str(value)])
+    if args.title != DEFAULT_TITLE:
+        command.extend(['--title', args.title])
+    subtitle = getattr(args, 'subtitle', DEFAULT_SUBTITLE)
+    if subtitle != DEFAULT_SUBTITLE:
+        command.extend(['--subtitle', subtitle])
+    for field in ['material_final', 'material_rough']:
+        for value in getattr(args, field, None) or []:
+            command.extend(['--' + field.replace('_', '-'), value])
+    for value in getattr(args, 'known_speaker', None) or []:
+        name, separator, color = value.partition('=')
+        if not name.strip():
+            continue
+        mapping = name.strip() + '=' + normalize_color(color.strip()) if separator else name.strip()
+        command.extend(['--known-speaker', mapping])
+    subprocess.run(command, check=True)
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate self-contained HTML audit page for ASR transcripts")
     ap.add_argument("project_dir", type=Path, help="Directory containing CSV/TXT/diarization outputs")
@@ -2605,13 +2651,15 @@ def main():
     ap.add_argument("--audio-dir", type=Path, default=None, help="Directory containing audio files (default: PROJECT_DIR)")
     ap.add_argument("--original-dir", type=Path, default=None, help="Directory containing original media (optional)")
     ap.add_argument("--manifest", type=Path, default=None, help="Optional JSON manifest with file metadata")
-    ap.add_argument("--title", default="ASR 转写审核", help="Page title")
-    ap.add_argument("--subtitle", default="Qwen3-ASR + pyannote 说话人分割 · 本地审核", help="Page subtitle")
+    ap.add_argument("--title", default=DEFAULT_TITLE, help="Page title")
+    ap.add_argument("--subtitle", default=DEFAULT_SUBTITLE, help="Page subtitle")
     ap.add_argument("--storage-key", default=None, help="localStorage key prefix")
     ap.add_argument("--known-speaker", action="append", default=[], help='Known speaker color mapping, e.g. "张三=#0d6efd" or just "张三" (auto-color)')
     ap.add_argument("--material-final", action="append", default=[], help="Folder-name keywords treated as 成片")
     ap.add_argument("--material-rough", action="append", default=[], help="Folder-name keywords treated as 粗剪")
     args = ap.parse_args()
+    if dispatch_registered_viewer(args):
+        return
 
     known_speakers = {}
     fallback_idx = 0

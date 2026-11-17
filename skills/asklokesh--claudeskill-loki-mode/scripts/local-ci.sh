@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# scripts/local-ci.sh - the one pre-push and PR gate. Runs exactly the tests under
+# scripts/local-ci.sh - the one pre-push and release gate. Runs exactly the tests under
 # tests/min/ (hermetic, offline, no model calls; bash -n and the Python parse are
-# the first of them). Same command locally and in .github/workflows/pr-fast.yml.
+# the first of them). GitHub runs no test workflow; this is the only test gate.
 #
 #   bash scripts/local-ci.sh                     run everything, cheap tests first
 #   LOCAL_CI_ONLY=hygiene,pack-contents bash scripts/local-ci.sh    run a subset
@@ -18,7 +18,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 
 TESTS=(syntax hygiene version-consistency release-notes docker-and-zip-sources pack-contents
        cli-entrypoints newcomer-path receipt-roundtrip redaction detect-gates typecheck dist-freshness engine10-e2e-stub scope-and-fix auto-route one-line-goal stacks triage-router
-       decompose-and-intake workspace h2h-harness learn-from-runs issue-context outcome-metrics run-safety context-pack host-guard
+       decompose-and-intake workspace h2h-harness learn-from-runs issue-context issue-action outcome-metrics run-safety context-pack host-guard
        providers-supported trigger-server)
 
 selected=("${TESTS[@]}")

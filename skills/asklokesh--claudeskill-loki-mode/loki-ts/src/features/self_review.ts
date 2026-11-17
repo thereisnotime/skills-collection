@@ -5,10 +5,11 @@ import { basename, dirname, join } from "node:path";
 import { buildArtifacts, runOutputs, type Staged } from "../e10ext/commit_filter.ts";
 import { outsideScope } from "../e10ext/scope.ts";
 import type { Obj } from "../engine10/types.ts";
-import { contributionGuides, releaseNoteConvention, releaseNoteProblems, renameInventedFragment, stripInventedRefsInFile, taskForbidsReleaseNote, taskNumbers, towncrierNoNumberPrefix } from "../project_model/conventions.ts";
+import { contributionGuides, releaseNoteBrief, releaseNoteConvention, releaseNoteProblems, renameInventedFragment, stripInventedRefsInFile, taskForbidsReleaseNote, taskNumbers, towncrierNoNumberPrefix } from "../project_model/conventions.ts";
 import { detectFormatters } from "../runner/repo_profile.ts";
 import { applyDiff, type DiffEntry, snapshotDiff } from "../e10ext/treeswap.ts";
 import { safeGit } from "../util/safe_git.ts";
+import { escapeRegex } from "../util/regex_escape.ts";
 import { isTestFile as narrowTestFile } from "../util/test_file_text.ts";
 /** A test file by name or location in any common layout (the shared helper misses Rust tests.rs, a top-level test/ dir, __tests__/, JVM *Test sources). */
 const TEST_DIR = /(?:^|\/)(?:tests?|__tests__|specs?|testing|[a-z]*Test)\//, TEST_NAME = /(?:^|\/)(?:tests?\.[a-z]+|test_[^/]+|[^/]+_tests?\.[a-z]+|[^/]+\.(?:test|spec)\.[a-z]+|[A-Z][^/]*Tests?\.(?:kt|java|cs|scala|swift|groovy))$/;
@@ -21,13 +22,82 @@ export const selfReviewMode = (env: NodeJS.ProcessEnv = process.env): SelfReview
 export const SELF_REVIEW_MAX_TURNS = 12;
 export const selfReviewMaxTurns = (env: NodeJS.ProcessEnv = process.env): number => { const n = Number((env["LOKI_E10_SELF_REVIEW_MAX_TURNS"] ?? "").trim()); return Number.isInteger(n) && n > 0 ? n : SELF_REVIEW_MAX_TURNS; };
 
-export type ItemKey = "release_note" | "stray_files" | "test" | "format" | "scope" | "cases" | "siblings" | "docs";
+export type ItemKey = "release_note" | "stray_files" | "test" | "format" | "scope" | "cases" | "siblings" | "docs" | "conventions";
 export type ItemStatus = "ok" | "flagged" | "fixed" | "justified" | "unresolved" | "auto";
 export interface ReviewItem { item: ItemKey; status: ItemStatus; detail: string }
 const SRC_EXT = /\.(?:[cm]?[jt]sx?|py|go|rs|java|kt|kts|rb|php|cs|swift|scala|c|cc|cpp|h|hpp|ex|exs|clj|dart|lua)$/;
 const STYLE_FILES = [".editorconfig", ".prettierrc", ".prettierrc.json", "prettier.config.js", "biome.json", "rustfmt.toml", ".rustfmt.toml", "ruff.toml", ".ruff.toml", ".flake8", "setup.cfg", "tox.ini", ".golangci.yml", ".golangci.yaml", ".eslintrc", ".eslintrc.json", ".eslintrc.js", "eslint.config.js", "eslint.config.mjs", ".clang-format", ".pre-commit-config.yaml", "checkstyle.xml", ".scalafmt.conf"];
 
 /** The deterministic half: one item per rule, from the staged diff against base. No model call, never throws. */
+/** RC LOKI_E10_REPO_CONVENTIONS (acc-173, off by default until measured, =1 on): self-check item (i) runs the repository's own convention checks on the change,
+ *  with no install and no model: (1) the local hooks of .pre-commit-config.yaml that need no environment, `language: fail` (a changed file that matches
+ *  `files` and not `exclude` is rejected with the hook's entry text) and `pygrep` (the entry regex in an added line); (2) the contribution guide's explicit bans,
+ *  "never use `X`" / "do not use `X`" / "don't use `X`" for an identifier-shaped X, as a whole-word grep of added code lines with comments and strings removed,
+ *  import and export lines skipped, the guide's "only exception is `X Y`" exempted, and a use whose surrounding text the file already has on base (the
+ *  repository's own established usage, such as `DataKey<any>`) exempted. */
+export const repoConventionsOn = (env: NodeJS.ProcessEnv = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_REPO_CONVENTIONS"] ?? "").trim());
+const PC_TYPES: Record<string, RegExp> = { file: /./, text: /./, rst: /\.rst$/, python: /\.pyi?$/, markdown: /\.(?:md|markdown)$/, yaml: /\.ya?ml$/, toml: /\.toml$/, json: /\.json$/, javascript: /\.[cm]?jsx?$/, ts: /\.[cm]?tsx?$/, tsx: /\.tsx$/, jsx: /\.jsx$/ };
+const CODE_FILE = /\.(?:[cm]?[jt]sx?|py|go|rs|rb|java|kt|cs|php|swift|scala)$/;
+/** A pre-commit (Python) regex as a JS RegExp: (?x) verbose whitespace and comments dropped, (?P<n> named groups renamed; null when it does not compile. */
+export function pyRegex(src: string, flags = ""): RegExp | null {
+  let p = src.trim();
+  if (p.startsWith("(?x)")) p = p.slice(4).split("\n").map((l) => l.replace(/(?<!\\)#.*$/, "")).join("").replace(/(?<!\\)\s+/g, "");
+  p = p.replace(/\(\?P</g, "(?<");
+  try { return new RegExp(p, flags); } catch { return null; }
+}
+export function precommitFlags(cfgText: string, added: Map<string, string[]>): string[] {
+  let doc: unknown; try { doc = (globalThis as { Bun?: { YAML: { parse(t: string): unknown } } }).Bun?.YAML.parse(cfgText); } catch { return []; }
+  const out: string[] = [];
+  for (const repo of ((doc as { repos?: unknown[] } | null)?.repos ?? []) as { repo?: string; hooks?: Record<string, unknown>[] }[]) {
+    if (repo?.repo !== "local") continue;
+    for (const h of repo.hooks ?? []) {
+      const lang = String(h.language ?? ""), types = (Array.isArray(h.types) ? h.types : []).map(String), args = (Array.isArray(h.args) ? h.args : []).map(String);
+      if ((lang !== "fail" && lang !== "pygrep") || types.some((t) => !PC_TYPES[t]) || args.some((a) => a !== "--ignore-case")) continue; // only hooks that need no environment and no flag Loki does not model
+      const files = pyRegex(String(h.files ?? "")), excl = h.exclude ? pyRegex(String(h.exclude)) : null; if (!files || (h.exclude && !excl)) continue;
+      for (const [f, lines] of added) {
+        if (!files.test(f) || (excl && excl.test(f)) || !types.every((t) => PC_TYPES[t]!.test(f))) continue;
+        if (lang === "fail") { out.push(`pre-commit hook ${String(h.id)} rejects ${f}: ${String(h.entry ?? h.name ?? "").replace(/\s+/g, " ").trim().slice(0, 160)}`); continue; }
+        const rx = pyRegex(String(h.entry ?? ""), args.includes("--ignore-case") ? "i" : ""); const hit = rx ? lines.find((l) => rx.test(l)) : undefined;
+        if (hit !== undefined) out.push(`pre-commit hook ${String(h.id)} (${String(h.name ?? "")}) rejects a line in ${f}: ${hit.trim().slice(0, 100)}`);
+      }
+    }
+  }
+  return out;
+}
+export type GuideBan = { token: string; exceptions: string[]; rule: string };
+export function guideBans(guide: string): GuideBan[] {
+  const out: GuideBan[] = [];
+  for (const line of guide.split("\n")) for (const m of line.matchAll(/\b(?:never|do not|don't)\s+use\s+`([A-Za-z_]\w*)`/gi)) out.push({ token: m[1]!, exceptions: [...line.matchAll(/only exception is\s+`([^`]+)`/gi)].map((e) => e[1]!), rule: line.trim().replace(/^[-*+]\s*/, "").slice(0, 120) });
+  return out;
+}
+export function banFlags(bans: GuideBan[], added: Map<string, string[]>, baseText: (f: string) => string): string[] {
+  const out: string[] = [];
+  for (const b of bans) {
+    const rx = new RegExp(`(?<![\\w$.])${escapeRegex(b.token)}(?![\\w$])`);
+    for (const [f, lines] of added) {
+      if (!CODE_FILE.test(f)) continue;
+      for (const l of lines) {
+        if (/^\s*(?:import|export)\b/.test(l)) continue;
+        let c = l.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g, '""').replace(/(?:\/\/|#).*$/, "");
+        for (const e of b.exceptions) c = c.split(e).join("");
+        const m = rx.exec(c); if (!m) continue;
+        const chunk = (/\S*$/.exec(c.slice(0, m.index))![0] + b.token + /^\S*/.exec(c.slice(m.index + b.token.length))![0]).replace(/[,;)]+$/, "");
+        if (chunk.length > b.token.length && baseText(f).includes(chunk)) continue; // the repository's own established usage
+        out.push(`contribution rule "${b.rule}": ${f}: ${l.trim().slice(0, 100)}`); break;
+      }
+    }
+  }
+  return out;
+}
+export function repoConventionFlags(repoDir: string, baseSha: string, live: Staged[]): string[] {
+  const added = addedLines(repoDir, baseSha, live), out: string[] = [];
+  for (const { f, st } of live) if (st === "A" && !added.has(f)) added.set(f, []); // a new empty file still has a name a hook can reject
+  const cfg = (() => { try { return readFileSync(join(repoDir, ".pre-commit-config.yaml"), "utf8"); } catch { return ""; } })();
+  if (cfg) out.push(...precommitFlags(cfg, added));
+  const bans = guideBans(contributionGuides(repoDir));
+  if (bans.length) out.push(...banFlags(bans, added, (f) => { try { return safeGit(repoDir, ["show", `${baseSha}:${f}`], { maxBuffer: 64 << 20 }); } catch { return ""; } }));
+  return out;
+}
 export function selfReviewChecks(repoDir: string, baseSha: string, staged: Staged[], task: string, outputs: Partial<Record<string, Obj>>, env: NodeJS.ProcessEnv = process.env, runDir?: string): ReviewItem[] {
   const live = staged.filter(({ st, f }) => (st === "A" || st === "M") && !f.startsWith(".loki/"));
   const files = live.map(({ f }) => f), src = files.filter((f) => SRC_EXT.test(f) && !isTestFile(f)), tests = files.filter((f) => isTestFile(f));
@@ -57,6 +127,10 @@ export function selfReviewChecks(repoDir: string, baseSha: string, staged: Stage
   const out = (() => { try { return outsideScope(outputs, live); } catch { return null; } })() ?? [];
   const outside = out.filter((f) => !(conv && (f === conv.dir || f.startsWith(`${conv.dir}/`))));
   items.push(outside.length ? { item: "scope", status: "flagged", detail: `edits outside the planned scope: ${outside.slice(0, 8).join(", ")}` } : { item: "scope", status: "ok", detail: "no edit outside the planned scope" });
+  if (repoConventionsOn(env) && live.length > 0) { // (i) RC: the repo's own convention checks on the change
+    const hits = (() => { try { return repoConventionFlags(repoDir, baseSha, live); } catch { return []; } })();
+    items.push(hits.length ? { item: "conventions", status: "flagged", detail: `the repository's own checks reject the change: ${hits.slice(0, 4).join("; ")}` } : { item: "conventions", status: "ok", detail: "no repository check or contribution rule rejects the change" });
+  }
   if (docEnumOn(env) && src.length > 0) { // (h) docs that enumerate what the change extends
     const stale = (() => { try { return docEnumerations(repoDir, baseSha, live); } catch { return []; } })();
     items.push(stale.length ? { item: "docs", status: "flagged", detail: `docs that list what the change extends but not the new entry: ${stale.slice(0, 4).join("; ")}` } : { item: "docs", status: "ok", detail: "no doc lists what the change extends without the new entry" });
@@ -187,7 +261,7 @@ export function siblingDefinitions(repoDir: string, baseSha: string, live: Stage
 }
 
 export const selfReviewWanted = (items: ReviewItem[], mode: SelfReviewMode): boolean => mode === "always" || (mode === "on" && items.some((i) => i.status === "flagged"));
-const LABEL: Record<ItemKey, string> = { release_note: "release note", stray_files: "stray files", test: "test", format: "format", scope: "scope", cases: "stated cases", siblings: "sibling definitions", docs: "docs" };
+const LABEL: Record<ItemKey, string> = { release_note: "release note", stray_files: "stray files", test: "test", format: "format", scope: "scope", cases: "stated cases", siblings: "sibling definitions", docs: "docs", conventions: "repo conventions" };
 
 /** The review turn's brief: the flagged items, the rules text (capped) and the style configs. Asks for edits only where a rule is concretely broken. */
 export function selfReviewBrief(repoDir: string, items: ReviewItem[]): string {
@@ -205,19 +279,20 @@ export function selfReviewBrief(repoDir: string, items: ReviewItem[]): string {
       "(g) sibling definitions: each other definition of a function you changed (an override, a subclass method, a twin code path) either gets the same fix or is left alone for a reason you state.",
     ] : []),
     ...(items.some((i) => i.item === "docs") ? ["(h) docs: a doc that lists every option, method or name of what you extended also lists the new one, written like its other entries;"] : []),
+    ...(items.some((i) => i.item === "conventions") ? ["(i) repo conventions: a pre-commit hook of the repository or an explicit \"never use\" / \"do not use\" rule of its contribution guide rejects a line or a file name you added; change it to what the rule allows (rename the file, rewrite the line);"] : []),
     "Deterministic checks found:", ...lines,
     "Change nothing that already follows the rules: no rewording, no reformatting of lines you did not change, no new edits beyond fixing a broken rule. If an item cannot or should not be changed, keep it and justify it.",
-    `End your reply with one line per item, exactly: \`REVIEW <a|b|c|d|e${items.some((i) => i.item === "cases" || i.item === "siblings") ? "|f|g" : ""}${items.some((i) => i.item === "docs") ? "|h" : ""}>: ok|fixed|justified: <short reason>\`, then LOKI_DONE.`,
+    `End your reply with one line per item, exactly: \`REVIEW <a|b|c|d|e${items.some((i) => i.item === "cases" || i.item === "siblings") ? "|f|g" : ""}${items.some((i) => i.item === "docs") ? "|h" : ""}${items.some((i) => i.item === "conventions") ? "|i" : ""}>: ok|fixed|justified: <short reason>\`, then LOKI_DONE.`,
     style.length ? `Style and lint config in this repository: ${style.join(", ")}.` : "",
     guide ? `Contribution rules (CONTRIBUTING and PR template, as written):\n${guide}` : "The repository has no contribution guide or PR template.",
   ].filter(Boolean).join("\n");
 }
 
-const KEY_OF: Record<string, ItemKey> = { a: "release_note", b: "stray_files", c: "test", d: "format", e: "scope", f: "cases", g: "siblings", h: "docs" };
+const KEY_OF: Record<string, ItemKey> = { a: "release_note", b: "stray_files", c: "test", d: "format", e: "scope", f: "cases", g: "siblings", h: "docs", i: "conventions" };
 /** The REVIEW lines of the review turn's reply, by item. */
 export function parseReviewLines(reply: string): Map<ItemKey, { verdict: string; reason: string }> {
   const m = new Map<ItemKey, { verdict: string; reason: string }>();
-  for (const x of reply.matchAll(/^[ \t]*`?REVIEW[ \t]+([a-h])[ \t]*:[ \t]*(ok|fixed|justified)[ \t]*:?[ \t]*(.*?)`?[ \t]*$/gim)) m.set(KEY_OF[x[1]!.toLowerCase()]!, { verdict: x[2]!.toLowerCase(), reason: x[3]!.trim().slice(0, 200) });
+  for (const x of reply.matchAll(/^[ \t]*`?REVIEW[ \t]+([a-i])[ \t]*:[ \t]*(ok|fixed|justified)[ \t]*:?[ \t]*(.*?)`?[ \t]*$/gim)) m.set(KEY_OF[x[1]!.toLowerCase()]!, { verdict: x[2]!.toLowerCase(), reason: x[3]!.trim().slice(0, 200) });
   return m;
 }
 /** Final status per item: the after-turn deterministic check wins (a flag it no longer finds is fixed); a flag that persists is justified only with a stated reason. */
@@ -232,8 +307,31 @@ export function settleItems(before: ReviewItem[], after: ReviewItem[] | null, re
   });
 }
 /** The receipt block; {} when the knob is off or nothing was recorded. */
-export type SelfReviewRecord = { mode: string; turn: string | null; items: ReviewItem[]; turn_guard?: TurnGuardRecord };
+export type SelfReviewRecord = { mode: string; turn: string | null; items: ReviewItem[]; turn_guard?: TurnGuardRecord; finish?: FinishRecord };
 export const selfReviewReceiptBlock = (implement: Record<string, unknown> | undefined): { self_review?: SelfReviewRecord } => (implement && implement["self_review"] ? { self_review: implement["self_review"] as SelfReviewRecord } : {});
+/** VF LOKI_E10_VERIFIED_FINISH (acc-168, off by default until measured, =1 on): the review turn becomes a fresh finish session on the delivered diff.
+ *  Its brief carries only the review instructions and items, the diff (stray build or run output the commit filter drops is left out), the pre-fix text of
+ *  each modified file, and the repo's contribution rules and release-note convention: no task text, no implement transcript. The turn guard always runs on it. */
+export const verifiedFinishOn = (env: NodeJS.ProcessEnv = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_VERIFIED_FINISH"] ?? "").trim());
+export const VERIFIED_FINISH_MAX_TURNS = 8;
+export const verifiedFinishMaxTurns = (env: NodeJS.ProcessEnv = process.env): number => { const n = Number((env["LOKI_E10_VERIFIED_FINISH_MAX_TURNS"] ?? "").trim()); return Number.isInteger(n) && n > 0 ? n : VERIFIED_FINISH_MAX_TURNS; };
+export type FinishRecord = { fired: true; iteration: string | null; brief_chars: number; diff_files: string[]; left_out: string[] };
+export const FINISH_DIFF_MAX = 40_000, FINISH_FILE_MAX = 12_000, FINISH_FILES_MAX = 36_000;
+export const FINISH_LEAD = "Finish pass. The change below is already applied, uncommitted, in this checkout. Do not redo, rewrite or extend the fix itself; only bring the change up to the repository's rules.";
+/** The finish turn's whole brief and what went into it. */
+export function verifiedFinishBrief(repoDir: string, baseSha: string, items: ReviewItem[], task = ""): { brief: string; record: Omit<FinishRecord, "fired" | "iteration"> } {
+  const staged = treeStaged(repoDir, baseSha).filter((s) => !s.f.startsWith(".loki/") && !s.f.startsWith(".claude/"));
+  const added = staged.filter((s) => s.st === "A").map((s) => s.f);
+  const drop = (() => { try { return new Set([...buildArtifacts(repoDir, added, baseSha, task), ...runOutputs(repoDir, added, baseSha, task)]); } catch { return new Set<string>(); } })();
+  const kept = staged.filter((s) => !drop.has(s.f)), tracked = kept.filter((s) => { try { safeGit(repoDir, ["cat-file", "-e", `${baseSha}:${s.f}`]); return true; } catch { return false; } });
+  let diff = ""; try { diff = tracked.length ? safeGit(repoDir, ["diff", "--no-color", "--no-ext-diff", "--no-renames", baseSha, "--", ...tracked.map((s) => s.f)], { maxBuffer: 64 << 20 }) : ""; } catch { /* unreadable */ }
+  for (const s of kept.filter((x) => !tracked.includes(x))) { let t = ""; try { t = readFileSync(join(repoDir, s.f), "utf8"); } catch { continue; } diff += `\n--- /dev/null\n+++ b/${s.f} (new file)\n${t.split("\n").map((l) => `+${l}`).join("\n")}\n`; }
+  const pre: string[] = []; let budget = FINISH_FILES_MAX;
+  for (const s of tracked.filter((x) => x.st !== "D")) { if (budget <= 0) break; let t = ""; try { t = safeGit(repoDir, ["show", `${baseSha}:${s.f}`], { maxBuffer: 64 << 20 }); } catch { continue; } const cut = t.slice(0, Math.min(FINISH_FILE_MAX, budget)); budget -= cut.length; pre.push(`=== PRE-FIX FILE: ${s.f}${cut.length < t.length ? " (cut)" : ""} ===\n${cut}`); }
+  const rn = releaseNoteBrief(repoDir, kept.map((s) => s.f));
+  const brief = [FINISH_LEAD, selfReviewBrief(repoDir, items), rn, `=== DIFF (against the base commit) ===\n${diff.slice(0, FINISH_DIFF_MAX)}${diff.length > FINISH_DIFF_MAX ? "\n(diff cut)" : ""}`, ...pre].filter(Boolean).join("\n\n");
+  return { brief, record: { brief_chars: brief.length, diff_files: kept.map((s) => s.f), left_out: [...drop] } };
+}
 /** TG LOKI_E10_REVIEW_TURN_GUARD (acc-167, off by default until measured, =1 on): a finish or review turn that edits anything gets the tests of its edits rerun. A test
  * that fails after the turn and passed with the turn's edits taken back marks the turn as a regression: only that turn's paths go back to the pre-turn
  * tree (the implement diff stays), and the record names the test for the receipt. A test that also fails without the turn keeps the turn. */
