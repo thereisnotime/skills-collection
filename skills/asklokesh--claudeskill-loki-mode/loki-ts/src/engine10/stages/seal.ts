@@ -31,7 +31,7 @@ import { sealedWallDir, checkProvenance, checkResultLabel, SKIPPED_BY_REPO, publ
 import { type ContractSnapshot, sealContract } from "../../features/contract.ts";
 import { capGroupVerdict, sealGroup } from "../../features/speed/seal_group.ts";
 import { readDeclared, supplyGuard, supplyVerdict } from "../../supply/supply_guard.ts";
-import { hooks } from "../hooks.ts"; import { partialCostText } from "../output.ts";
+import { hooks } from "../hooks.ts"; import { partialCostText } from "../output.ts"; import { LOKI_OWN_LEAD } from "../closure.ts";
 import { atomicWriteText } from "../../util/atomic.ts";
 import { patchReceipt } from "../../features/patch_protocol.ts";
 import { collapseNotProven } from "../../util/term_width.ts";
@@ -402,7 +402,10 @@ export const sealStage: Stage = {
     // TWO READERS: the count decides, with one exception. A check can pass for a line it does not prove (an API response counted for "build the UI"): when the
     // acceptance check and the independent review, two separate readings, both find the same line not delivered, the label is held and both reasons are shown.
     // One reader alone stays a note, because a single reading varied from run to run on the same evidence.
-    const twoReaders = (xr?.notes ?? []).filter(isUnmetNote).filter((n) => issueAsks.some((line, i) => advisory?.[i]?.status === "unmet" && n.toLowerCase().includes(line.toLowerCase().slice(0, 60)))).map((n) => `${n} (the acceptance check also reads this line as not delivered: two readers agree, so the count does not carry it)`);
+    // NO SECOND READER: when the acceptance check did not answer (its reply was cut, or the call failed), nothing contradicts the independent review, so its
+    // UNMET holds the label too. A run sealed VERIFIED with two UNMET lines from the review while the acceptance check had returned "truncated" twice.
+    const noSecond = !!lineCheck?.not_reviewed;
+    const twoReaders = (xr?.notes ?? []).filter(isUnmetNote).filter((n) => noSecond || issueAsks.some((line, i) => advisory?.[i]?.status === "unmet" && n.toLowerCase().includes(line.toLowerCase().slice(0, 60)))).map((n) => noSecond ? `${n} (the acceptance check did not answer, ${lineCheck!.not_reviewed}, so nothing contradicts the review and the count does not carry this line)` : `${n} (the acceptance check also reads this line as not delivered: two readers agree, so the count does not carry it)`);
     const unusedNotes = issueAsks.length ? (await unusedNewFiles(ctx.repoDir, ctx.baseSha, head)).map(unusedNewFileNote) : []; // an issue run only: a new source file nothing names is work a user cannot reach, whatever its own tests say
     const openNotes = [...issueNotes, ...proofNotes, ...neverStopNotes(o.implement), ...(allLinesMet ? [] : unfinished), ...proveNotes(ctx.provider, o, process.env, ctx.runDir), ...(allLinesMet && proofRun?.exit === 0 ? twoReaders : (xr?.notes ?? []).filter(isUnmetNote)), ...openDecisionNotes(o), /* one judge for the acceptance lines: when every line is met on evidence from Loki's own passing re-run, a reviewer UNMET (it reads the diff only and cannot see that run) is disclosed on the receipt, not a cap */ ...namedOpen.filter((s) => s.why === null).map(namedUnchangedNote)], verdict3: Verdict = openNotes.length > 0 && verdict3a === "VERIFIED" ? "PARTIAL" : verdict3a; // FALSEVER-OPEN-DECISION: an open either/or the run picked itself, or a behavior change or regression check the run could not settle, is never VERIFIED
     const deepG = deepGaps(o.verify?.risk, vraw, Array.isArray(o.deep?.checks) ? (o.deep.checks as Obj[]) : [], modelReviewRan(xr)), notProven = new Set<string>([...(sealOnlyPass() ? [TIME_RAN_OUT_NOTE] : []), ...deepG.notProven, ...supply.notProven, ...grp.notProven, ...(xr?.notes ?? []), ...reviewReceipt(ctx.provider, xr).notProven, ...openNotes]);
@@ -434,7 +437,7 @@ export const sealStage: Stage = {
     if (wallNotRun > 0) { // A-103b: wall.ts keeps each sealed copy under runDir/wall; a copy absent from wall.files was discarded (class not_run: no real base result)
       try { const kept = new Set((Array.isArray(o.wall?.files) ? (o.wall!.files as Obj[]) : []).map((f) => basename(String(f.path)))); for (const n of readdirSync(sealedWallDir(ctx.runDir)).sort()) if (!kept.has(n)) notProven.add(`wall test discarded: ${n} (not_run)`); } catch { /* no sealed wall dir: count line only */ }
     }
-    if (!diffOk) notProven.add("diff not computed (git diff-tree failed)");
+    if (!diffOk) notProven.add(`${LOKI_OWN_LEAD}diff not computed (git diff-tree failed)`); // RW-03: wording only, the verdict rule is unchanged
     // E-55: any status other than A means the path existed at base_sha (M, D, or T typechange, e.g. a symlink).
     // D50-F2r3: re-run the classifier on the COMMITTED blob (clean filters run at commit) with verify's counts; any mismatch drops verify's labels, "weakened test" stays.
     const dropped = new Set<string>(); const tcs = (o.verify as Obj | undefined)?.["test_counts"] as Obj | undefined;
@@ -455,7 +458,7 @@ export const sealStage: Stage = {
     for (const n of rcNotes) notProven.add(disclosedSet.has(n) ? n + DECLARED_SUFFIX : n); for (const n of decl.extra ?? []) notProven.add(n);
     for (const n of fenceRec.notProven) notProven.add(n);
     for (const n of pinnedUpdateNotes(pinnedUpdatesOf(o.implement))) notProven.add(n); // Z2: a reported test update the harness could not check
-    for (const n of [...strs(o.commit?.not_proven), ...strs(o.commit?.scope_notes), ...(o.commit?.failed === true ? [`git commit failed: ${str(o.commit?.commit_error) ?? "no error recorded"}`] : [])]) notProven.add(n); // D58: scope_notes = edits flagged outside stated scope (never reverted) or scope undetermined; separate key so they never force FAILED
+    for (const n of [...strs(o.commit?.not_proven), ...strs(o.commit?.scope_notes), ...(o.commit?.failed === true ? [`${LOKI_OWN_LEAD}git commit failed: ${str(o.commit?.commit_error) ?? "no error recorded"}`] : [])]) notProven.add(n); // D58: scope_notes = edits flagged outside stated scope (never reverted) or scope undetermined; separate key so they never force FAILED
     for (const id of strs(o.verify?.pre_red)) notProven.add(`pre red: ${id}`); // A-112: listed, never downgrades (not via verifyNotProven)
     if (typeof o.verify?.baseline_line === "string" && strs(o.verify?.pre_red).length) notProven.add(o.verify.baseline_line); // REPOMEM: the one-line pre-existing vs introduced split; listed only when a baseline failure was excused, never downgrades
     for (const n of strs(o.verify?.lint_untouched)) notProven.add(`lint red only in files the change did not touch (disclosed, not blocking): ${n}`); // LINT-UNTOUCHED: never silent

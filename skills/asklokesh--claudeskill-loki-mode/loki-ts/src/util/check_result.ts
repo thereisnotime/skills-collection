@@ -8,10 +8,11 @@ import { dotnetBuildFailedBeforeAnyTest, dotnetFullCmd, dotnetSummary, dotnetTes
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { killGroup, SAFE_BUN_FLAGS } from "../runner/worker_proc.ts";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { siteFor } from "../project_model/resolve.ts";
+import { guideFile, guideSuite } from "../project_model/guides.ts";
 import type { ProjectApi } from "../project_model/api.ts";
 import { CARGO_TEST_FILE_RE, isTestFile } from "../engine10/testmap.ts";
 import type { RunnerName, TestRef } from "../engine10/types.ts"; import type { FailureGroup } from "../engine10/failures.ts";
@@ -31,6 +32,69 @@ export function plainTestEnv(base: NodeJS.ProcessEnv = process.env): Record<stri
   e["FORCE_COLOR"] = "0"; e["NO_COLOR"] = "1";
   e["NX_DAEMON"] = "false"; // an Nx daemon outlives the check and keeps rewriting files (pnpm-lock.yaml) after the commit stage
   delete e["CLICOLOR_FORCE"];
+  return testHomeEnv(e);
+}
+/** TEST-HOME (LOKI_E10_TEST_HOME_ISOLATION; unset = "xdg", `0` opts out, `home` also moves HOME): a harness-run test command must not write into the user's
+ *  home (a hermes-agent test run created ~/.hermes). Every command that takes plainTestEnv (verify's checks, the baseline, the full suites, the Wall,
+ *  the proof script) gets XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME and XDG_STATE_HOME pointed at one directory owned by this process (under
+ *  $LOKI_SCRATCH when the run has one, else a temp directory removed at exit). The model session never takes this env. Toolchains that keep a cache or
+ *  an install under an XDG directory keep the real one through their own variable (set only when the user has not set it): uv, corepack, pre-commit,
+ *  mise, and on Linux pip, Go's build cache and env file, poetry, yarn, playwright, cypress, deno and hatch; the user's XDG git config stays readable
+ *  through a link. `home` (opt-in, not the default) also points HOME at that directory and pins the toolchains that live under HOME (cargo, rustup, bun,
+ *  npm, Go, pip, pyenv, nvm, asdf, volta, gradle, dotnet, docker, the global git config). It is not the default because one variable cannot keep Python's
+ *  per-version user site on macOS (~/Library/Python/<version>): a system python3 would lose packages installed with `pip install --user`. */
+export type TestHomeMode = "off" | "xdg" | "home";
+export const testHomeMode = (env: NodeJS.ProcessEnv = process.env): TestHomeMode => { const v = (env["LOKI_E10_TEST_HOME_ISOLATION"] ?? "").trim().toLowerCase(); return /^(0|off|false|no)$/.test(v) ? "off" : v === "home" ? "home" : "xdg"; };
+let testHomeDir: string | null = null, testHomeReady = false;
+function testHomeRoot(env: Record<string, string>): string | null {
+  if (testHomeDir && existsSync(testHomeDir)) return testHomeDir;
+  try {
+    const scratch = env["LOKI_SCRATCH"];
+    if (scratch && existsSync(scratch)) { testHomeDir = join(scratch, "test-home"); mkdirSync(testHomeDir, { recursive: true, mode: 0o700 }); }
+    else { const d = mkdtempSync(join(tmpdir(), "loki-test-home-")); testHomeDir = d; process.once("exit", () => { try { rmSync(d, { recursive: true, force: true }); } catch { /* best effort */ } }); }
+    return testHomeDir;
+  } catch { testHomeDir = null; return null; }
+}
+export function testHomeEnv(e: Record<string, string>): Record<string, string> {
+  const mode = testHomeMode(e); if (mode === "off") return e;
+  const home = e["HOME"] || homedir(), root = testHomeRoot(e); if (!root || !home) return e;
+  const mac = process.platform === "darwin", real = { config: e["XDG_CONFIG_HOME"] || join(home, ".config"), data: e["XDG_DATA_HOME"] || join(home, ".local", "share"), cache: e["XDG_CACHE_HOME"] || join(home, ".cache"), state: e["XDG_STATE_HOME"] || join(home, ".local", "state") };
+  const pin = (k: string, v: string): void => { if (!e[k]) e[k] = v; };
+  // What each tool would have used without the redirect: XDG-derived on every platform first, then the Linux-only ones (on macOS these tools use ~/Library, which the XDG variables do not move).
+  pin("UV_CACHE_DIR", join(real.cache, "uv")); pin("UV_PYTHON_INSTALL_DIR", join(real.data, "uv", "python")); pin("UV_TOOL_DIR", join(real.data, "uv", "tools"));
+  pin("COREPACK_HOME", join(real.cache, "node", "corepack")); pin("PRE_COMMIT_HOME", join(real.cache, "pre-commit"));
+  pin("MISE_DATA_DIR", join(real.data, "mise")); pin("MISE_CACHE_DIR", join(real.cache, "mise")); pin("MISE_CONFIG_DIR", join(real.config, "mise")); pin("MISE_STATE_DIR", join(real.state, "mise"));
+  if (!mac) {
+    pin("GOCACHE", join(real.cache, "go-build")); pin("GOENV", join(real.config, "go", "env")); pin("PIP_CACHE_DIR", join(real.cache, "pip"));
+    pin("POETRY_CACHE_DIR", join(real.cache, "pypoetry")); pin("YARN_CACHE_FOLDER", join(real.cache, "yarn"));
+    pin("PLAYWRIGHT_BROWSERS_PATH", join(real.cache, "ms-playwright")); pin("CYPRESS_CACHE_FOLDER", join(real.cache, "Cypress")); pin("DENO_DIR", join(real.cache, "deno"));
+    pin("HATCH_DATA_DIR", join(real.data, "hatch")); pin("HATCH_CACHE_DIR", join(real.cache, "hatch"));
+  }
+  const dirs = { XDG_CONFIG_HOME: join(root, "config"), XDG_DATA_HOME: join(root, "data"), XDG_CACHE_HOME: join(root, "cache"), XDG_STATE_HOME: join(root, "state") };
+  if (!testHomeReady || !existsSync(dirs.XDG_CONFIG_HOME)) try { // once per process: this env is built for every spawned check
+    for (const d of Object.values(dirs)) mkdirSync(d, { recursive: true, mode: 0o700 });
+    const gitCfg = join(real.config, "git"), link = join(dirs.XDG_CONFIG_HOME, "git"); // the user's XDG git config (identity, global ignore) stays readable
+    if (existsSync(gitCfg) && !existsSync(link)) { try { symlinkSync(gitCfg, link); } catch { /* git then reads ~/.gitconfig alone */ } }
+    testHomeReady = true;
+  } catch { return e; }
+  Object.assign(e, dirs);
+  if (mode === "home") {
+    const lib = (...p: string[]): string => join(home, "Library", ...p), has = (p: string): boolean => existsSync(p);
+    pin("CARGO_HOME", join(home, ".cargo")); pin("RUSTUP_HOME", join(home, ".rustup")); pin("BUN_INSTALL", join(home, ".bun")); pin("npm_config_cache", join(home, ".npm"));
+    if (has(join(home, ".npmrc"))) pin("npm_config_userconfig", join(home, ".npmrc"));
+    const gopath = e["GOPATH"] || join(home, "go"); pin("GOPATH", gopath); pin("GOMODCACHE", join(gopath, "pkg", "mod"));
+    if (mac) { pin("GOCACHE", lib("Caches", "go-build")); pin("GOENV", lib("Application Support", "go", "env")); pin("PIP_CACHE_DIR", lib("Caches", "pip")); }
+    for (const [k, d] of [["PYENV_ROOT", ".pyenv"], ["NVM_DIR", ".nvm"], ["ASDF_DATA_DIR", ".asdf"], ["VOLTA_HOME", ".volta"], ["GRADLE_USER_HOME", ".gradle"], ["DOCKER_CONFIG", ".docker"]] as const) if (has(join(home, d))) pin(k, join(home, d));
+    pin("DOTNET_CLI_HOME", home); pin("NUGET_PACKAGES", join(home, ".nuget", "packages"));
+    if (has(join(home, ".gitconfig"))) pin("GIT_CONFIG_GLOBAL", join(home, ".gitconfig"));
+    if (!mac) pin("PYTHONUSERBASE", join(home, ".local"));
+    const h = join(root, "home");
+    try {
+      mkdirSync(h, { recursive: true, mode: 0o700 });
+      if (mac && has(lib("Python")) && !existsSync(join(h, "Library", "Python"))) { mkdirSync(join(h, "Library"), { recursive: true }); try { symlinkSync(lib("Python"), join(h, "Library", "Python")); } catch { /* the user site is then empty */ } } // macOS keeps one user site per Python version under ~/Library/Python
+      e["HOME"] = h;
+    } catch { /* HOME stays */ }
+  }
   return e;
 }
 export const NO_TESTS_REASON = "no tests executed";
@@ -898,9 +962,12 @@ export function changedSymbols(diffU0: string, readNew?: (path: string) => strin
  *  output instead: ANSI already stripped, trailing space and blank lines dropped, and only time-like tokens (durations, clock times, timestamps, hex
  *  addresses) normalized. Counts, names and messages stay, so a new failing test, a changed message or a new count gives a different shape. */
 export const baseRedShapeOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_BASE_RED_SHAPE"] ?? "").trim());
+/** The lines failureShape hashes (the one normalizer for an output with no parsed test id; verify's no-id base comparison reads the same lines). */
+export function failureLines(out: string): string[] {
+  return out.split("\n").map((l) => l.replace(/\s+$/, "").replace(/\b\d{4}-\d{2}-\d{2}[T ][\d:._,]+Z?/g, "<ts>").replace(/\b\d{1,2}:\d{2}:\d{2}(?:[.,]\d+)?\b/g, "<clock>").replace(/\b\d+(?:\.\d+)?\s?(?:ms|s|sec|secs|seconds|m|min)\b/g, "<t>").replace(/\b0x[0-9a-f]{4,}\b/gi, "<hex>")).filter((l) => l !== "");
+}
 export function failureShape(out: string): string {
-  const norm = out.split("\n").map((l) => l.replace(/\s+$/, "").replace(/\b\d{4}-\d{2}-\d{2}[T ][\d:._,]+Z?/g, "<ts>").replace(/\b\d{1,2}:\d{2}:\d{2}(?:[.,]\d+)?\b/g, "<clock>").replace(/\b\d+(?:\.\d+)?\s?(?:ms|s|sec|secs|seconds|m|min)\b/g, "<t>").replace(/\b0x[0-9a-f]{4,}\b/gi, "<hex>")).filter((l) => l !== "");
-  return createHash("sha256").update(norm.join("\n")).digest("hex");
+  return createHash("sha256").update(failureLines(out).join("\n")).digest("hex");
 }
 /** ENCLOSING-DECL knob: LOKI_E10_ENCLOSING_DECL (default on, =0 opts out) turns the head-file fallback in changedSymbols off. */
 export const enclosingDeclOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_ENCLOSING_DECL"] ?? "").trim());
@@ -1957,10 +2024,25 @@ export function toolFallbacks(repoDir: string, tool: string, env: NodeJS.Process
   for (const v of [".venv", "venv"]) { const py = join(repoDir, v, "bin", "python"); if (existsSync(py)) { out.push([py, ["-m", tool]]); break; } }
   return out;
 }
-export function resolveTool(repoDir: string, bin: string, fallback: string, lastResort = fallback): [string, Interpreter, string[]] {
+/** RW-01 VENV-PROBE: a project virtualenv runs `<python> -m <module>` only when it can import that module (one `-c "import <module>"` probe per interpreter
+ *  and module, kept for the life of the process, which is one run's worker). hermes-agent#147745: the implement session's `uv run` created a .venv
+ *  without pytest (the repo keeps it in a dependency group uv does not install by default); verify then ran every test file on that .venv because it
+ *  existed, and 33 files failed in 0.06 s with "No module named pytest". With the probe red the tests run on the interpreter outside the virtualenv, as
+ *  they did before the .venv appeared (`uv run` is skipped too: it runs in that same .venv), and venvSkipNotes names the interpreter and the reason. */
+const importProbe = new Map<string, boolean>(), venvSkips = new Map<string, string>();
+export function canImport(py: string, module: string): boolean {
+  if (!/^[A-Za-z_][\w.]*$/.test(module)) return false;
+  const k = `${py}\0${module}`;
+  if (!importProbe.has(k)) { let ok = false; try { ok = spawnSync(py, ["-c", `import ${module}`], { stdio: "ignore", timeout: 15000, env: plainTestEnv() }).status === 0; } catch { ok = false; } importProbe.set(k, ok); }
+  return importProbe.get(k)!;
+}
+/** The receipt lines for the virtualenvs resolveTool skipped in `repoDir` during this run: which interpreter ran the tests, and why. */
+export const venvSkipNotes = (repoDir: string): string[] => [...venvSkips].filter(([k]) => k.startsWith(`${repoDir}\0`)).map(([, v]) => v);
+export function resolveTool(repoDir: string, bin: string, fallback: string, lastResort = fallback, module?: string): [string, Interpreter, string[]] {
   const inRepo = (p: string): boolean => { try { const r = relative(realpathSync(repoDir), realpathSync(p)); return r !== "" && !r.startsWith("..") && !isAbsolute(r); } catch { return false; } };
   const venvEnv = process.env["VIRTUAL_ENV"], onPath = (b: string): string | null => Bun.which(b, { PATH: process.env["PATH"] ?? "" }); // Bun.which caches the startup PATH unless given the live one
   const project = [join(repoDir, ".venv", "bin", bin), join(repoDir, "venv", "bin", bin), ...(venvEnv && inRepo(venvEnv) ? [join(venvEnv, "bin", bin)] : [])].find(existsSync);
+  if (project && module && !canImport(project, module)) { const sys = onPath(fallback) ? fallback : lastResort; venvSkips.set(`${repoDir}\0${project}\0${module}`, `tests ran on ${sys}, outside the project virtualenv: ${relative(repoDir, project)} cannot import ${module}`); return [sys, "system", []]; }
   return project ? [project, "project", []] : existsSync(join(repoDir, "uv.lock")) && onPath("uv") ? ["uv", "project", ["run", "--", bin]] : [onPath(fallback) ? fallback : lastResort, "system", []]; // TEN-QUALITY-11: uv.lock, no venv: uv run is the project interpreter
 }
 /** FC-WALL-GO-FILE-RUNS-WHOLE-PACKAGE: the Test, Fuzz and Example function names of one Go file, matched by name only. Over-inclusion is harmless for -run (a name that is no test matches nothing); a signature check would drop valid tests (multi-line, unnamed or aliased *testing.T, non-ASCII names) and turn a red Wall into no run. TestMain is excluded; [] when unreadable or none. */
@@ -1973,7 +2055,7 @@ export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Inter
   const own = BUILD_TOOL_RUNNERS.has(t.runner) ? repoTestCommand(repoDir) : null; if (own) return ["bash", ["-c", own]]; // R02: the repo's committed verify.test_command
   switch (t.runner) {
     case "pytest": {
-      const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
+      const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python", "pytest");
       return [cmd, [...pre, "-m", "pytest", "-q", t.path], interpreter];
     }
     case "unittest": { // stdlib: a file path is converted to a module name by unittest itself
@@ -2015,10 +2097,15 @@ const BUILD_TOOL_RUNNERS: ReadonlySet<RunnerName> = new Set(["maven", "gradle", 
 /** FC-FULL-SUITE-IGNORES-PROJECT-INTERPRETER: the one full-suite command per runner. pytest resolves its interpreter exactly as a per-test run does (resolveTool: project .venv, else python3), never a bare `python` that python3-only hosts lack. */
 export function fullSuiteCmd(runner: RunnerName, repoDir: string): { cmd: string; args: string[]; interpreter?: Interpreter } {
   const own = BUILD_TOOL_RUNNERS.has(runner) ? repoTestCommand(repoDir) : null; if (own) return { cmd: "bash", args: ["-c", own] };
+  if (!BUILD_TOOL_RUNNERS.has(runner)) { const doc = guideSuite(repoDir, [runner], genericSuiteLine(runner, repoDir), repoDir); if (doc) return { cmd: doc.argv[0]!, args: doc.argv.slice(1) }; } // REPO-GUIDES: the package command the repository's own guide documents
+  return discoveredSuiteCmd(runner, repoDir);
+}
+const genericSuiteLine = (runner: RunnerName, repoDir: string): string => { const f = discoveredSuiteCmd(runner, repoDir); return [f.cmd, ...f.args].join(" "); };
+function discoveredSuiteCmd(runner: RunnerName, repoDir: string): { cmd: string; args: string[]; interpreter?: Interpreter } {
   if (runner === "maven" || runner === "gradle") { const s = FULL_SUITE_STATIC[runner]; return { ...s, cmd: wrapperOr(repoDir, runner === "maven" ? "mvnw" : "gradlew", s.cmd), ...(runner === "gradle" ? { args: [...s.args, "-I", gradleInitScript()] } : {}) }; }
   if (runner === "dotnet") return dotnetFullCmd(repoDir);
   if (runner !== "pytest" && runner !== "unittest") return FULL_SUITE_STATIC[runner];
-  const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
+  const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python", runner === "pytest" ? "pytest" : undefined);
   return { cmd, args: [...pre, ...(runner === "unittest" ? UNITTEST_DISCOVER_ARGS : ["-m", "pytest", "-q"])], ...(runner === "unittest" && interpreter === "system" ? {} : { interpreter }) };
 }
 /** FC-01: the one resolver for a test invocation: a package-owned file runs in its package dir with a package-relative path, else exactly runnerCmd at the root. */
@@ -2052,6 +2139,13 @@ export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null)
   const found = siteFor(api, repoDir, t.path) ?? (t.runner === "vitest" ? ownVitestSite(repoDir, t.path) : null), site = found && t.runner === "vitest" && rootProjectsBreakSite(repoDir, found) ? null : found;
   const base = site?.cwd ?? repoDir, rel = site?.file ?? t.path, mod = t.runner === "go" ? goModDir(base, rel) : base; // go resolves the module from the cwd: a go.mod below the base needs the run to start there
   const [cmd, args, interpreter] = runnerCmd(mod === base ? (site ? { runner: t.runner, path: site.file } : t) : { runner: t.runner, path: relative(mod, join(base, rel)) }, mod === base ? repoDir : mod);
+  // REPO-GUIDES: the way this package's own guide says to run one test file (project_model/guides.ts); a build-tool stack keeps its committed verify.test_command.
+  const generic = [cmd, ...args].join(" "), guided = mod === base && !BUILD_TOOL_RUNNERS.has(t.runner);
+  const doc = guided ? guideFile(base, t.runner, rel, generic, repoDir) : null;
+  if (doc) return { cwd: base, cmd: doc.argv[0]!, args: doc.argv.slice(1), argv: doc.argv, pkgRoot: site?.root ?? "." };
+  // A package below the root with no documented command of its own: a root guide that forbids the discovered form still holds (run from the root, repo-relative path).
+  const rootDoc = guided && site && base !== repoDir ? guideFile(repoDir, t.runner, relative(repoDir, join(base, rel)), generic, repoDir, true) : null;
+  if (rootDoc) return { cwd: repoDir, cmd: rootDoc.argv[0]!, args: rootDoc.argv.slice(1), argv: rootDoc.argv, pkgRoot: "." };
   return { cwd: mod === base ? base : mod, cmd, args, argv: [cmd, ...args], ...(interpreter ? { interpreter } : {}), pkgRoot: mod === base ? site?.root ?? "." : relative(repoDir, mod) || "." };
 }
 /** The directory of the nearest go.mod at or above the test file, never above `base`; `base` itself when none is found below it (a root go.mod keeps the legacy run from the root). */

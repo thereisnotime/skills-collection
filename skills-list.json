@@ -10677,11 +10677,11 @@
     },
     {
       "name": "clickhouse-best-practices",
-      "description": "MUST USE when reviewing ClickHouse schemas, queries, or configurations. Contains 31 rules that MUST be checked before providing recommendations. Always read relevant rule files and cite specific rules",
+      "description": "MUST USE when reviewing ClickHouse schemas, queries, native full-text search, or configurations. Contains 36 rules that MUST be checked before providing recommendations. Always read relevant rule file",
       "path": "ClickHouse--agent-skills/skills/clickhouse-best-practices/SKILL.md",
       "remote_path": "skills/clickhouse-best-practices/SKILL.md",
-      "lines": 275,
-      "words": 1414,
+      "lines": 300,
+      "words": 1699,
       "code_blocks": 1,
       "languages": [],
       "license": "Apache-2.0"
@@ -11806,7 +11806,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
       "lines": 684,
-      "words": 9120,
+      "words": 9126,
       "code_blocks": 4,
       "languages": []
     },
@@ -11991,8 +11991,8 @@
       "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Runs a 5-seat, role-separated review panel (Journal-Fit Reviewer + 3 peer-review roles + Devil's Advocate) with field-specific ",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 564,
-      "words": 7503,
+      "lines": 565,
+      "words": 7581,
       "code_blocks": 4,
       "languages": []
     },
@@ -12126,7 +12126,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/revision_coach_agent.md",
       "remote_path": "academic-paper/agents/revision_coach_agent.md",
       "lines": 363,
-      "words": 2954,
+      "words": 2960,
       "code_blocks": 3,
       "languages": [
         "yaml"
@@ -12150,7 +12150,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
       "lines": 687,
-      "words": 8117,
+      "words": 8121,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -12238,7 +12238,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "lines": 1503,
-      "words": 24053,
+      "words": 24062,
       "code_blocks": 19,
       "languages": [
         "text"
@@ -12308,8 +12308,8 @@
       "description": "\"Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
-      "lines": 423,
-      "words": 4846,
+      "lines": 438,
+      "words": 5301,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12332,8 +12332,8 @@
       "description": "\"Synthesizes all reviewer reports into a unified editorial decision letter and revision roadmap\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
-      "lines": 496,
-      "words": 6288,
+      "lines": 513,
+      "words": 6468,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12356,8 +12356,8 @@
       "description": "\"Identifies the paper's field and dynamically configures the reviewer team's identities and expertise\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/field_analyst_agent.md",
       "remote_path": "academic-paper-reviewer/agents/field_analyst_agent.md",
-      "lines": 258,
-      "words": 2380,
+      "lines": 278,
+      "words": 2635,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -22424,7 +22424,7 @@
       "path": "cloudflare--skills/skills/basin/SKILL.md",
       "remote_path": "skills/basin/SKILL.md",
       "lines": 29,
-      "words": 365,
+      "words": 352,
       "code_blocks": 0,
       "languages": []
     },
@@ -22467,8 +22467,8 @@
       "description": "Build and troubleshoot Cloudflare K2 or K2 Streams durable logs. Use for stream setup, producing from Workers or HTTP, configuring retention and inputs, and consuming through subscriptions.",
       "path": "cloudflare--skills/skills/k2/SKILL.md",
       "remote_path": "skills/k2/SKILL.md",
-      "lines": 28,
-      "words": 277,
+      "lines": 30,
+      "words": 302,
       "code_blocks": 0,
       "languages": []
     },
@@ -22567,7 +22567,7 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
       "lines": 1180,
-      "words": 23938,
+      "words": 24032,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22581,7 +22581,7 @@
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
       "lines": 1177,
-      "words": 23808,
+      "words": 23902,
       "code_blocks": 0,
       "languages": [],
       "version": "3.39.0",
@@ -22736,8 +22736,8 @@
       "description": "\"When the user wants to create, generate, edit, or optimize marketing images, or asks which approach to take (generate, design, or photograph): blog heroes, social graphics, product mockups, banners, ",
       "path": "coreyhaines31--marketingskills/skills/image/SKILL.md",
       "remote_path": "skills/image/SKILL.md",
-      "lines": 341,
-      "words": 2333,
+      "lines": 350,
+      "words": 2425,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -22981,8 +22981,8 @@
       "description": "\"When the user wants sales collateral, or asks what to give a champion or rep, or how to answer an objection or make the case: decks, one-pagers, objection handling, demo scripts, talk tracks, battle ",
       "path": "coreyhaines31--marketingskills/skills/sales-enablement/SKILL.md",
       "remote_path": "skills/sales-enablement/SKILL.md",
-      "lines": 428,
-      "words": 3206,
+      "lines": 435,
+      "words": 3268,
       "code_blocks": 0,
       "languages": []
     },
@@ -23021,8 +23021,8 @@
       "description": "\"When the user wants to write or rewrite page copy (homepage, landing, pricing, feature), or asks which headline, promise, or message to lead with. Diagnoses the input first (blank brief, real voice, ",
       "path": "coreyhaines31--marketingskills/skills/copywriting/SKILL.md",
       "remote_path": "skills/copywriting/SKILL.md",
-      "lines": 340,
-      "words": 2347,
+      "lines": 344,
+      "words": 2370,
       "code_blocks": 0,
       "languages": []
     },
@@ -23061,8 +23061,8 @@
       "description": "\"When the user wants to write or judge ad creative, or asks which ad, hook, or angle to run or kill: headlines, primary text, and variations for Google, Meta, LinkedIn, and TikTok, fresh angles when c",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 477,
-      "words": 3791,
+      "lines": 485,
+      "words": 3864,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -23094,8 +23094,8 @@
       "description": "\"When the user wants to create video with AI tools or code, or asks which approach to use (screen recording, AI avatar, generated, or templated) or how to make videos repeatably: product demos, AI gen",
       "path": "coreyhaines31--marketingskills/skills/video/SKILL.md",
       "remote_path": "skills/video/SKILL.md",
-      "lines": 352,
-      "words": 2450,
+      "lines": 355,
+      "words": 2492,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23242,8 +23242,8 @@
       "description": "\"When the user wants organic social content for LinkedIn, X, Instagram, TikTok, or Facebook, or asks what to post, which format to favor, or from which account: posts, threads, carousels, short-form v",
       "path": "coreyhaines31--marketingskills/skills/social/SKILL.md",
       "remote_path": "skills/social/SKILL.md",
-      "lines": 460,
-      "words": 2800,
+      "lines": 467,
+      "words": 2866,
       "code_blocks": 4,
       "languages": []
     },
@@ -24945,7 +24945,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "lines": 377,
-      "words": 3221,
+      "words": 3310,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -24958,8 +24958,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 524,
-      "words": 5429,
+      "lines": 526,
+      "words": 5544,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -25097,7 +25097,7 @@
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
       "lines": 377,
-      "words": 3221,
+      "words": 3310,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -25110,8 +25110,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 524,
-      "words": 5429,
+      "lines": 526,
+      "words": 5544,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -26617,7 +26617,7 @@
       "words": 145,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-maps",
@@ -26628,7 +26628,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "get-video-dimensions",
@@ -26651,7 +26651,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "get-audio-duration",
@@ -26683,12 +26683,12 @@
       "path": "remotion-dev--skills/skills/remotion-studio/SKILL.md",
       "remote_path": "skills/remotion-studio/SKILL.md",
       "lines": 33,
-      "words": 228,
+      "words": 214,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "import-srt-captions",
@@ -26714,7 +26714,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "display-captions",
@@ -26738,7 +26738,7 @@
       "words": 48,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-interactivity",
@@ -26752,20 +26752,20 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-best-practices",
       "description": "Router for all Remotion skills",
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
-      "lines": 117,
-      "words": 613,
+      "lines": 115,
+      "words": 569,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "transparent-videos",
@@ -26786,11 +26786,11 @@
       "description": "Export a Remotion video, still image, or editable OpenTimelineIO timeline",
       "path": "remotion-dev--skills/skills/remotion-render/SKILL.md",
       "remote_path": "skills/remotion-render/SKILL.md",
-      "lines": 84,
-      "words": 375,
+      "lines": 85,
+      "words": 384,
       "code_blocks": 5,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "sfx",
@@ -26870,20 +26870,6 @@
       ]
     },
     {
-      "name": "voiceover",
-      "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
-      "path": "remotion-dev--skills/skills/remotion-markup/voiceover.md",
-      "remote_path": "skills/remotion-markup/voiceover.md",
-      "lines": 104,
-      "words": 401,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "ts",
-        "tsx"
-      ]
-    },
-    {
       "name": "audio-visualization",
       "description": "Audio visualization patterns - spectrum bars, waveforms, bass-reactive effects",
       "path": "remotion-dev--skills/skills/remotion-markup/audio-visualization.md",
@@ -26901,21 +26887,21 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 335,
-      "words": 1568,
+      "lines": 331,
+      "words": 1554,
       "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "audio",
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/audio.md",
       "remote_path": "skills/remotion-markup/audio.md",
-      "lines": 191,
-      "words": 571,
+      "lines": 197,
+      "words": 634,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -26979,8 +26965,8 @@
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
       "path": "remotion-dev--skills/skills/remotion-markup/transitions.md",
       "remote_path": "skills/remotion-markup/transitions.md",
-      "lines": 287,
-      "words": 885,
+      "lines": 292,
+      "words": 918,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -27106,15 +27092,15 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "rendering",
       "description": "Advice on programmatic rendering with Remotion.",
       "path": "remotion-dev--skills/skills/remotion-saas/rendering.md",
       "remote_path": "skills/remotion-saas/rendering.md",
-      "lines": 97,
-      "words": 558,
+      "lines": 96,
+      "words": 554,
       "code_blocks": 1,
       "languages": [
         "ts"
@@ -27163,7 +27149,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-upgrade",
@@ -27176,15 +27162,15 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "maps-mapbox",
       "description": "Make deterministic Remotion 2D map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, map markers, labels, camera movement, or Mapbox styles.",
       "path": "remotion-dev--skills/skills/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-maps/techniques/mapbox/TECHNIQUE.md",
-      "lines": 450,
-      "words": 1547,
+      "lines": 441,
+      "words": 1522,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27227,7 +27213,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-maps",
@@ -27238,7 +27224,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "get-video-dimensions",
@@ -27273,7 +27259,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "get-video-duration",
@@ -27293,12 +27279,12 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-studio/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-studio/REFERENCE.md",
       "lines": 33,
-      "words": 228,
+      "words": 214,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "import-srt-captions",
@@ -27337,7 +27323,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-license",
@@ -27348,7 +27334,7 @@
       "words": 48,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-interactivity",
@@ -27362,7 +27348,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "transparent-videos",
@@ -27383,11 +27369,11 @@
       "description": "Export a Remotion video, still image, or editable OpenTimelineIO timeline",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-render/REFERENCE.md",
-      "lines": 84,
-      "words": 373,
+      "lines": 85,
+      "words": 382,
       "code_blocks": 5,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "sfx",
@@ -27467,20 +27453,6 @@
       ]
     },
     {
-      "name": "voiceover",
-      "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/voiceover.md",
-      "remote_path": "skills/remotion-best-practices/remotion-markup/voiceover.md",
-      "lines": 104,
-      "words": 396,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "ts",
-        "tsx"
-      ]
-    },
-    {
       "name": "audio-visualization",
       "description": "Audio visualization patterns - spectrum bars, waveforms, bass-reactive effects",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio-visualization.md",
@@ -27498,8 +27470,8 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/audio.md",
-      "lines": 191,
-      "words": 571,
+      "lines": 197,
+      "words": 629,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -27563,8 +27535,8 @@
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/transitions.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/transitions.md",
-      "lines": 287,
-      "words": 880,
+      "lines": 292,
+      "words": 913,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -27639,13 +27611,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 335,
-      "words": 1553,
+      "lines": 331,
+      "words": 1539,
       "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "lottie",
@@ -27699,8 +27671,8 @@
       "description": "Advice on programmatic rendering with Remotion.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/rendering.md",
       "remote_path": "skills/remotion-best-practices/remotion-saas/rendering.md",
-      "lines": 97,
-      "words": 556,
+      "lines": 96,
+      "words": 552,
       "code_blocks": 1,
       "languages": [
         "ts"
@@ -27737,7 +27709,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "tailwind",
@@ -27760,7 +27732,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "remotion-upgrade",
@@ -27773,15 +27745,15 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "maps-mapbox",
       "description": "Make deterministic Remotion 2D map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, map markers, labels, camera movement, or Mapbox styles.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-maps/techniques/mapbox/TECHNIQUE.md",
-      "lines": 450,
-      "words": 1547,
+      "lines": 441,
+      "words": 1522,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27824,15 +27796,15 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "maps-mapbox",
       "description": "Make deterministic Remotion 2D map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, map markers, labels, camera movement, or Mapbox styles.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
-      "lines": 450,
-      "words": 1547,
+      "lines": 441,
+      "words": 1522,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27875,15 +27847,15 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.544"
+      "version": "4.0.545"
     },
     {
       "name": "maps-mapbox",
       "description": "Make deterministic Remotion 2D map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, map markers, labels, camera movement, or Mapbox styles.",
       "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
-      "lines": 450,
-      "words": 1547,
+      "lines": 441,
+      "words": 1522,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -28360,8 +28332,8 @@
       "description": "Sanity development best practices for schema design, GROQ queries, TypeGen, Visual Editing, images, Portable Text, Studio structure, localization, migrations, Sanity Functions, webhooks, Blueprints, a",
       "path": "sanity-io--agent-toolkit/skills/sanity-best-practices/SKILL.md",
       "remote_path": "skills/sanity-best-practices/SKILL.md",
-      "lines": 89,
-      "words": 771,
+      "lines": 96,
+      "words": 905,
       "code_blocks": 1,
       "languages": []
     },
@@ -28946,6 +28918,16 @@
       "languages": []
     },
     {
+      "name": "stripe-bfcm-dashboard",
+      "description": ">-",
+      "path": "stripe--ai/skills/stripe-bfcm-dashboard/SKILL.md",
+      "remote_path": "skills/stripe-bfcm-dashboard/SKILL.md",
+      "lines": 71,
+      "words": 941,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "metronome",
       "description": ">-",
       "path": "stripe--ai/skills/metronome/SKILL.md",
@@ -29084,6 +29066,16 @@
       "languages": []
     },
     {
+      "name": "stripe-bfcm-dashboard",
+      "description": ">-",
+      "path": "stripe--ai/providers/grok/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "remote_path": "providers/grok/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "lines": 71,
+      "words": 941,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "metronome",
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/metronome/SKILL.md",
@@ -29209,6 +29201,16 @@
       "lines": 362,
       "words": 3161,
       "code_blocks": 12,
+      "languages": []
+    },
+    {
+      "name": "stripe-bfcm-dashboard",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "lines": 71,
+      "words": 941,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -29340,6 +29342,16 @@
       "languages": []
     },
     {
+      "name": "stripe-bfcm-dashboard",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "lines": 71,
+      "words": 941,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "metronome",
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/metronome/SKILL.md",
@@ -29468,6 +29480,16 @@
       "languages": []
     },
     {
+      "name": "stripe-bfcm-dashboard",
+      "description": ">-",
+      "path": "stripe--ai/providers/cursor/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "remote_path": "providers/cursor/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "lines": 71,
+      "words": 941,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "metronome",
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/metronome/SKILL.md",
@@ -29593,6 +29615,16 @@
       "lines": 362,
       "words": 3161,
       "code_blocks": 12,
+      "languages": []
+    },
+    {
+      "name": "stripe-bfcm-dashboard",
+      "description": ">-",
+      "path": "stripe--ai/providers/claude/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "remote_path": "providers/claude/plugin/skills/stripe-bfcm-dashboard/SKILL.md",
+      "lines": 71,
+      "words": 941,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -147769,8 +147801,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 311,
-      "words": 2771,
+      "lines": 320,
+      "words": 2854,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -147865,8 +147897,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1420,
-      "words": 14665,
+      "lines": 1424,
+      "words": 14698,
       "code_blocks": 72,
       "languages": [
         "bash",
@@ -148146,8 +148178,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 547,
-      "words": 9161,
+      "lines": 549,
+      "words": 9190,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -148247,7 +148279,7 @@
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
       "lines": 359,
-      "words": 1722,
+      "words": 1723,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -148681,8 +148713,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1391,
-      "words": 15271,
+      "lines": 1403,
+      "words": 15365,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -148718,8 +148750,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 487,
-      "words": 4012,
+      "lines": 506,
+      "words": 4172,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -148959,8 +148991,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
       "remote_path": "ghostty-use/references/automatic-snapshots.md",
-      "lines": 218,
-      "words": 1740,
+      "lines": 236,
+      "words": 1914,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -149128,9 +149160,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 1070,
-      "words": 8064,
-      "code_blocks": 40,
+      "lines": 1085,
+      "words": 8135,
+      "code_blocks": 42,
       "languages": [
         "bash",
         "text"
@@ -149575,8 +149607,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 295,
-      "words": 3896,
+      "lines": 296,
+      "words": 3925,
       "code_blocks": 0,
       "languages": []
     },
@@ -149597,8 +149629,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-load-doctor/SKILL.md",
       "remote_path": "daymade-macos/macos-load-doctor/SKILL.md",
-      "lines": 233,
-      "words": 1893,
+      "lines": 237,
+      "words": 1915,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -149643,8 +149675,8 @@
       "description": "Check cold, warm and incremental work before deploying or integrating a periodic health observer.",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/probe-cost.md",
       "remote_path": "daymade-macos/macos-watchdog/references/probe-cost.md",
-      "lines": 77,
-      "words": 661,
+      "lines": 89,
+      "words": 792,
       "code_blocks": 0,
       "languages": []
     },

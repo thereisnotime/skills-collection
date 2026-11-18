@@ -567,6 +567,12 @@
   ],
   "ClickHouse--agent-skills": [
     {
+      "sha": "19b3242",
+      "message": "best-practices: add version-aware full-text search guidance (#55)",
+      "date": "2026-11-17",
+      "author": "Dustin Healy"
+    },
+    {
       "sha": "d3b2b5b",
       "message": "Update the infra skills for clickhousectl 0.5.0 (#54)",
       "date": "2026-11-02",
@@ -619,12 +625,6 @@
       "message": "Sync JS skills and add clickhouse-js-node-rowbinary skill (#40)",
       "date": "2026-06-30",
       "author": "Peter Leonov"
-    },
-    {
-      "sha": "544384f",
-      "message": "Add clickhouse-managed-postgres-rca skill (#37)",
-      "date": "2026-06-08",
-      "author": "Deepak Divya Tejaswi"
     }
   ],
   "Digidai--product-manager-skills": [
@@ -691,6 +691,18 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "8f76146",
+      "message": "chore: release main (#2068)",
+      "date": "2026-11-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "f9970d8",
+      "message": "ci: reduce unrelated test work and report type errors earlier (#2082)",
+      "date": "2026-11-17",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "a3d6a8e",
       "message": "fix(ce-debug): fix every site that repeats the root-cause mistake (#2080)",
       "date": "2026-11-17",
@@ -737,18 +749,6 @@
       "message": "fix(skill-eval-cell): skip symlinks to files when listing user skills (#2067)",
       "date": "2026-11-13",
       "author": "Trevin Chow"
-    },
-    {
-      "sha": "d8f8e03",
-      "message": "chore: release main (#2064)",
-      "date": "2026-11-12",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "3cdf53d",
-      "message": "fix(skills): decode doc and git text as UTF-8 in validator and review-scope scripts (#2063)",
-      "date": "2026-11-12",
-      "author": "Luke Johnson"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -877,6 +877,36 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "a6da64f",
+      "message": "docs(cross-model): correct four stale statements (#1111) (#1112)",
+      "date": "2026-11-18",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "0e44f63",
+      "message": "chore(models): list GPT-6.2 Astra as a provisional verifier and the recommended OpenAI id (#1110)",
+      "date": "2026-11-18",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "f1c4195",
+      "message": "fix(academic-paper-reviewer): judge literature coverage as of the manuscript's date (#1107, part 1) (#1109)",
+      "date": "2026-11-18",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "c70feb7",
+      "message": "fix(scripts): no-follow readers work on Windows; refuse drive-prefixed refs (#1092) (#1105)",
+      "date": "2026-11-18",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "f7da54e",
+      "message": "feat(academic-paper-reviewer): roadmap levels below consensus, stakeholder seat, D3 premise (#1100, #1098) (#1104)",
+      "date": "2026-11-17",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "b337668",
       "message": "fix(academic-paper-reviewer): lint the #1098 sentence copies; fix example order and DA dimension count (#1099, #1101) (#",
       "date": "2026-11-17",
@@ -905,36 +935,6 @@
       "message": "fix(scripts): the citation patterns no longer backtrack exponentially on long capital or digit runs (#1088) (#1091)",
       "date": "2026-11-14",
       "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "36b22af",
-      "message": "docs(release): v3.24.3 (#1090)",
-      "date": "2026-11-14",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "5dd0001",
-      "message": "fix(scripts): the Phase 1 leak check counts Han and kana letters (#1077) (#1089)",
-      "date": "2026-11-14",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "adc3529",
-      "message": "fix(reviewer): the field analyst names no journal without a confirmed target (#1080) (#1086)",
-      "date": "2026-11-14",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "74547d6",
-      "message": "fix(scripts): count Chinese and Japanese triggers by Han and kana letters (part of #1077) (#1084)",
-      "date": "2026-11-14",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "620170a",
-      "message": "docs(third-party): correct the md-to-word row (format file name, language scope) (#1073)",
-      "date": "2026-11-14",
-      "author": "ls-open"
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
@@ -1873,6 +1873,18 @@
   ],
   "cloudflare--skills": [
     {
+      "sha": "5108325",
+      "message": "Merge pull request #287 from sejoker/yevgen/abasin-and-k2-skills-update",
+      "date": "2026-11-17",
+      "author": "Brendan Irvine-Broque"
+    },
+    {
+      "sha": "619d28a",
+      "message": "Point Basin and K2 skills at published docs",
+      "date": "2026-11-17",
+      "author": "Yevgen Safronov"
+    },
+    {
       "sha": "cbf893b",
       "message": "Merge pull request #280 from nu11waredev/workers-best-practices-vitest-plugin",
       "date": "2026-11-10",
@@ -1919,18 +1931,6 @@
       "message": "Merge pull request #265 from cloudflare/kylie/codeowners-ax",
       "date": "2026-11-06",
       "author": "Brendan Irvine-Broque"
-    },
-    {
-      "sha": "aa2f849",
-      "message": "clean up",
-      "date": "2026-11-06",
-      "author": "kylie ski"
-    },
-    {
-      "sha": "1dc4ffb",
-      "message": "Add @cloudflare/ax to CODEOWNERS",
-      "date": "2026-11-06",
-      "author": "Kylie Czajkowski"
     }
   ],
   "coffeefuelbump--csv-data-summarizer-claude-skill": [
@@ -1942,6 +1942,36 @@
     }
   ],
   "conorbronsdon--avoid-ai-writing": [
+    {
+      "sha": "a5d6bae",
+      "message": "ci: name the promo surfaces as ssot-check repos; bump the checker pin (#440)",
+      "date": "2026-11-18",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "0df5b34",
+      "message": "docs: README install path verified; fix dist size, pre-commit rev, clawhub and validator paths (#445)",
+      "date": "2026-11-18",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "47758aa",
+      "message": "fix(detector): match out-of-the-box with Unicode hyphens (#140) (#443)",
+      "date": "2026-11-17",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "4bbceff",
+      "message": "fix(detector): stop the separator-dash regex rescanning U+2028 runs (#442)",
+      "date": "2026-11-17",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "465d00e",
+      "message": "docs(catalog): qualify five more frequency claims and cite HAP-E for copula avoidance (#249) (#441)",
+      "date": "2026-11-17",
+      "author": "MateusSilva"
+    },
     {
       "sha": "563be13",
       "message": "fix(detector): HTML list separators and glossary rhythm (#351) (#438)",
@@ -1970,36 +2000,6 @@
       "sha": "a04645a",
       "message": "docs: explain Antigravity plugin installation (#435)",
       "date": "2026-11-12",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "08e2112",
-      "message": "feat(plugin): add Antigravity plugin manifest and release checks (#434)",
-      "date": "2026-11-12",
-      "author": "Brian Saghy"
-    },
-    {
-      "sha": "81e176c",
-      "message": "nightly: escape audit targets, fail vale:check on leftovers, LF-hash generator (#436)",
-      "date": "2026-11-12",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "30971f1",
-      "message": "docs: make AGENTS.md the repository contract; CLAUDE.md imports it (#432)",
-      "date": "2026-11-05",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "ccc8fc4",
-      "message": "feat(vale): generate a Vale style from the detector's pattern tables (#431)",
-      "date": "2026-11-04",
-      "author": "Ashwin"
-    },
-    {
-      "sha": "f6fbc00",
-      "message": "Merge pull request #430 from conorbronsdon/claude/catalog-claims-249-measured",
-      "date": "2026-11-03",
       "author": "Conor Bronsdon"
     }
   ],
@@ -2067,6 +2067,48 @@
   ],
   "coreyhaines31--marketingskills": [
     {
+      "sha": "73573e9",
+      "message": "Merge pull request #991 from coreyhaines31/fix/990-designskills-cross-references",
+      "date": "2026-11-18",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "afac1a6",
+      "message": "fix: match pronoun to both brand files in image",
+      "date": "2026-11-18",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "e2bab57",
+      "message": "fix: cover the case where both brand files exist",
+      "date": "2026-11-18",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "7944be5",
+      "message": "chore: release 2.14.13",
+      "date": "2026-11-18",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "b828dbc",
+      "message": "docs: list design-skills as a related library in the README",
+      "date": "2026-11-18",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "f193b2a",
+      "message": "feat: point to designskills where a skill stops at copy or an outline",
+      "date": "2026-11-18",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "5a0cba4",
+      "message": "feat: read .agents/brand.md before asking about brand assets",
+      "date": "2026-11-18",
+      "author": "Corey Haines"
+    },
+    {
       "sha": "1f83744",
       "message": "Merge pull request #961 from coreyhaines31/fix/960-skills-guard-false-positives",
       "date": "2026-11-11",
@@ -2081,48 +2123,6 @@
     {
       "sha": "6d90c2f",
       "message": "Merge pull request #962 from coreyhaines31/fix/directory-submissions-listing-kit",
-      "date": "2026-11-11",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "310ebb9",
-      "message": "feat(directory-submissions): fill form-only directories with browser or computer use",
-      "date": "2026-11-11",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "580949d",
-      "message": "fix(directory-submissions): separate registry IDs from display names; scope the public-repo check",
-      "date": "2026-11-11",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "dd4cbff",
-      "message": "chore: release 2.14.11",
-      "date": "2026-11-11",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "7f3f3ad",
-      "message": "feat(directory-submissions): add rules for agent-run submissions and link the new references",
-      "date": "2026-11-11",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "f42d479",
-      "message": "feat(directory-submissions): document repo files agent registries read, checked against their docs",
-      "date": "2026-11-11",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "09fb137",
-      "message": "feat(directory-submissions): add a listing kit filled in once before submitting",
-      "date": "2026-11-11",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "3e72962",
-      "message": "Merge pull request #958 from coreyhaines31/fix/ad-creative-static-formats",
       "date": "2026-11-11",
       "author": "Corey Haines"
     }
@@ -2839,6 +2839,24 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "6f435c4",
+      "message": "Release 3.0.10 (#210)",
+      "date": "2026-11-17",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "9503c93",
+      "message": "fix(neon-ai-gateway): say when env pull writes the gateway variables (#207)",
+      "date": "2026-11-17",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "067f9fb",
+      "message": "Release 3.0.9 (#206)",
+      "date": "2026-11-17",
+      "author": "Tony Dang"
+    },
+    {
       "sha": "60b9a53",
       "message": "docs(neon-auth): add Discord with the Neon CLI (#203)",
       "date": "2026-11-14",
@@ -2879,24 +2897,6 @@
       "message": "Add a FAQ to the neon skill: getting data out of a Free project over its limits (#196)",
       "date": "2026-11-11",
       "author": "Andre Landgraf"
-    },
-    {
-      "sha": "392174f",
-      "message": "Merge pull request #191 from neondatabase/docs/use-web-standard-mcp-transport",
-      "date": "2026-11-10",
-      "author": "Tony Dang"
-    },
-    {
-      "sha": "5116931",
-      "message": "Address MCP transport review feedback",
-      "date": "2026-11-10",
-      "author": "Tony Dang"
-    },
-    {
-      "sha": "5cb8bd2",
-      "message": "Bump package version to 3.0.6",
-      "date": "2026-11-07",
-      "author": "Tony Dang"
     }
   ],
   "netlify--context-and-tools": [
@@ -3211,6 +3211,12 @@
   ],
   "remotion-dev--skills": [
     {
+      "sha": "6f55706",
+      "message": "Update template",
+      "date": "2026-11-18",
+      "author": "Jonny Burger"
+    },
+    {
       "sha": "3e20ac7",
       "message": "Update template",
       "date": "2026-11-16",
@@ -3262,12 +3268,6 @@
       "sha": "039e8a2",
       "message": "Update template",
       "date": "2026-10-19",
-      "author": "JonnyBurger"
-    },
-    {
-      "sha": "1441a11",
-      "message": "Update template",
-      "date": "2026-10-16",
       "author": "JonnyBurger"
     }
   ],
@@ -3397,6 +3397,12 @@
   ],
   "sanity-io--agent-toolkit": [
     {
+      "sha": "5cb78d3",
+      "message": "docs(skills): point agents to the docs for Studio edit links (#103)",
+      "date": "2026-11-17",
+      "author": "Knut Melv\u00e6r"
+    },
+    {
       "sha": "3ed3a14",
       "message": "docs(functions): commit the patch in the document function example (#99)",
       "date": "2026-10-27",
@@ -3449,12 +3455,6 @@
       "message": "docs(groq): teach query construction before execution (#89)",
       "date": "2026-09-09",
       "author": "Daniel Shapiro"
-    },
-    {
-      "sha": "e5c04f4",
-      "message": "Add sanity-studio-upgrade skill (#85)",
-      "date": "2026-09-09",
-      "author": "Eric Streske"
     }
   ],
   "sanjay3290--ai-skills": [
@@ -3645,6 +3645,12 @@
   ],
   "stripe--ai": [
     {
+      "sha": "72e7e79",
+      "message": "sync skills",
+      "date": "2026-11-18",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
       "sha": "2f0d00c",
       "message": "sync skills",
       "date": "2026-11-17",
@@ -3697,12 +3703,6 @@
       "message": "sync skills",
       "date": "2026-11-13",
       "author": "stripe-ai-sync[bot]"
-    },
-    {
-      "sha": "e5c20ad",
-      "message": "added note to hopefully get anthropic agent to understand what it's reading (#624)",
-      "date": "2026-11-12",
-      "author": "John O'Sullivan"
     }
   ],
   "supabase--agent-skills": [
@@ -4465,62 +4465,62 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "3ee0df6",
-      "message": "release: v11.152.0",
+      "sha": "15e73cb",
+      "message": "release: v11.156.0",
+      "date": "2026-11-18",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "72ee2eb",
+      "message": "Empty Unreleased ahead of v11.156.0 (its notes carry every bullet)",
+      "date": "2026-11-18",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "84ce0cd",
+      "message": "Changelog: the three new bullets belong under Unreleased, not under v11.155.0",
       "date": "2026-11-17",
       "author": "asklokesh"
     },
     {
-      "sha": "952633f",
-      "message": "Empty Unreleased ahead of v11.152.0 (its notes carry every bullet)",
+      "sha": "dc63cfc",
+      "message": "rw-03 unit 1: a stop of Loki's own says so in the reason; open items as structured data",
       "date": "2026-11-17",
       "author": "asklokesh"
     },
     {
-      "sha": "fa5ed27",
-      "message": "A whole-issue run is never sized below 40 minutes",
+      "sha": "5418fac",
+      "message": "A documented test command keeps the test file as its own argument, and the brief is proven end to end",
       "date": "2026-11-17",
       "author": "asklokesh"
     },
     {
-      "sha": "ebeb3f7",
-      "message": "A new test that runs only inside the proof is disclosed, not a cap",
+      "sha": "7bb510f",
+      "message": "A root guide's prohibition holds for packages below the root; setup is offered only when tests cannot start",
       "date": "2026-11-17",
       "author": "asklokesh"
     },
     {
-      "sha": "2fede7c",
-      "message": "A new test case's own spy does not weaken the file it is added to",
+      "sha": "6ffaa60",
+      "message": "Loki follows the repository's own instructions for running its tests",
       "date": "2026-11-17",
       "author": "asklokesh"
     },
     {
-      "sha": "5ff92cd",
-      "message": "release: v11.151.0",
+      "sha": "951f565",
+      "message": "release: v11.155.0",
       "date": "2026-11-17",
       "author": "asklokesh"
     },
     {
-      "sha": "a7b29f3",
-      "message": "Empty Unreleased ahead of v11.151.0 (its notes carry every bullet)",
+      "sha": "ca59bf9",
+      "message": "Empty Unreleased ahead of v11.155.0 (its notes carry every bullet)",
       "date": "2026-11-17",
       "author": "asklokesh"
     },
     {
-      "sha": "35afe3d",
-      "message": "The independent review reads the whole change",
-      "date": "2026-11-17",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "26b8ca1",
-      "message": "Review, then fix: the independent review runs once during an issue run and its defects go back to the session",
-      "date": "2026-11-17",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "c0a4c03",
-      "message": "Merge branch 'worktree-agent-a1037e16506241215'",
+      "sha": "d9364cf",
+      "message": "Revert \"Merge commit 'e8f7432603f7c9cf285a7170af5446a71d0284dc'\"",
       "date": "2026-11-17",
       "author": "asklokesh"
     }
@@ -5265,63 +5265,63 @@
   ],
   "daymade--claude-code-skills": [
     {
-      "sha": "950407a",
-      "message": "docs: route sparse filtered worktree retirement through its owner (#1610)",
-      "date": "2026-11-17",
+      "sha": "0c9de29",
+      "message": "docs: recover slow LAN copies with bounded parallel streams (#1647)",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "93b15dc",
-      "message": "fix: preserve sparse worktrees with omitted filtered files (#1608)",
-      "date": "2026-11-17",
+      "sha": "3ead405",
+      "message": "Route materialized LFS through the worktree retirement SOP",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "e37d970",
-      "message": "docs: align audio workflow entry points with canonical sources (#1607)",
-      "date": "2026-11-17",
+      "sha": "641ac47",
+      "message": "Resolve known Codex thread IDs through the catalog index (#1646)",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "a256a91",
-      "message": "docs: trace process workloads and preserve background task state [skip ci]",
-      "date": "2026-11-17",
+      "sha": "fe55cca",
+      "message": "Verify retained Git LFS payloads before worktree retirement",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "c02e5d6",
-      "message": "fix: bound BM25-only recall candidate work (#1604)",
-      "date": "2026-11-17",
+      "sha": "5a9e94e",
+      "message": "docs: align performance routes with history maintenance (#1643)",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "4f4f351",
-      "message": "docs: route account switching through its authentication owner (#1605)",
-      "date": "2026-11-17",
+      "sha": "fddd6fd",
+      "message": "docs: reuse completed push checks and verify native retries (#1640)",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "c5c3f0b",
-      "message": "feat(audio): teach thin service entry and source-backed acceptance cases (#1603)",
-      "date": "2026-11-17",
+      "sha": "aa4645d",
+      "message": "docs: verify repeated work and incremental history refreshes (#1639)",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "0621ec8",
-      "message": "docs: align meeting contracts and executable publication examples (#1599)",
-      "date": "2026-11-17",
+      "sha": "cebc4f0",
+      "message": "docs: simplify transcript verdict routing (#1638)",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "bf82560",
-      "message": "docs: route macOS fork acceptance to maintained SOPs (#1601)",
-      "date": "2026-11-17",
+      "sha": "0f13062",
+      "message": "Route worktree review and CPU evidence procedures from CLAUDE.md (#1637)",
+      "date": "2026-11-18",
       "author": "daymade"
     },
     {
-      "sha": "fecaa81",
-      "message": "docs: route acoustic diagnosis from project instructions (#1602)",
-      "date": "2026-11-17",
+      "sha": "2dccb6e",
+      "message": "docs: scope human transcript verdicts (#1634)",
+      "date": "2026-11-18",
       "author": "daymade"
     }
   ],
@@ -5513,63 +5513,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "0d6306f",
-      "message": "chore(badge): update claude-subagents.md Last Updated badge to v2.1.326",
-      "date": "2026-11-17",
+      "sha": "215f3be",
+      "message": "chore(subagents-report): update Last Updated badge to Nov 18, 2026 v2.1.327",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "d1fb536",
-      "message": "chore(changelog): append 2026-11-17 subagents drift entry (v2.1.326)",
-      "date": "2026-11-17",
+      "sha": "bfe4c73",
+      "message": "chore(subagents-changelog): append 2026-11-18 drift entry for v2.1.327",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "43faedc",
-      "message": "chore(changelog): add 2026-11-17 commands drift-check entry (v2.1.326)",
-      "date": "2026-11-17",
+      "sha": "9f8bf8b",
+      "message": "Append 2026-11-18 drift-check entry to claude-commands changelog (v2.1.327)",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "73ae93d",
-      "message": "docs(claude-commands): sync descriptions to v2.1.326 official docs",
-      "date": "2026-11-17",
+      "sha": "51e8045",
+      "message": "Update claude-commands.md badges: Last Updated Nov 18 2026, version v2.1.326 \u2192 v2.1.327",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "c100990",
-      "message": "chore(changelog/skills): append 2026-11-17 entry \u2014 no drift at v2.1.326",
-      "date": "2026-11-17",
+      "sha": "1496dcc",
+      "message": "docs(claude-skills): update Last Updated badge to Nov 18, 2026 and version to v2.1.327",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "c941e97",
-      "message": "chore(skills): update Last Updated badge to Nov 17 2026 and version to v2.1.326",
-      "date": "2026-11-17",
+      "sha": "585ec98",
+      "message": "changelog(claude-skills): add 2026-11-18 drift run entry for v2.1.327",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "b65004f",
-      "message": "chore(readme): bump Last Updated badge to Nov 17, 2026 9:39 AM PKT",
-      "date": "2026-11-17",
+      "sha": "faa9fc5",
+      "message": "chore(changelog): append 2026-11-18 concepts drift-check entry (v2.1.327)",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "7948294",
-      "message": "chore(changelog): append v2.1.326 steady-state CONCEPTS drift check",
-      "date": "2026-11-17",
+      "sha": "93aba49",
+      "message": "chore(badge): update Last Updated badge to Nov 18, 2026 9:35 AM PKT",
+      "date": "2026-11-18",
       "author": "Claude"
     },
     {
-      "sha": "0e74412",
-      "message": "append Nov 17 2026 changelog entry for development-workflows update",
-      "date": "2026-11-17",
+      "sha": "15a063e",
+      "message": "Add Nov 18 2026 development workflows changelog entry",
+      "date": "2026-11-18",
       "author": "Claude Routine"
     },
     {
-      "sha": "05cd008",
-      "message": "update DEVELOPMENT WORKFLOWS table \u2014 Nov 17 2026 stars + HumanLayer skills",
-      "date": "2026-11-17",
+      "sha": "b18f7a0",
+      "message": "Update DEVELOPMENT WORKFLOWS table stars (Nov 18 2026)",
+      "date": "2026-11-18",
       "author": "Claude Routine"
     }
   ],
@@ -5637,6 +5637,54 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "4767de2",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "0f5a168",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "3fda318",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "c70a7a0",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "b712b60",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "528950b",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "fd9edfd",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "5b14964",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-17",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "f664520",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-11-17",
@@ -5646,54 +5694,6 @@
       "sha": "8943da2",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-11-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "25d74d8",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "f63220b",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "8698bca",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "9889a97",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "27429e2",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "fc9d780",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "f086b05",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "d79768c",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-16",
       "author": "github-actions[bot]"
     }
   ],
@@ -5947,64 +5947,64 @@
   ],
   "JuliusBrussee--caveman": [
     {
-      "sha": "9b24366",
-      "message": "docs: refresh star history chart (#1537)",
-      "date": "2026-11-16",
+      "sha": "a192894",
+      "message": "docs(readme): say what Caveman Code measured",
+      "date": "2026-11-17",
       "author": "Julius Brussee"
     },
     {
-      "sha": "b4ee71d",
-      "message": "fix(readme): stop GitHub clipping the Caveman Code banner (#1527)",
-      "date": "2026-11-13",
+      "sha": "3a0d376",
+      "message": "chore: drop stale monorepo paths and private references from comments",
+      "date": "2026-11-17",
       "author": "Julius Brussee"
     },
     {
-      "sha": "67968b7",
-      "message": "fix(ci): select patched Go 1.26.11 toolchain (#1532)",
-      "date": "2026-11-13",
+      "sha": "ace655c",
+      "message": "fix(engine): pixel atlas and golden generators write inside this repo",
+      "date": "2026-11-17",
       "author": "Julius Brussee"
     },
     {
-      "sha": "ad47375",
-      "message": "Merge pull request #1526 from JuliusBrussee/docs/caveman-code-banner",
-      "date": "2026-11-13",
+      "sha": "d775f2e",
+      "message": "chore(provider-catalog): mark the workspace package private",
+      "date": "2026-11-17",
       "author": "Julius Brussee"
     },
     {
-      "sha": "1774e1c",
-      "message": "docs(readme): add Caveman Code launch banner",
-      "date": "2026-11-13",
+      "sha": "8846a12",
+      "message": "test(installer): run the stable PATH node test on a dynamically linked node",
+      "date": "2026-11-17",
       "author": "Julius Brussee"
     },
     {
-      "sha": "f5523a8",
-      "message": "chore: sync SKILL.md copies [skip ci]",
-      "date": "2026-11-12",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "9928641",
-      "message": "Merge pull request #1427 from danez/feat/compress-codex-provider",
-      "date": "2026-11-12",
+      "sha": "1cbe5b6",
+      "message": "fix(cli): remove dev and deploy aws, which printed make targets this repo lacks",
+      "date": "2026-11-17",
       "author": "Julius Brussee"
     },
     {
-      "sha": "8d31f1b",
-      "message": "Merge pull request #1518 from JuliusBrussee/daily-triage/2026-11-12",
-      "date": "2026-11-12",
+      "sha": "edd5648",
+      "message": "docs: state benchmark numbers with their samples and drop private references",
+      "date": "2026-11-17",
       "author": "Julius Brussee"
     },
     {
-      "sha": "7fe17aa",
-      "message": "fix(proxy): re-raise http.ErrAbortHandler from the engine guard",
-      "date": "2026-11-12",
-      "author": "Claude"
+      "sha": "8e00433",
+      "message": "docs: collapse per-folder agent docs into one AGENTS.md each",
+      "date": "2026-11-17",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "4cfa054",
-      "message": "fix(opencode): preserve whitespace in configured OPENCODE_CONFIG_DIR",
-      "date": "2026-11-12",
-      "author": "Anirudh Sharma"
+      "sha": "299dac5",
+      "message": "docs(technical): drop audits and design records, fold live rules in",
+      "date": "2026-11-17",
+      "author": "Julius Brussee"
+    },
+    {
+      "sha": "87f163d",
+      "message": "docs: make AGENTS.md the agent guide and add docs/WHY.md",
+      "date": "2026-11-17",
+      "author": "Julius Brussee"
     }
   ],
   "dietrichgebert--ponytail": [
