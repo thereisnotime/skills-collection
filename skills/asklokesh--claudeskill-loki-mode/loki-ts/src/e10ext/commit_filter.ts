@@ -6,6 +6,9 @@ import { installOwned } from "../project_model/install.ts"; import { LOCKFILE_RE
 import { runFormattersRecord, type FormatRecord } from "../runner/repo_profile.ts";
 import { safeGit, safeGitSpawn, tokenFreeEnv } from "../util/safe_git.ts";
 import { commitWallEnabled } from "../util/check_result.ts";
+import { recoverRunWork } from "../util/base_guard.ts";
+/** WORK-RECOVERY: before a run-end commit (backstop or WIP), the run's own set-aside work returns to the tree and the checkout to the run branch (util/base_guard.ts). */
+const rescueRunWork = (repoDir: string, runId: string): void => { if (/^e10-[A-Za-z0-9-]+$/.test(runId)) recoverRunWork({ repoDir, runDir: join(repoDir, ".loki", "runs", runId), branch: `loki/${runId}`, where: "run-end", moveBranch: true }); };
 import { escapeRegex } from "../util/regex_escape.ts";
 
 export const WALL_FILE = /(^|\/)loki_wall_[^/]*$/; // a Wall test file: the commit stage never publishes it
@@ -204,9 +207,20 @@ export function guardedBackstop(intact: boolean, repoDir: string, workerEnv: Nod
   if (!intact) return "backstop commit skipped: event log failed verification";
   const b = validBase(base);
   if (b === null) return base === null || base === undefined ? null : "backstop commit skipped: base is not a full object id";
+  rescueRunWork(repoDir, runId);
   backstopCommit(repoDir, workerEnv, runId, b, preexistingDirty, installCreated, untrackedBlobs, task);
   return null;
 }
+
+/** DELIVER-WHAT-EXISTS: which runs that are not VERIFIED or PARTIAL still open a DRAFT pull request for the change they produced (the supervisor's push
+ *  condition calls this). A FAILED run, sealed or not (a killed or crashed worker leaves no receipt; the backstop commit holds its work), and a
+ *  SPEC_CONFLICT run (the draft leads with the question and `loki answer`). Never a label rule: the verdict and the outcome are untouched, the pull
+ *  request is always a draft, and the security-scan secret match still refuses the push. LOKI_E10_DELIVER_UNSEALED=0 restores the rule before this
+ *  change (a FAILED run with a sealed receipt only). */
+export const deliverUnsealedOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_DELIVER_UNSEALED"] ?? "").trim());
+export const deliverAsDraft = (verdict: string, sealed: boolean, env: NodeJS.ProcessEnv = process.env): boolean => (deliverUnsealedOn(env) ? verdict === "FAILED" || verdict === "SPEC_CONFLICT" : verdict === "FAILED" && sealed);
+/** A deep verify follows a VERIFIED or PARTIAL pull request only: a FAILED or blocked draft has nothing to deep-verify and must not carry a pending status. */
+export const deepAfterPr = (verdict: string): boolean => verdict === "VERIFIED" || verdict === "PARTIAL";
 
 /** Run safety: before the checkout returns to the user's branch, whatever the run left uncommitted (any outcome without a PR: FAILED,
  *  STALLED, BLOCKED, BUDGET_STOP, a SIGINT/SIGTERM cancel) becomes one WIP commit on its own branch, so `git checkout <start>` neither
@@ -216,6 +230,7 @@ export function guardedBackstop(intact: boolean, repoDir: string, workerEnv: Nod
 export function commitUnsealedWork(intact: boolean, repoDir: string, workerEnv: NodeJS.ProcessEnv, runId: string, intake: Record<string, unknown> | undefined): boolean {
   if (!intact || !intake || validBase(intake["base_sha"]) === null) return false;
   const g = (args: string[]) => safeGit(repoDir, args, { env: workerEnv });
+  rescueRunWork(repoDir, runId); // a paused or cancelled run's work in a stash or on a branch a session switched to is committed too
   try {
     if (g(["symbolic-ref", "-q", "--short", "HEAD"]).trim() !== `loki/${runId}`) return false;
     const keys = (o: unknown): string[] => (o && typeof o === "object" ? Object.keys(o) : []);

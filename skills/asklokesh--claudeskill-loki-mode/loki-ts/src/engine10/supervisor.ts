@@ -6,16 +6,16 @@ import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
 import { redactEventData } from "../util/redact.ts"; import { deadlineCapS, localBranchNote, resolveRunCapS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
 import { terminalWidth } from "../util/term_width.ts";
 import { diffStat, runHead, formatRunSummary, handoffSection, readRiskSummary, writeHandoff, withNextLine, withFoldLine, withRiskLine, nextOf, resultOf, summaryObject, useColor } from "../util/run_summary.ts"; // OC-OUTPUT, RISKTIER
-import { commitUnsealedWork, guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
+import { commitUnsealedWork, deepAfterPr, deliverAsDraft, guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
 import { kidOf, loadSigningKey, secretPushLine, secretPushRefusal } from "./stages/seal.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { ISSUE_LABELS_ENV, issueWholeFirst } from "../features/decompose.ts";
+import { deliverables, ISSUE_LABELS_ENV, issueWholeFirst } from "../features/decompose.ts"; import { smallMaxChars } from "./sizing.ts";
 import { dirname, join, relative, resolve } from "node:path"; import { writeRunState } from "../util/seal_drift.ts";
 import { loadSpecFile, type LoadedSpec } from "../util/spec_file.ts";
 import { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker } from "../util/engine_origin.ts";
 export { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker }; // re-exported: callers and tests import these from here
 import { stageCapability, workerStages } from "./worker.ts"; import { withholdGithubTokens } from "../runner/github_token.ts"; import { readAliveBeat, writeAliveBeat, writeRunPid } from "../util/run_pid.ts";
-import { EventLog, conflictReasonOf, fold, partialCost, runCostUsd, summaryCost, readEvents, tail } from "./events.ts"; import { stageShareText } from "../util/cost_breakdown.ts";
+import { EventLog, conflictReasonOf, fold, partialCost, runCostUsd, summaryCost, readEvents, tail } from "./events.ts"; import { stageShareText } from "../util/cost_breakdown.ts"; import { verifiedHeader, verifiedOn } from "./closure.ts";
 import { disclosureLine } from "../providers/provider_guard.ts";
 import { resolveRunProvider } from "../runner/state.ts";
 import { budgetNext, capNote, groupEnv, parseCapUsd, priorSpend, resolveCap, SUBSCRIPTION_NOTE, unenforceableNote, writeBudgetStop } from "../e10ext/budget_cap.ts";
@@ -24,15 +24,15 @@ import { fetchTrackerIssueToFile, parseTrackerRef } from "../features/tracker_in
 import { formatHeartbeatLine, formatStageLine, spendSoFar, formatSummary, preModelTiming, EXIT, exitCodeOf, outcomeOf, reasonOf, currentAttempt, usageLimitOfRun, type Outcome } from "./output.ts";
 import { CandidateView, LiveLine } from "../e10ext/liveline.ts"; import { consoleOn, LiveConsole } from "../e10ext/console.ts";
 import { SAFE_BUN_FLAGS, envWithPwd, killGroup, spawnDetached, spawnWorker, ulimitArgv } from "../runner/worker_proc.ts";
-import { askIntent } from "../util/intent_card.ts";
+import { askIntent, issueAcceptance } from "../util/intent_card.ts";
 import { assertPreflight, PreflightError } from "./preflight.ts"; import { noteRefusal, noteRefusalFromEvents, type PreflightBlocker } from "../util/funnel.ts";
 import { resolveModel } from "./session.ts";
 import { cleanTreeId, failedCheckNames, recordFingerprints } from "../util/failure_memory.ts";
 import { modelDowngrades } from "../runner/model_downgrades.ts";
 import { runIdentity } from "../util/run_identity.ts";
 import type { PrContext } from "./stages/pr.ts";
-import { type EventEnvelope, type PushEnv, type StageName, type Verdict, backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, envCapS, pushArgv, STAGE_BUDGETS } from "./types.ts";
-import { baseLine, finishRunBranch } from "../util/base_guard.ts";
+import { type EventEnvelope, type PushEnv, type StageName, type Verdict, backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, envCapS, proveByRunningOn, pushArgv, STAGE_BUDGETS, WORK_ROAD_ENV } from "./types.ts";
+import { baseLine, finishRunBranch, prBasePlan } from "../util/base_guard.ts";
 import { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, runIntent, summaryCache, summaryTokens, unmergedLokiWorkNote, type PolicyGate } from "../util/run_outputs.ts";
 
 export { backstopS, BACKSTOP_GRACE_S }; // re-exported: callers import the backstop math from here, its home before r4
@@ -210,6 +210,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   writeAliveBeat(aliveDir); const beat = setInterval(() => { writeAliveBeat(aliveDir); stuck.tick(Date.now()); const w = quiet.due(Date.now()); if (w) log.append("watchdog.silent", w.stage as StageName, { silent_s: w.silentS, last_event: w.lastType, processes: descendantNames(process.pid) }); }, ALIVE_BEAT_MS); beat.unref(); // cheap heartbeat for quiet stages (a long verify emits no events)
   const workerEnv: NodeJS.ProcessEnv = { ...env }; // withholdGithubTokens mutates its argument: always a copy, never env itself
   withholdGithubTokens(workerEnv); if (opts.resume) workerEnv.LOKI_E10_RESUME = "1";
+  if (opts.started?.["road"] === "work") workerEnv[WORK_ROAD_ENV] = "1"; else delete workerEnv[WORK_ROAD_ENV]; // RW-02 ONE ROAD: every worker of a run, a resumed one included (its started data is the first run.started), reads the road the run was started on
   // T3: the worker has no terminal; only the supervisor can ask the LOKI_CONFIRM question.
   workerEnv.LOKI_INTENT_TTY = env.LOKI_CONFIRM === "1" && process.stdin.isTTY === true && process.stdout.isTTY === true ? "1" : "0";
   const capS = opts.capS ?? envCapS(env.LOKI_E10_CAP_S) ?? DEFAULT_CAP_S;
@@ -265,7 +266,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   }
   // FAILED-PR: a FAILED run with a sealed receipt and committed work opens a labelled DRAFT PR ("[FAILED: <check>]", the failing checks first), so committed work is never kept silently local.
   // SECRET-PUSH: the one exception is a security scan secret match (stages/seal.ts secretPushRefusal): that change must not leave the machine before a review, whatever the verdict.
-  const pushable = !!opts.pr && !cancelled && intact && !!origin && hasDiff, failedPr = verdict === "FAILED" && receiptVerdict;
+  const pushable = !!opts.pr && !cancelled && intact && !!origin && hasDiff, failedPr = deliverAsDraft(verdict, receiptVerdict, env);
   const refusal = pushable ? secretPushRefusal(readEvents(log.path).findLast((e) => e.type === "stage.completed" && e.stage === "verify")?.data, opts.runId) : null;
   if (pushable && refusal) process.stderr.write(`engine10: run ${opts.runId}: ${secretPushLine(refusal)}\n`);
   else if (pushable && verdict !== "ALREADY_SATISFIED" && verdict !== "VERIFIED" && verdict !== "PARTIAL" && !failedPr) process.stderr.write(localBranchNote(opts.runId, verdict, opts.repoDir)); // FC-NO-PUSH-UNVERIFIED: SPEC_CONFLICT, and a FAILED run with no receipt
@@ -278,7 +279,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
       log.append("pr.opened", "pr", { url: out.url, draft: out.draft, existing: out.existing });
       await opts.status?.({ prUrl: out.url }); await slackEvent(env, "pr_opened", { repo: githubRepoFromUrl(origin) ?? undefined, issue: String(opts.started?.["issue_ref"] ?? ""), prUrl: out.url, outcome: verdict }); // D51-A4
       // E-48: deep verify (stages/deep.ts) runs detached, never keeping the supervisor alive; deep.started records the pid so it is never orphaned untracked.
-      if (opts.deepArgv && verdict !== "FAILED") notProven.push(...spawnDeep(opts.deepArgv, origin, { workerEnv, env, repoDir: opts.repoDir, append: (d) => log.append(d.type as never, "deep", d.data) }));
+      if (opts.deepArgv && deepAfterPr(verdict)) notProven.push(...spawnDeep(opts.deepArgv, origin, { workerEnv, env, repoDir: opts.repoDir, append: (d) => log.append(d.type as never, "deep", d.data) }));
     }
   }
   const allEvents = readEvents(log.path), folded = fold(allEvents), lokiRoot = join(opts.repoDir, ".loki"), costUsd = runCostUsd(allEvents, log.tampered, lokiRoot), wallS = (Date.now() - t0) / 1000; // one read, reused for cost and the Slack summary; unknown cost stays null
@@ -307,6 +308,30 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
 }
 export { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, summaryCache, summaryTokens, unmergedLokiWorkNote, type PolicyGate }; // moved to util/run_outputs.ts (line budget); re-exported for existing callers
 const ISSUE_RE = /^(?:[\w.-]+\/[\w.-]+#\d+|https?:\/\/\S+\/(?:-\/)?issues\/\d+)$/;
+/** RW-02 ONE ROAD: whether a text task takes the proof and acceptance road an issue takes (types.ts WORK_ROAD_ENV). Decided once per run, from the task alone:
+ *  - only a task that carries its own acceptance list (util/intent_card.ts issueAcceptance, the reader an issue gets) takes the road: it states what done
+ *    means, so there are lines to prove and count. A task in prose stays on the plain road, byte for byte. The road was first keyed on length alone and that
+ *    was wrong: on the same model it cost 4 to 6 times more per run than the plain road and bought accuracy once, and for a prose task it replaced mechanisms
+ *    the plain road has (42 legs of tests/min/scope-and-fix.sh). LOKI_E10_ONE_ROAD=all puts prose tasks on it too, to measure before any default changes;
+ *  - a spec run (--spec FILE), a --seal-existing run and a group unit (LOKI_UNIT_ID) keep their own road;
+ *  - a task no longer than the small bar (LOKI_E10_SMALL_MAX_CHARS, 600) keeps the fast road: only such a task can size small (sizing.ts sizeTask), and the small
+ *    path was measured to pay without a plan or a second session (E-45, E-64), so a one-line goal does not buy the proof loop's turns;
+ *  - a task that sizes large by structure (features/decompose.ts deliverables, the one definition of large) is a spec with several deliverables and keeps the road it
+ *    has: the group split entered before this is untouched, and so is what its sequential fallback gets.
+ *  There is no content test for "a PRD": any file given to `loki start` is read into the task text, so these rules are what tells a description of work from a
+ *  spec. LOKI_E10_ONE_ROAD=0 turns the road off for every text task. */
+export function workRoad(task: string, o: { spec: boolean; sealPatch: boolean; provider: string }, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (/^(0|off|false|no)$/i.test((env["LOKI_E10_ONE_ROAD"] ?? "").trim()) || o.spec || o.sealPatch || env["LOKI_UNIT_ID"]) return false;
+  if (o.provider !== "claude" || !proveByRunningOn(env)) return false; // the road's brief exists only there (types.ts issueRunBrief): a run that is never asked for a proof script must not get lines read at intake or be held for leaving none
+  if (task.length <= smallMaxChars(env) || deliverables(task, []).large) return false;
+  return /^all$/i.test((env["LOKI_E10_ONE_ROAD"] ?? "").trim()) || issueAcceptance(task).length > 0;
+}
+/** The road a run takes, for run.started: "issue" (an issue ref, or an issue supplied as a file in LOKI_E10_ISSUE_JSON, which intake reads as the task),
+ *  "spec" (--spec FILE), "work" (a text task on the issue's proof and acceptance road) or "text" (the plain road). */
+export function runRoad(task: string, o: { isIssue: boolean; spec: boolean; sealPatch: boolean; provider: string }, env: NodeJS.ProcessEnv = process.env): "issue" | "spec" | "work" | "text" {
+  const supplied = env["LOKI_E10_ISSUE_JSON"];
+  return o.isIssue || (!!supplied && existsSync(supplied)) ? "issue" : o.spec ? "spec" : workRoad(task, o, env) ? "work" : "text";
+}
 export { partialCost }; // E-69: defined in events.ts, next to fold(); re-exported so existing callers/tests keep importing it from here
 /** The end-of-run summary cost inputs, read with the run's .loki root so child sessions join. */
 export const runSummaryCost = (events: EventEnvelope[], tampered: boolean, repoDir: string): ReturnType<typeof summaryCost> => summaryCost(events, tampered, join(repoDir, ".loki"));
@@ -317,6 +342,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     const a = args[i]!;
     if (a === "--no-pr") noPr = true;
     else if (a === "--deep") deep = true;
+    else if (a === "--verified") process.env.LOKI_VERIFIED = "1"; // RW-03: the worker and every stage read the variable, so the flag and the variable are one switch
     else if (a === "--json") json = true;
     else if (a === "--verbose") verbose = true;
     else if (a === "--quiet") quiet = true; // OC-OUTPUT: unified summary only
@@ -327,11 +353,12 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     else if (a.startsWith("--spec=")) specFile = a.slice(7);
     else if (a === "--resume") resume = true;
     else if (a === "--fresh") fresh = true; // SB-12: skip the interrupted-run offer
+    else if (a === "--base-current") process.env.LOKI_BASE_CURRENT = "1"; // PR-BASE (1 of 2): build on the current branch; the pull request then targets that branch (util/base_guard.ts prBasePlan)
     else if (a === "--label") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --label needs a value\n"); noteRefusal("unsupported_flag"); return 2; } label = v; i++; } // MANY: `loki start owner/repo --label L` runs every open issue carrying the label
     else if (a.startsWith("--label=")) label = a.slice(8);
     else if (a === "--seal-existing") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --seal-existing needs a patch file\n"); noteRefusal("unsupported_flag"); return 2; } sealPatch = resolve(v); noPr = true; i++; } // CW-12: the changes already exist as this patch; implement applies it instead of running a session, and no PR is ever opened
     else if (a === "--" && !eoo) eoo = true; // TEN-STABILITY-37: `--` ends options, the rest is task text
-    else if (!eoo && /^--?[A-Za-z][\w-]*(=\S*)?$/.test(a)) { process.stderr.write(`engine10: unknown flag ${a}\nusage: loki "<task>" [--no-pr] [--deep] [--json] [--verbose] [--quiet] [--max-cost N] [--provider P] [--spec F] [--seal-existing PATCH] [--resume] [--fresh] [-- <task>]\n`); noteRefusal("unsupported_flag"); return 2; } // flag-shaped only: a PRD body starting with "- item" or "---" has whitespace and stays task text
+    else if (!eoo && /^--?[A-Za-z][\w-]*(=\S*)?$/.test(a)) { process.stderr.write(`engine10: unknown flag ${a}\nusage: loki "<task>" [--no-pr] [--deep] [--verified] [--json] [--verbose] [--quiet] [--max-cost N] [--provider P] [--spec F] [--seal-existing PATCH] [--resume] [--fresh] [--base-current] [-- <task>]\n`); noteRefusal("unsupported_flag"); return 2; } // flag-shaped only: a PRD body starting with "- item" or "---" has whitespace and stays task text
     else words.push(a);
   }
   let task = words.join(" ").trim(); if (resume) return (await import("../util/run_outputs.ts")).resumeFlag(words[0], noPr);
@@ -411,10 +438,24 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     try { const l = (JSON.parse(readFileSync(join(runDir, "issue.json"), "utf8")) as { labels?: unknown }).labels; for (const e of [env, process.env]) e[ISSUE_LABELS_ENV] = JSON.stringify(Array.isArray(l) ? l.filter((x) => typeof x === "string") : []); } catch { /* no labels: sizing uses the text alone */ } // one large rule (features/decompose.ts): the stages' sizeTask sees the issue's epic label, as triage and startIssueEpic do
   }
   if (!isIssue) for (const e of [env, process.env]) delete e[ISSUE_LABELS_ENV]; // a text goal never inherits an issue's labels
+  const road = runRoad(task, { isIssue, spec: spec !== null, sealPatch: sealPatch !== null, provider }); for (const e of [env, process.env]) { if (road === "work") e[WORK_ROAD_ENV] = "1"; else delete e[WORK_ROAD_ENV]; } // RW-02 ONE ROAD: decided once, after the group entry above, and carried to every worker of the run; an inherited value never decides
   const routeStart = routeStartLine(process.env, provider); // FC-35: printed before any stage, so it states the pre-plan state only (route.json does not exist yet). R1-15: null unless LOKI_ROUTER is on, so the start line is byte-identical otherwise
   const costEst = encodeEstimate(process.env, repoDir, undefined, model); if (costEst) env.LOKI_E10_COST_ESTIMATE = costEst; // 11.3.0 T1: null under LOKI_COST_PREVIEW=0
   const downgrades = modelDowngrades(provider); // D86 L1: any downgrade is printed here and recorded on run.started (key only when non-empty, receipt hashes stay stable)
-  if (!json) process.stdout.write(`${START_LINE}, ${baseLine(repoDir)}, ${capNote(cap.usd, cap.source)}${modelWhy ? `, model ${model} (${modelWhy})` : ""}${downgrades.length ? `; downgrade: ${downgrades.map((d) => `${d.stage} ${d.model} (${d.reason})`).join(", ")}` : ""}${routeStart ? `; ${routeStart}` : ""}${costEst ? `; ${startText(JSON.parse(costEst), cap.usd)}` : ""}\n`); if (verbose && !json && cap.source === "subscription") process.stdout.write(`${SUBSCRIPTION_NOTE}\n`); // D48: one start line naming the engine; provider, model and run id are in the receipt
+  // PR-BASE begin (2 of 2): where the run starts and what its pull request targets, decided before the header and before any model spend (util/base_guard.ts prBasePlan). A run with no pull request, and a run whose HEAD is already in the target, change nothing here.
+  for (const e of [env, process.env]) { delete e.LOKI_E10_START_FROM; delete e.LOKI_E10_PR_TARGET; } // never inherited: only this run's own plan sets them
+  const prPlan = noPr || sealPatch !== null ? null : prBasePlan(repoDir, { baseCurrent: process.env.LOKI_BASE_CURRENT === "1" });
+  if (prPlan?.action === "refuse") { process.stderr.write(`loki: ${prPlan.line}\n`); noteRefusal("other"); return 2; }
+  if (prPlan?.target) env.LOKI_E10_PR_TARGET = prPlan.target; // intake records it, the seal measures against it
+  if (prPlan?.start_sha) env.LOKI_E10_START_FROM = prPlan.start_sha;
+  if (prPlan?.pr_base) process.env.LOKI_PR_BASE = env.LOKI_PR_BASE = prPlan.pr_base; // the push opens the pull request into the user's branch (stages/pr.ts stackBase)
+  // The header is at most three short lines: target and base; the model and how to change it; the cap (when one is set), the estimate and, under --verified, the verified-mode bounds. The rest (no-cap note, downgrades) is behind --verbose. Only a run with LOKI_ROUTER on gets a fourth line: its route and the downgrades that route makes.
+  const downLine = downgrades.length ? `downgrade: ${downgrades.map((d) => `${d.stage} ${d.model} (${d.reason})`).join(", ")}` : "";
+  const headLines = [`${START_LINE}, ${prPlan?.header ?? baseLine(repoDir)}`, modelWhy ? `model ${model} (${modelWhy})` : "", [cap.usd > 0 ? capNote(cap.usd, cap.source) : "", costEst ? startText(JSON.parse(costEst), cap.usd) : "", verifiedOn(env) ? verifiedHeader(env) : ""].filter(Boolean).join("; "), routeStart ? [routeStart, downLine].filter(Boolean).join("; ") : "",
+    verbose ? [cap.usd > 0 ? "" : capNote(cap.usd, cap.source), routeStart ? "" : downLine].filter(Boolean).join("; ") : ""].filter(Boolean);
+  if (!json) process.stdout.write(`${headLines.join("\n")}\n`); if (verbose && !json && cap.source === "subscription") process.stdout.write(`${SUBSCRIPTION_NOTE}\n`); // D48: the start lines name the engine; provider, model and run id are in the receipt
+  if (prPlan?.line) (json ? process.stderr : process.stdout).write(`${prPlan.line}\n`); // said once, in plain words, before any session
+  // PR-BASE end (2 of 2)
   if (costEst && process.env.LOKI_COST_CONFIRM === "1" && process.stdin.isTTY && !json && !(await (await import("../commands/issues_run.ts")).askYesNo("Proceed with this run? [y/N] "))) { process.stdout.write("Run cancelled before start (LOKI_COST_CONFIRM).\n"); return 1; }
   const capLine = !json ? [disclosureLine(provider), unenforceableNote(provider, cap.usd)].filter(Boolean).join("\n") : null; if (capLine) process.stdout.write(`${capLine}\n`); // LM-004: one line when the provider lacks a guarantee claude has; claude prints nothing extra
   const t0 = Date.now();
@@ -453,7 +494,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     runId, repoDir, env, capS, capCeilingS: sized?.ceilingS,
     workerArgv: [process.execPath, ...SAFE_BUN_FLAGS, resolve(process.argv[1]!), "engine10", "worker", runId, provider, model, deep ? "deep" : "fast"], deepArgv: noPr ? undefined : [process.execPath, ...SAFE_BUN_FLAGS, resolve(process.argv[1]!), "engine10", "deep-worker", runId, provider, model], status: statusStep,
     started: {
-      task_source: isIssue ? "issue" : "text", issue_ref: isIssue ? task : null, provider, model, deep, cap_s: capS, cap_ceiling_s: sized?.ceilingS ?? capS, max_cost_usd: cap.usd,
+      task_source: isIssue ? "issue" : "text", issue_ref: isIssue ? task : null, road, provider, model, deep, cap_s: capS, cap_ceiling_s: sized?.ceilingS ?? capS, max_cost_usd: cap.usd,
       model_override_applied: !!process.env.LOKI_MODEL_OVERRIDE && provider === "claude", branch: `loki/${runId}`, ...runIntent(repoDir),
       ...(downgrades.length ? { downgrades } : {}), ...runIdentity(repoDir, process.env, model),
     },
@@ -509,7 +550,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   let handoffRef = ""; if (!json) { handoffRef = writeHandoff({ requirements: rmap?.requirements ?? null, sinceMs: t0, repoDir, runId, events, outcome: res.outcome, reason: reasonOf(events, res.tampered, res.stop, res.outcome), prUrl: res.prUrl, draft: res.verdict !== "VERIFIED", usd, partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total, elapsedS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000), notProven: res.notProven, task, baseSha: hbs, stats: ds }) ? "review: .loki/review/HANDOFF.md" : ""; } // HANDOFF: written on every outcome; the pointer folds into the last line (D48 cap)
   // OC-OUTPUT: unified run summary, same format as the legacy engine (autonomy/lib/run-summary.sh)
   const rr = resultOf(res.outcome); if (res.outcome === "BUDGET_STOP" && cap.usd > 0) writeBudgetStop(repoDir, runId, { task: task.trim(), cap_usd: cap.usd, spent_usd: seed + (usd ?? 0), source: cap.source });
-  const ui = { result: rr, filesChanged: ds?.files ?? null, insertions: ds?.ins, deletions: ds?.del, costUsd: usd, elapsedS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000), receiptPath: res.receiptSha ? join(runDir, "receipt.json") : null, next: res.outcome === "BUDGET_STOP" && cap.usd > 0 ? budgetNext(seed + (usd ?? 0), cap.usd) : nextOf(rr, ds?.files ?? null, reasonOf(events, res.tampered, res.stop, res.outcome), provider, runId, res.prUrl ? "" : olg.landNext(localReason, typeof f.stages["intake"]?.data.branch === "string" ? f.stages["intake"].data.branch : null, origBranch)), uncovered }; 
+  const ui = { result: rr, filesChanged: ds?.files ?? null, insertions: ds?.ins, deletions: ds?.del, costUsd: usd, elapsedS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000), receiptPath: res.receiptSha ? join(runDir, "receipt.json") : null, next: res.outcome === "BUDGET_STOP" && cap.usd > 0 ? budgetNext(seed + (usd ?? 0), cap.usd) : nextOf(rr, ds?.files ?? null, reasonOf(events, res.tampered, res.stop, res.outcome), provider, runId, res.prUrl ? "" : olg.landNext(localReason, typeof f.stages["intake"]?.data.branch === "string" ? f.stages["intake"].data.branch : null, origBranch)), uncovered, dashboardUrl: await import("../util/run_summary.ts").then((m) => m.dashboardLink(repoDir, runId)).catch(() => null), reservedLines: (capLine ? 1 : 0) + (readRiskSummary(repoDir, t0) ? 1 : 0) }; // the run's page in the dashboard when one is running (found, never started)
   const rdy = events.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data.readiness, foldTail = [handoffRef, typeof rdy === "string" ? rdy : ""].filter(Boolean).join("; "); // FV-readiness-env-3: D48 default mode folds readiness into the last line
   const riskLine = readRiskSummary(repoDir, t0); // RISKTIER: this run's recorded tier, deferred checks stated as not run
   const rs = await import("../util/receipt_surface.ts"), card = !json && !quiet && rs.aweOn("LOKI_AWE_PROOF_CARD") ? rs.proofCardOf(res.tampered ? null : rs.readReceiptAt(events.findLast((e) => e.type === "receipt.sealed")?.data.path)) : null; // AWE-2: proof card from receipt.json; a tampered run reads "not run"

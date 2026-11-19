@@ -29,6 +29,8 @@
 # E2E_STUB_SCOPE_EDIT=1: the implement session also edits util.ts (when the repo has one).
 # E2E_STUB_BREAK_CFG=1: it also writes {"ok": false} to cfg.json (when the repo has one); E2E_STUB_LINTBAD=1: it also writes a tool.sh
 # that fails bash -n. Fix modes: cfgfirst fixes cfg.json first, multiply() next; linttwice leaves tool.sh broken in a new way once, then fixes it.
+# E2E_STUB_TYPE_ERROR=1: the implement session also appends `export const typed: number = "not a number";` to calc.ts (a tsc error, never seen by bun).
+# E2E_STUB_UNUSED_IMPORT=1: the implement session also puts `import fs from "node:fs";` (never used) on line 1 of calc.ts; fix mode unlint removes it (tests/min/scope-and-fix.sh LINT-OWN).
 # E2E_STUB_FIX (fix sessions, told apart by LOKI_E10_STAGE=fix): conflict answers LOKI_SPEC_CONFLICT and edits
 # nothing; wallconflict does the same citing loki_wall_multiply.test.ts; noprogress edits calc.ts without fixing multiply();
 # fixit turns the wrong multiply() right; twostep needs two rounds. E2E_STUB_ITER_LOG gets "<stage> <iteration> <prompt bytes>"
@@ -54,9 +56,40 @@
 # E2E_STUB_SPLIT (JSON text): the MASS-2 split planning session writes it to the file its brief names.
 # E2E_STUB_SPEC_REPLY (text): the exec-spec generator session (its brief names spec_reply.md, LOKI_E10_EXEC_SPEC) writes it there.
 # E2E_STUB_IMPL_CONFLICT=<text>: an implement session not on sonnet answers LOKI_SPEC_CONFLICT: <text>; on sonnet it implements.
+# E2E_STUB_MEMORY_LOG gets "<stage> disable=<CLAUDE_CODE_DISABLE_AUTO_MEMORY> dir=<LOKI_E10_TASK_MEMORY_DIR> dirmode=<octal> filemode=<octal>" per call, then the MEMORY.md text.
 # E2E_STUB_ROUTE_LOG gets "<LOKI_E10_STAGE> <iteration> model=<--model> advisor=<advisorModel> wall=<0|1>" per call.
 # Every -p call appends its stage name to E2E_STUB_LOG (kept outside the repo); E2E_STUB_BUDGET_LOG gets its LOKI_BUDGET_LIMIT and LEDGER.
+# WORK-RECOVERY (tests/min/run-safety.sh): E2E_STUB_STASH=<engine stage> with E2E_STUB_STASH_MARK=<file>: that stage's first session, after its edit,
+#   sets the whole work tree aside with the stash command and is then stopped (SIGKILL) before any pop, as the opencode 63310 fix session was.
+#   E2E_STUB_STASH_THEN=edit: before it is stopped it also writes another change to calc.ts (the stash can then not go back cleanly);
+#   E2E_STUB_STASH_THEN=branch: it commits its work on a new branch stub-side instead of stashing, and is stopped there;
+#   E2E_STUB_STASH_THEN=partial: it writes a second file extra.ts, sets only that file aside, and ends normally (not stopped);
+#   E2E_STUB_STASH_THEN=killworker: after the stash it also kills the engine worker (found as the child of the pid in run.pid), as a crash would.
 set -u
+if [ -n "${E2E_STUB_STASH:-}" ] && [ "${LOKI_E10_STAGE:-}" = "$E2E_STUB_STASH" ] && [ -n "${E2E_STUB_STASH_MARK:-}" ] && [ ! -f "$E2E_STUB_STASH_MARK" ] && case " $* " in *" -p "*) true ;; *) false ;; esac; then
+  _stub_set_aside() {
+    : > "$E2E_STUB_STASH_MARK"
+    if [ "${E2E_STUB_STASH_THEN:-}" = partial ]; then # a second file, set aside alone; the session then ends normally (its reply and exit code stand)
+      printf '// a second file of the same change\n' > extra.ts
+      git stash push -q -u -- extra.ts 2>> "$E2E_STUB_STASH_MARK.err"
+      return 0
+    fi
+    if [ "${E2E_STUB_STASH_THEN:-}" = branch ]; then
+      { git checkout -q -b stub-side && git -c user.name=stub -c user.email=stub@example.invalid commit -q -a -m "stub: work on a side branch"; } 2>> "$E2E_STUB_STASH_MARK.err"
+    else
+      git stash push -q 2>> "$E2E_STUB_STASH_MARK.err"
+      [ "${E2E_STUB_STASH_THEN:-}" = edit ] && printf '// written after the stash\n' >> calc.ts
+      if [ "${E2E_STUB_STASH_THEN:-}" = killworker ]; then # the engine worker (the supervisor's child) dies with the session, so no session-end handler runs
+        _sup="$(python3 -I -c 'import glob, json; print(json.load(open(sorted(glob.glob(".loki/runs/e10-*/run.pid"))[-1]))["pid"])' 2>/dev/null)"
+        _p="$PPID"; _pp=""
+        while [ -n "$_p" ] && [ "$_p" -gt 1 ]; do _pp="$(ps -o ppid= -p "$_p" 2>/dev/null | tr -d ' ')"; [ "$_pp" = "$_sup" ] && break; _p="$_pp"; done
+        [ -n "$_sup" ] && [ "$_pp" = "$_sup" ] && kill -9 "$_p" 2>> "$E2E_STUB_STASH_MARK.err"
+      fi
+    fi
+    kill -9 $$
+  }
+  trap _stub_set_aside EXIT
+fi
 if [ "${1:-}" = "--help" ]; then
   echo "Usage: claude [options] -p <prompt>"
   echo "  --dangerously-skip-permissions --model <m> --settings <json> -p, --print"
@@ -111,6 +144,14 @@ if [ -n "${E2E_STUB_ROUTE_LOG:-}" ]; then # one line per session: engine stage, 
 fi
 if [ -n "${E2E_STUB_BUDGET_LOG:-}" ]; then echo "$stage limit=${LOKI_BUDGET_LIMIT:-} ledger=${LOKI_BUDGET_LEDGER:-}" >> "$E2E_STUB_BUDGET_LOG"; fi
 if [ -n "${E2E_STUB_ENV_LOG:-}" ]; then printf '%s LOKI_SCRATCH=%s TMPDIR=%s\n' "$stage" "${LOKI_SCRATCH:-}" "${TMPDIR:-}" >> "$E2E_STUB_ENV_LOG"; fi # Q1 RUN-SCRATCH: what each stage's session got
+if [ -n "${E2E_STUB_MEMORY_LOG:-}" ]; then # TASK MEMORY (tests/min/decompose-and-intake.sh): per session the auto-memory switch, the memory directory it was given, the modes and MEMORY.md
+  python3 -I -c 'import os, sys
+st, log, d, dis = sys.argv[1:5]
+m = lambda p: oct(os.stat(p).st_mode & 0o777)[2:] if os.path.exists(p) else "none"
+with open(log, "a") as f:
+    f.write("%s disable=%s dir=%s dirmode=%s filemode=%s\n" % (st, dis or "unset", d or "none", m(d) if d else "none", m(os.path.join(d, "MEMORY.md")) if d else "none"))
+    if d and os.path.exists(os.path.join(d, "MEMORY.md")): f.write(open(os.path.join(d, "MEMORY.md")).read() + "=== end\n")' "$stage" "$E2E_STUB_MEMORY_LOG" "${LOKI_E10_TASK_MEMORY_DIR:-}" "${CLAUDE_CODE_DISABLE_AUTO_MEMORY:-}"
+fi
 if [ "$stage" = implement ] && [ "${E2E_STUB_SCRATCH:-}" = leave ] && [ -n "${LOKI_SCRATCH:-}" ] && [ ! -f "$LOKI_SCRATCH/pids" ]; then # RUN-SCRATCH: start a daemon-like process in the scratch directory and leave it running
   # a daemon (pg_ctl, redis --daemonize) in its own session with no inherited std fds, so it survives a process-group kill and never holds the session's stdout pipe
   perl -e 'setpgrp(0,0); open(STDIN,"</dev/null"); open(STDOUT,">/dev/null"); open(STDERR,">/dev/null"); chdir($ENV{LOKI_SCRATCH}); exec("/bin/sh","-c","sleep 300; :","x","--token=e2escratchsecret")' </dev/null >/dev/null 2>&1 &
@@ -248,6 +289,7 @@ if [ "${LOKI_E10_STAGE:-}" = "fix" ]; then # before the implement branch: a fix 
     cfgfirst) if grep -q '"ok": false' cfg.json; then printf '{"ok": true}\n' > cfg.json
       else python3 -I -c 's=open("calc.ts").read(); i=s.rfind("return a + b;"); open("calc.ts","w").write(s[:i]+"return a * b;"+s[i+13:])'; fi
       echo "LOKI_DONE"; exit 0 ;;
+    unlint) python3 -I -c 's=open("calc.ts").read(); open("calc.ts","w").write(s.replace("import fs from \"node:fs\";\n", "", 1))'; echo "LOKI_DONE"; exit 0 ;; # LINT-OWN: removes the unused import E2E_STUB_UNUSED_IMPORT added
     linttwice) if grep -q BROKEN_A tool.sh; then printf '#!/usr/bin/env bash\necho BROKEN_B )\n' > tool.sh; else printf '#!/usr/bin/env bash\necho fixed\n' > tool.sh; fi
       echo "LOKI_DONE"; exit 0 ;;
     twostep) # round 1 fixes multiply() but adds a failing extra.test.ts (a different failing set); round 2 fixes that test
@@ -414,6 +456,8 @@ if [ "$stage" = "implement" ]; then
     fi
     if [ "${E2E_STUB_SCOPE_EDIT:-}" = "1" ] && [ -f util.ts ]; then printf 'export const MODE = 2;\n' >> util.ts; fi
     if [ "${E2E_STUB_BREAK_CFG:-}" = "1" ] && [ -f cfg.json ]; then printf '{"ok": false}\n' > cfg.json; fi
+    if [ "${E2E_STUB_TYPE_ERROR:-}" = "1" ]; then printf '\nexport const typed: number = "not a number";\n' >> calc.ts; fi # LINT-OWN: a type error bun never checks (tsc does)
+    if [ "${E2E_STUB_UNUSED_IMPORT:-}" = "1" ]; then python3 -I -c 's=open("calc.ts").read(); open("calc.ts","w").write("import fs from \"node:fs\";\n" + s)'; fi # LINT-OWN: an import the change never uses
     if [ "${E2E_STUB_LINTBAD:-}" = "1" ]; then printf '#!/usr/bin/env bash\nif true; then\n  echo BROKEN_A\n' > tool.sh; fi
     if [ "${E2E_STUB_SECRET:-}" = "1" ] && ! grep -q searchConfig calc.ts; then printf '\nexport const searchConfig = { apiKey: globalThis.ELASTICSEARCH_API_KEY_VALUE };\n' >> calc.ts; fi # SECRET-PUSH: a config key the security scan's tier 2 matches (calc.ts line 5)
     if [ "${E2E_STUB_MODE:-}" = "attempts" ]; then # EXP-0010: the session in attempts/B<E2E_STUB_RIGHT> is right, every other one wrong

@@ -1,6 +1,6 @@
 # CLI reference
 
-Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.156.0. Do not edit by hand.
+Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.161.0. Do not edit by hand.
 Hidden and legacy-only commands are omitted; see `docs/CLI-INVENTORY.md` for the full inventory.
 
 | Command | Description |
@@ -29,7 +29,8 @@ Hidden and legacy-only commands are omitted; see `docs/CLI-INVENTORY.md` for the
 | `loki config path` | Print config path |
 | `loki config set` | Set a value |
 | `loki config get` | Get a value |
-| `loki control` | Control Plane (serve, backfill, prune, stop, status) |
+| `loki control` | Dashboard and Control Plane (open, serve, backfill, prune, stop, status) |
+| `loki control open` | Open the dashboard in your browser (starts it when needed) |
 | `loki control serve` | Run the control plane and UI |
 | `loki control backfill` | Ship DIR/.loki/runs to the control plane |
 | `loki control prune` | Delete matching runs |

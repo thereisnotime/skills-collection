@@ -125,6 +125,11 @@
 #  O14 (measured on 6a44b64b8). issues_combine.ts: never retry the refused push under the run's own branch name; J, K fail.   O15. earlierCombinedPrs returns []; K fails (rerun on ab9315e7c+).
 #  The engine of 6a44b64b8 (it closed earlier combined PRs and retried on any push failure), swapped in for issues_combine.ts, fails K and P.
 #  Q (the gh api tip) fails when nonFastForward reads only git ls-remote.
+# TASK MEMORY (each planted, the legs run, reverted):
+#  M1. providers.ts taskMemorySettings: drop isHaikuModel(model); the task memory unit check fails (Sonnet and Opus carry autoMemoryDirectory).
+#  M2. proof_rerun.ts writeTaskMemory: drop the two chmod calls; the task memory unit check fails (write=...:700:600).
+#  M3. implement.ts: drop LOKI_E10_TASK_MEMORY_DIR from the first session's sessionEnv; the Haiku task memory e2e check fails (implement argv none).
+#  C1. compact_card.ts createCompactCardHook: answer every SessionStart source; the compact card unit check fails (startup gets the card).
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need bun
@@ -138,6 +143,11 @@ FIX="$ROOT/tests/min/fixtures/e2e"
 export LOKI_TS_ENTRY="$ROOT/loki-ts/dist/loki.js"
 export LOKI_NO_COMPLETIONS=1
 mkdir -p "$T/tmp" "$T/bin"
+# EPIC_MET: the stub's answer to the acceptance line check (stages/xreview.ts issueLineCheck) for the epic's five acceptance lines, all MET with evidence.
+# Since 58af19094 (2026-11-16) the check is on by default for an issue with its own list, and a stub that cannot answer it caps the run at PARTIAL
+# ("acceptance not reviewed"), which is that guard working (its own legs are under Q1 ISSUE-ACCEPTANCE below). Legs about something else (the prove stage,
+# one PR for the whole route) pass this file so their label rests on what they test.
+EPIC_MET="$T/epic-met.txt"; { for i in 1 2 3 4 5; do printf 'MET %s: the diff and its passing test cover it\n' "$i"; done; } > "$EPIC_MET"
 export TMPDIR="$T/tmp" # slice worktrees and stamps land under the run-owned dir lib.sh removes
 TO=(); command -v timeout >/dev/null 2>&1 && TO=(timeout 300)
 
@@ -334,10 +344,21 @@ print(" ".join("%s:%s" % (e["stage"], e["type"].split(".")[1]) for e in ev if e[
 # normalized implement brief as on the base commit (8c7ae842b, captured by this same leg there).
 # F5 adds one block to an issue run's brief, so this leg runs under LOKI_E10_PROVE_BY_RUNNING=0: the opt-out gives the base brief byte for byte.
 # Q1 PROVE adds a stage and a receipt key to an issue run on claude, so the leg also runs under LOKI_E10_PROVE=0: the opt-out gives the base run byte for byte.
+# Issue acceptance is on by default since 58af19094 (2026-11-16) and adds four receipt keys and the implement key final_reply for an issue with its own
+# list, so the leg also runs under LOKI_E10_ISSUE_ACCEPTANCE=0: with it the stage order and both key sets are the base commit's again (measured).
+# The brief hash was fa2041fa29ead36e on the base commit (reproduced there from source) and is 56283bbaf3afe29d since 4fc499ebb (2026-11-17, "A run may
+# change the tests it added"): the one difference between the two briefs is the sentence that commit added to the fixed rules, after "cite it.": "Two more
+# cases are not spec conflicts either. A test file this run itself added is yours ... say in your reply which test and why." A rule the product added on
+# purpose, so the pin follows it. Plant: context.ts FIXED_RULES: drop "A test file this run itself added is yours: change it as the work needs. " (the hash
+# moves and this leg fails).
+# It is 88f0207ba3c89b01 since ce0e9c178 (2026-11-17, "Finished work is never lost"): that commit adds STASH_RULE (e10ext/context.ts, the fixed rules
+# "Never run git stash ...") to the brief of every session that writes code, on purpose (opencode 63310 lost its whole change in a stash). Attribution by
+# reading the merged commits: it is the only one that adds brief text to an issue run; lane B's tip gave 56283bbaf3afe29d.
 W3="$T/whole-sig"; make_repo "$W3" 0
-LOKI_E10_PROVE=0 LOKI_E10_PROVE_BY_RUNNING=0 E2E_STUB_MODE=done run_loki "$W3" "$T/whole-sig-stub.log" start acme/search#24 --no-pr --max-cost 5
+LOKI_E10_PROVE=0 LOKI_E10_PROVE_BY_RUNNING=0 LOKI_E10_ISSUE_ACCEPTANCE=0 E2E_STUB_MODE=done run_loki "$W3" "$T/whole-sig-stub.log" start acme/search#24 --no-pr --max-cost 5
+cp "$(dirname "$(ls "$W3"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")/implement-brief.txt" "${S1B_KEEP:-/dev/null}" 2>/dev/null # S1B_KEEP=<file>: keep the brief the hash is taken from (for a diff when the pin moves)
 W3SIG="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$(dirname "$(ls "$W3"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")" "$W3" 2>&1)"
-[ "$W3SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,self_review,task,time,toolchain,tree,verdict,verification,wall; implement=already_done_evidence,brief_files,cascade,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,self_review,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=fa2041fa29ead36e" ] \
+[ "$W3SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,self_review,task,time,toolchain,tree,verdict,verification,wall; implement=already_done_evidence,brief_files,cascade,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,self_review,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=88f0207ba3c89b01" ] \
     && ok "S1b no-loss (issue run): stage order, receipt key set, implement key set and the normalized implement brief equal the base commit's" || bad "S1b no-loss (issue run) differs from the base commit: $W3SIG"
 
 # --- F4 rerun guard: before any model call, an open Loki pull request from the origin's owner that covers the issue stops `loki start owner/repo#N` --------
@@ -391,7 +412,11 @@ printf '%s\n' "$OUT" | grep '^loki: acme/search#24' | sed 's/^/    rerun e2e: /'
     && ok "rerun guard e2e: a rerun of #24 with an open Loki PR exits 2 naming it, starts no model session and no engine run, and never writes to the PR" \
     || { bad "rerun guard e2e: rc $RC, stub calls $(wc -l < "$T/rerun-e2e-stub.log" 2>/dev/null), gh writes $(cat "$T/rerun-gh-writes.log" 2>/dev/null)"; printf '%s\n' "$OUT" | tail -8 | sed 's/^/    | /'; }
 
-# --- whole-first is for Sonnet and stronger models: a run that implements on Haiku keeps the split; LOKI_ISSUE_WHOLE_FIRST=1 forces whole on Haiku --
+# --- whole-first on every model: an issue runs whole whatever model implements it; LOKI_ISSUE_WHOLE_FIRST=0 is the split, opt-in ----------------------
+# Re-pinned for c83ef2483 (2026-11-16, "Every model runs an issue whole"): issueWholeFirst used to keep the split for a run that implements on Haiku; measured
+# again with the proof loop (FireLater#24 on Haiku: whole met 10 of 10 lines at $0.26 to $0.33, the split FAILED at $1.94), it returns true for every model.
+# The legs below pinned the old rule (haiku pin=split, triage "runs split into slices", --session-model haiku splits) and had failed since that commit.
+# Plant: decompose.ts issueWholeFirst: `return !haikuRun(env);` in place of `return true;` (the table reads haiku pin=split and the haiku e2e leg splits).
 HAIKU_M="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
 const { issueWholeFirst } = await import(process.env.ROOT + "/loki-ts/src/features/decompose.ts");
 const { triageItem } = await import(process.env.ROOT + "/loki-ts/src/features/triage.ts");
@@ -399,15 +424,15 @@ const cases = [["none", {}], ["sonnet pin", { LOKI_SESSION_MODEL: "sonnet" }], [
   ["small pin, LOKI_ALLOW_HAIKU=false", { LOKI_SESSION_MODEL: "small", LOKI_ALLOW_HAIKU: "false" }], ["default haiku", { LOKI_DEFAULT_SESSION_MODEL: "haiku" }], ["--haiku (router auto)", { LOKI_ROUTER: "auto" }],
   ["router auto, LOKI_ALLOW_HAIKU=false", { LOKI_ROUTER: "auto", LOKI_ALLOW_HAIKU: "false" }], ["router auto, sonnet pin", { LOKI_ROUTER: "auto", LOKI_SESSION_MODEL: "sonnet" }], ["override haiku", { LOKI_MODEL_OVERRIDE: "claude-haiku-5-5" }],
   ["dev tier haiku", { LOKI_CLAUDE_MODEL_DEVELOPMENT: "haiku" }], ["LOKI_ALLOW_HAIKU=true alone", { LOKI_ALLOW_HAIKU: "true" }], ["opencode haiku", { LOKI_PROVIDER: "opencode", LOKI_OPENCODE_MODEL: "openrouter/anthropic/claude-haiku-4.5" }],
-  ["opencode deepseek", { LOKI_PROVIDER: "opencode", LOKI_OPENCODE_MODEL: "openrouter/deepseek/deepseek-v3.2" }], ["haiku pin, =1", { LOKI_SESSION_MODEL: "haiku", LOKI_ISSUE_WHOLE_FIRST: "1" }], ["sonnet pin, =0", { LOKI_SESSION_MODEL: "sonnet", LOKI_ISSUE_WHOLE_FIRST: "0" }]];
+  ["opencode deepseek", { LOKI_PROVIDER: "opencode", LOKI_OPENCODE_MODEL: "openrouter/deepseek/deepseek-v3.2" }], ["haiku pin, =1", { LOKI_SESSION_MODEL: "haiku", LOKI_ISSUE_WHOLE_FIRST: "1" }], ["sonnet pin, =0", { LOKI_SESSION_MODEL: "sonnet", LOKI_ISSUE_WHOLE_FIRST: "0" }], ["haiku pin, =0", { LOKI_SESSION_MODEL: "haiku", LOKI_ISSUE_WHOLE_FIRST: "0" }]];
 const out = cases.map(([k, e]) => k + "=" + (issueWholeFirst(e) ? "whole" : "split"));
 for (const k of ["LOKI_SESSION_MODEL", "LOKI_ISSUE_WHOLE_FIRST"]) delete process.env[k]; process.env.LOKI_SESSION_MODEL = "haiku";
 out.push("triage haiku=" + triageItem({ title: process.env.EPIC_TITLE, body: process.env.EPIC_BODY, labels: [] }).reason.split("; ")[1]);
 console.log(out.join("; "));
 ' 2>&1)"
 printf '    model scope: %s\n' "$HAIKU_M"
-[ "$HAIKU_M" = "none=whole; sonnet pin=whole; opus pin=whole; haiku pin=split; small pin=split; small pin, LOKI_ALLOW_HAIKU=false=whole; default haiku=split; --haiku (router auto)=split; router auto, LOKI_ALLOW_HAIKU=false=whole; router auto, sonnet pin=whole; override haiku=split; dev tier haiku=split; LOKI_ALLOW_HAIKU=true alone=whole; opencode haiku=split; opencode deepseek=whole; haiku pin, =1=whole; sonnet pin, =0=split; triage haiku=runs split into slices" ] \
-    && ok "whole-first model scope: every way a run implements on Haiku keeps the split (pin, small, default, --haiku, override, dev tier, opencode); Sonnet, Opus and no pin run whole; =1 forces whole on Haiku; triage says split on Haiku" \
+[ "$HAIKU_M" = "none=whole; sonnet pin=whole; opus pin=whole; haiku pin=whole; small pin=whole; small pin, LOKI_ALLOW_HAIKU=false=whole; default haiku=whole; --haiku (router auto)=whole; router auto, LOKI_ALLOW_HAIKU=false=whole; router auto, sonnet pin=whole; override haiku=whole; dev tier haiku=whole; LOKI_ALLOW_HAIKU=true alone=whole; opencode haiku=whole; opencode deepseek=whole; haiku pin, =1=whole; sonnet pin, =0=split; haiku pin, =0=split; triage haiku=runs as one run" ] \
+    && ok "whole-first model scope: every model runs the issue whole, every way a run implements on Haiku included (pin, small, default, --haiku, override, dev tier, opencode); =0 is the split on any model; triage says one run on Haiku" \
     || bad "whole-first model scope gave: $HAIKU_M"
 hk_leg() { # hk_leg <name> <VAR=value...> -- <start args...>: the structural epic #24 on the stub; sets HKSPLIT (yes/no) and HKEP (epic records)
     local name="$1" d="$T/$1"; shift; local envs=(); while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
@@ -426,8 +451,10 @@ run_loki_env() { # run_loki_env <repo> <log> <VAR=value...> -- <args...>: run_lo
 hk_leg hk-haiku -- --session-model haiku; HK1="$HKSPLIT/$HKEP"
 hk_leg hk-sonnet -- --session-model sonnet; HK2="$HKSPLIT/$HKEP"
 HK_KNOB=1 hk_leg hk-haiku-forced -- --session-model haiku; HK3="$HKSPLIT/$HKEP"
-echo "    model scope e2e: haiku pin $HK1, sonnet pin $HK2, haiku pin with =1 $HK3 (split/epic records)"
-[ "$HK1" = "yes/1" ] && ok "whole-first model scope e2e: --session-model haiku on the epic splits as before (one epic record)" || bad "whole-first: --session-model haiku gave split/epic $HK1 (want yes/1)"
+HK_KNOB=0 hk_leg hk-haiku-split -- --session-model haiku; HK4="$HKSPLIT/$HKEP"
+echo "    model scope e2e: haiku pin $HK1, sonnet pin $HK2, haiku pin with =1 $HK3, haiku pin with =0 $HK4 (split/epic records)"
+[ "$HK1" = "no/0" ] && ok "whole-first model scope e2e: --session-model haiku runs the epic whole (no split, no epic record)" || bad "whole-first: --session-model haiku gave split/epic $HK1 (want no/0)"
+[ "$HK4" = "yes/1" ] && ok "whole-first model scope e2e: LOKI_ISSUE_WHOLE_FIRST=0 on Haiku splits the epic (one epic record)" || bad "whole-first: =0 on Haiku gave split/epic $HK4 (want yes/1)"
 [ "$HK2" = "no/0" ] && ok "whole-first model scope e2e: --session-model sonnet runs the epic whole" || bad "whole-first: --session-model sonnet gave split/epic $HK2 (want no/0)"
 [ "$HK3" = "no/0" ] && ok "whole-first model scope e2e: LOKI_ISSUE_WHOLE_FIRST=1 runs the epic whole on Haiku" || bad "whole-first: =1 on Haiku gave split/epic $HK3 (want no/0)"
 
@@ -510,8 +537,8 @@ pv_run() { # pv_run <name> [pr] <VAR=value...>: start acme/search#24 on the stub
     local name="$1" d="$T/pv-$1" pr=""; shift; [ "${1:-}" = pr ] && { pr=1; shift; }
     make_repo "$d" 0; PVR="$d"
     if [ -n "$pr" ]; then git init -q --bare "$d-origin.git"; git -C "$d" remote add origin "$d-origin.git"; git -C "$d" push -q origin main
-        run_loki_env "$d" "$T/pv-$name-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE_LOG="$T/pv-$name.prove.log" "$@" -- start acme/search#24 --max-cost 5
-    else run_loki_env "$d" "$T/pv-$name-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE_LOG="$T/pv-$name.prove.log" "$@" -- start acme/search#24 --no-pr --max-cost 5; fi
+        run_loki_env "$d" "$T/pv-$name-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_LINECHECK_FILE="$EPIC_MET" E2E_STUB_PROVE_LOG="$T/pv-$name.prove.log" "$@" -- start acme/search#24 --max-cost 5
+    else run_loki_env "$d" "$T/pv-$name-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_LINECHECK_FILE="$EPIC_MET" E2E_STUB_PROVE_LOG="$T/pv-$name.prove.log" "$@" -- start acme/search#24 --no-pr --max-cost 5; fi
     PVD="$(dirname "$(ls "$d"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")"
     PVS="$(python3 -I - "$PVD" "$d" <<'PY' 2>&1
 import glob, json, sys
@@ -621,7 +648,7 @@ sleep 0.5; pvlive=""; for p in $pvids; do kill -0 "$p" 2>/dev/null && pvlive="$p
     && ok "prove interrupt: after SIGINT during an ask, no recorded process id is alive (one in the driver's group, one in its own session: $pvids)" || { bad "prove interrupt: recorded '$pvids', alive '$pvlive'"; for p in $pvlive; do kill -TERM "$p" 2>/dev/null; done; }
 PVAID="$(basename "$(dirname "$(ls "$PVA"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")")"
 pvcalls0="$(grep -c '^prove' "$T/pv-abort-stub.log" 2>/dev/null)"
-run_loki_env "$PVA" "$T/pv-abort-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE=abort -- start --resume "$PVAID" --no-pr --max-cost 5
+run_loki_env "$PVA" "$T/pv-abort-stub.log" LOKI_E10_PROVE=1 E2E_STUB_MODE=done E2E_STUB_PROVE=abort E2E_STUB_LINECHECK_FILE="$EPIC_MET" -- start --resume "$PVAID" --no-pr --max-cost 5
 PVD="$PVA/.loki/runs/$PVAID"
 pvres="$(python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); p=r.get("prove",{}); print(r["verdict"], p.get("reused"), ",".join(a["result"] for a in p.get("asks",[])))' "$PVD/receipt.json" 2>&1)"
 [ "$pvcalls0" = 2 ] && [ "$(grep -c '^prove' "$T/pv-abort-stub.log" 2>/dev/null)" = 2 ] && [ "$pvres" = "VERIFIED True proved,proved" ] \
@@ -831,6 +858,72 @@ grep -qF "Time budget: about" <<< "$TN0" && ! grep -qF "Time budget: about" <<< 
     && ok "Haiku arm: LOKI_E10_TIME_NOTE=0 drops only the time-budget sentence from the implement prompt; the rules, stage order and receipt keys are unchanged" \
     || bad "Haiku arm: time-note knob: default has the sentence $(grep -c 'Time budget' <<< "$TN0"), knob has it $(grep -c 'Time budget' <<< "$TN1"), signatures equal $([ "$TNSIG0" = "$TNSIG1" ] && echo yes || echo no)"
 
+# --- Haiku arm: TASK MEMORY (LOKI_E10_TASK_MEMORY=1 opts in; default off). A Haiku implement session carries autoMemoryDirectory naming a read-only
+# MEMORY.md in its scratch (task title, acceptance lines, named sites), which Claude Code reads again after each compaction; Sonnet, the default and =0
+# carry no memory setting, and Loki adds no auto-memory env to any other session.
+TMU="$(cd "$ROOT/loki-ts" && env -u LOKI_E10_STAGE -u LOKI_E10_TASK_MEMORY -u LOKI_E10_TASK_MEMORY_DIR -u LOKI_ROUTER -u LOKI_ADVISOR_ONLY TMDIR="$T/tm-unit" bun --no-env-file --config=/dev/null -e '
+const pv = await import("./src/runner/providers.ts"), pr = await import("./src/engine10/proof_rerun.ts"), wp = await import("./src/runner/worker_proc.ts"), fs = await import("node:fs");
+const H = "claude-haiku-5-5", I = { LOKI_E10_STAGE: "implement", LOKI_E10_TASK_MEMORY_DIR: "/x/task-memory", LOKI_E10_TASK_MEMORY: "1" }, j = (v) => JSON.stringify(v ?? null);
+const out = [j(pv.taskMemorySettings(H, I)), j(pv.taskMemorySettings("claude-sonnet-5-5", I)), j(pv.taskMemorySettings("claude-opus-5-5", I)), j(pv.taskMemorySettings(H, { ...I, LOKI_E10_STAGE: "fix" })), j(pv.taskMemorySettings(H, { ...I, LOKI_E10_TASK_MEMORY: "0" })), j(pv.taskMemorySettings(H, { LOKI_E10_STAGE: "implement", LOKI_E10_TASK_MEMORY_DIR: "/x/task-memory" })), j(pv.taskMemorySettings(H, { ...I, LOKI_E10_TASK_MEMORY_DIR: "rel/dir" }))];
+out.push(j(pv.autoMemoryEnv({}, false)), j(pv.autoMemoryEnv({ LOKI_E10_STAGE: "plan" }, false)), j(pv.autoMemoryEnv(I, true)), j(pv.autoMemoryEnv({ ...I, CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" }, true)));
+const sdk = (m, extra = {}) => { Object.assign(process.env, I, extra); const o = pv.buildSdkLoopOptions({ tier: "development", model: m, cwd: "/nonexistent" }); for (const k of [...Object.keys(I), ...Object.keys(extra)]) delete process.env[k]; return o.settings?.autoMemoryDirectory ?? "none"; };
+out.push(`sdk=${sdk(H)},${sdk("claude-sonnet-5-5")},${sdk(H, { LOKI_E10_TASK_MEMORY: "0" })}`);
+const src = fs.readFileSync("./src/runner/providers.ts", "utf8");
+out.push(`sdkenv=${src.includes("if (extra.settings?.autoMemoryDirectory) delete env[\"CLAUDE_CODE_DISABLE_AUTO_MEMORY\"];") && !src.includes("CLAUDE_CODE_DISABLE_AUTO_MEMORY: \"1\"")}`);
+const t = { title: "Fix  the\tpager", asks: ["first ask", "second\nask"], sites: [{ symbol: "paginate", path: "src/p.ts", line: 3 }], siteRule: "RULE." };
+const a = pr.taskMemoryText(t), b = pr.taskMemoryText(t);
+out.push(`text=${a === b}:${a.includes("Task (untrusted, quoted): Fix the pager")}:${a.includes("\n1. first ask\n2. second ask\n")}:${a.includes("Sites the task names: paginate (src/p.ts:3). RULE.")}:${/\d{4}-\d\d-\d\d|e10-/.test(a)}`);
+const sc = wp.createSessionScratch(), d = pr.writeTaskMemory(sc.dir, a), mode = (p) => (fs.statSync(p).mode & 0o777).toString(8);
+out.push(`write=${d === sc.dir + "/task-memory"}:${mode(d)}:${mode(d + "/MEMORY.md")}:${fs.readFileSync(d + "/MEMORY.md", "utf8") === a}`);
+const c = wp.cleanupSessionScratch(sc, { termWaitMs: 200 }); out.push(`cleanup=${c.removed}:${fs.existsSync(sc.dir)}`);
+console.log(out.join(" "));
+' 2>&1)"
+[ "$TMU" = '{"autoMemoryDirectory":"/x/task-memory"} null null null null null null {} {} {} {"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"0"} sdk=/x/task-memory,none,none sdkenv=true text=true:true:true:true:false write=true:555:444:true cleanup=true:false' ] \
+    && ok "task memory unit: only a Haiku implement session with an absolute memory directory carries autoMemoryDirectory with LOKI_E10_TASK_MEMORY=1 (not Sonnet, Opus, fix, =0, the default or a relative path), on the SDK options too; Loki adds no auto-memory env to any other session (an inherited off switch is cleared for a memory session); MEMORY.md is byte-stable, untrusted-framed, read-only (555 directory, 444 file), and the scratch cleanup still removes it" \
+    || bad "task memory unit gave: $TMU"
+# COMPACT CARD (LOKI_E10_COMPACT_CARD=1, SDK route): the SessionStart(compact) hook re-sends the task card plus Loki's progress block and records a marker;
+# PostCompact records how many acceptance lines the summary kept. Unit only: the stub CLI never compacts.
+CCU="$(cd "$ROOT/loki-ts" && G="$T/cc-repo" && mkdir -p "$G" && git -C "$G" init -q && printf 'a\n' > "$G/a.txt" && git -C "$G" add a.txt && git -C "$G" -c user.name=t -c user.email=t@example.invalid commit -qm base && printf 'b\n' >> "$G/a.txt" && mkdir -p "$T/cc-run" && printf '{"type":"proof.rerun","data":{"exit":0,"proved":2,"failed":1}}\n{"type":"acceptance.round","data":{"met":1,"unmet":2}}\n' > "$T/cc-run/events.jsonl" && env -u LOKI_ITERATION LOKI_DIR="$T/cc-loki" CCG="$G" CCR="$T/cc-run" bun --no-env-file --config=/dev/null -e '
+const cc = await import("./src/runner/compact_card.ts"), fs = await import("node:fs");
+const card = cc.taskCardText({ title: "Fix the pager", asks: Array.from({ length: 60 }, (_, i) => "ask number " + i + " " + "x".repeat(60)), sites: [{ symbol: "paginate", path: "src/p.ts", line: 3 }], briefPath: "/r/implement-brief.txt", finishRule: "End with LOKI_DONE." });
+const base = (await import("node:child_process")).execSync("git -C " + process.env.CCG + " rev-parse HEAD").toString().trim();
+const env = { LOKI_E10_TASK_CARD: card, LOKI_E10_CARD_BASE: base, LOKI_E10_CARD_RUN_DIR: process.env.CCR };
+const h = cc.createCompactCardHook(process.env.CCG, env), pc = cc.createPostCompactRecordHook(process.env.CCG, env);
+const startup = await h({ source: "startup" }), comp = await h({ source: "compact" }), ctx = comp.hookSpecificOutput?.additionalContext ?? "";
+await pc({ trigger: "auto", compact_summary: "kept: ask number 1 " + "x".repeat(60) + " and nothing else" });
+const marks = fs.readFileSync(process.env.LOKI_DIR + "/metrics/compact-card-0.jsonl", "utf8").trim().split("\n").map((l) => JSON.parse(l));
+const src = fs.readFileSync("./src/runner/providers.ts", "utf8");
+console.log([card.length <= cc.CARD_MAX_CHARS, card.includes("more acceptance lines in $LOKI_SCRATCH/acceptance.txt"), JSON.stringify(startup), ctx.startsWith(card), ctx.includes("a.txt | 1 +"), ctx.includes("2 PROVED, 1 FAILED"), ctx.includes("1 line(s) met, 2 not met"), marks.map((m) => m.kind).join("+"), marks[1].acceptance_kept + "/" + (marks[1].acceptance_total > 10), cc.compactCardOn({}), cc.compactCardOn({ LOKI_E10_COMPACT_CARD: "1" }), src.includes("SessionStart: [{ matcher: \"compact\", hooks: [createCompactCardHook(call.cwd)] }]")].join(" "));
+' 2>&1)"
+[ "$CCU" = 'true true {} true true true true card_injected+post_compact 1/true false true true' ] \
+    && ok "compact card unit: the card stays under 2,000 characters (extra acceptance lines point at acceptance.txt); the hook answers only a compact start, with the card plus Loki's diff stat and its last proof run and acceptance round; it records card_injected and post_compact markers and how many acceptance lines the summary kept; off unless LOKI_E10_COMPACT_CARD=1; wired on the SDK route" \
+    || bad "compact card unit gave: $CCU"
+tm_facts() { # <name>: implement argv carries the memory dir | implement disable | plan disable | dir mode/file mode | MEMORY.md has the task and asks | scratch gone
+    local d="$T/c1-$1"
+    python3 -I - "$d.argv" "$d.mem" <<'PY'
+import os, re, sys
+argv = open(sys.argv[1]).read().splitlines() if os.path.exists(sys.argv[1]) else []
+mem = open(sys.argv[2]).read() if os.path.exists(sys.argv[2]) else ""
+impl = [l for l in argv if l.startswith("implement")]
+carries = "yes" if impl and all('"autoMemoryDirectory":"' in l for l in impl) else "none" if not any("autoMemoryDirectory" in l for l in argv) else "some"
+heads = [l for l in mem.splitlines() if re.match(r"^\w+ disable=", l)]
+def f(stage, key):
+    v = [re.search(key + r"=(\S+)", l).group(1) for l in heads if l.startswith(stage + " ")]
+    return ",".join(sorted(set(v))) or "nosession"
+dirs = [re.search(r"dir=(\S+)", l).group(1) for l in heads if l.startswith("implement ")]
+gone = "gone" if dirs and dirs[0] != "none" and not os.path.exists(os.path.dirname(dirs[0])) else "na" if not dirs or dirs[0] == "none" else "left"
+body = "task+asks" if "Task (untrusted, quoted): " in mem and "\n1. " in mem else "nobody"
+print("|".join([carries, f("implement", "disable"), f("plan", "disable"), f("implement", "dirmode") + "/" + f("implement", "filemode"), body, gone]))
+PY
+}
+c1_run tm-haiku none start acme/search#24 --no-pr --max-cost 5 --session-model haiku -- LOKI_E10_TASK_MEMORY=1 E2E_STUB_ARGV_LOG="$T/c1-tm-haiku.argv" E2E_STUB_MEMORY_LOG="$T/c1-tm-haiku.mem"; TMA="$(tm_facts tm-haiku)"
+c1_run tm-off none start acme/search#24 --no-pr --max-cost 5 --session-model haiku -- E2E_STUB_ARGV_LOG="$T/c1-tm-off.argv" E2E_STUB_MEMORY_LOG="$T/c1-tm-off.mem"; TMB="$(tm_facts tm-off)"
+c1_run tm-sonnet none start acme/search#24 --no-pr --max-cost 5 --session-model sonnet -- LOKI_E10_TASK_MEMORY=1 E2E_STUB_ARGV_LOG="$T/c1-tm-sonnet.argv" E2E_STUB_MEMORY_LOG="$T/c1-tm-sonnet.mem"; TMC="$(tm_facts tm-sonnet)"
+echo "    task memory (implement argv | implement disable | plan disable | modes | MEMORY.md | scratch): haiku =1 $TMA; default $TMB; sonnet =1 $TMC"
+case "$TMA" in "yes|unset|unset|555/444|task+asks|gone") ok "task memory e2e: with LOKI_E10_TASK_MEMORY=1 a Haiku issue run's implement session carries autoMemoryDirectory and finds a read-only MEMORY.md with the task and its numbered acceptance lines; the plan session gets no auto-memory env from Loki; the scratch is removed after the run" ;; *) bad "task memory e2e (haiku) gave $TMA" ;; esac
+case "$TMB" in "none|unset|unset|"*"|nobody|na") ok "task memory e2e: by default (LOKI_E10_TASK_MEMORY unset) Loki writes no memory and no session carries a memory setting or env" ;; *) bad "task memory e2e (default) gave $TMB" ;; esac
+case "$TMC" in "none|unset|unset|"*) ok "task memory e2e: a Sonnet run with LOKI_E10_TASK_MEMORY=1 carries no memory setting or env on any session" ;; *) bad "task memory e2e (sonnet) gave $TMC" ;; esac
+
 # --- split repair: a list detail is repaired, any other refusal is re-asked once with the exact error ------------------------
 # FireLater#24 (v11.116.0): one 520-character acceptance criterion refused the whole split and the epic ran as one 413 s session.
 SPLITR="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
@@ -1007,7 +1100,7 @@ make_repo "$PW" 0
 git init -q --bare "$T/prmode-whole-origin.git"
 git -C "$PW" remote add origin "$T/prmode-whole-origin.git"
 git -C "$PW" push -q origin main
-E2E_STUB_MODE=done run_loki "$PW" "$T/prmode-whole-stub.log" start acme/search#24 --max-cost 5
+E2E_STUB_MODE=done E2E_STUB_LINECHECK_FILE="$EPIC_MET" run_loki "$PW" "$T/prmode-whole-stub.log" start acme/search#24 --max-cost 5
 printf '%s\n' "$OUT" | grep -E '^(Outcome:|PR:|Cost:)' | sed 's/^/    pr mode whole: /'
 wpr="$(printf '%s\n' "$OUT" | grep -E '^PR: +local:///' | sed -E 's/.*#//')"
 WSTRAND="$( [ -n "$wpr" ] && stranded "$PW" "$T/prmode-whole-origin.git" "$wpr")"
@@ -1598,10 +1691,17 @@ case "$IAF" in 'PARTIAL 9 0 0 1 check ["acceptance not reviewed: '*) ok "issue a
 IA_ON=0 ia_run off "$T/ia-seven.txt"
 IAOFF="$(ia_facts)"
 [ "$IAOFF" = 'VERIFIED 0 0 0 0 nocheck []' ] && [ ! -s "$IAD.linecheck" ] && ok "issue acceptance e2e: with LOKI_E10_ISSUE_ACCEPTANCE=0 no check runs and the receipt keys and label are as before the check existed" || bad "issue acceptance default off gave: $IAOFF"
+# RW-02 TITLE STAND-IN changed this leg's expectation (was 'VERIFIED 0 0 0 0 nocheck []' with no check call): an issue in prose has its title line as the
+# one acceptance line (no plan session is added), so the check runs against that line. The old expectation is the opt-out leg below.
 IA_BODY='Fix the off-by-one in paginate(): the last item of every page is dropped.' ia_run nolist "$T/ia-seven.txt"
 IANL="$(ia_facts)"
-[ "$IANL" = 'VERIFIED 0 0 0 0 nocheck []' ] && [ ! -s "$IAD.linecheck" ] && ! grep -q '"issue_acceptance"' "$IARUN/events.jsonl" 2>/dev/null \
-    && ok "issue acceptance e2e: an issue with no list runs no check and keeps today's keys and label" || bad "issue acceptance with no list gave: $IANL"
+IANLS="$(python3 -I -c 'import json, sys; r = json.load(open(sys.argv[1])); print(r.get("issue_acceptance_source"), r["issue_acceptance"][0]["line"])' "$IARUN/receipt.json" 2>&1)"
+[ "$IANL" = 'VERIFIED 1 1 1 0 check []' ] && [ -s "$IAD.linecheck" ] && [ "$IANLS" = "title $EPIC_TITLE" ] && ! grep -q '^plan' "$IAD.stub.log" \
+    && ok "issue acceptance e2e: an issue with no list has its title as the one line (receipt source title), the check runs against it, and no plan session is added" || bad "issue acceptance with no list gave: $IANL; source and line '$IANLS'; plan sessions $(grep -c '^plan' "$IAD.stub.log" 2>/dev/null)"
+IA_BODY='Fix the off-by-one in paginate(): the last item of every page is dropped.' ia_run nolist-off "$T/ia-seven.txt" LOKI_E10_TITLE_ACCEPTANCE=0
+IANLO="$(ia_facts)"
+[ "$IANLO" = 'VERIFIED 0 0 0 0 nocheck []' ] && [ ! -s "$IAD.linecheck" ] && ! grep -q '"issue_acceptance"' "$IARUN/events.jsonl" 2>/dev/null \
+    && ok "issue acceptance e2e: with LOKI_E10_TITLE_ACCEPTANCE=0 an issue with no list runs no check and keeps the keys and label it had" || bad "issue acceptance with no list, title stand-in off, gave: $IANLO"
 # PROVES THE CHANGE (engine10/proof_rerun.ts proofOnBase, LOKI_E10_PROOF_BASE, LOKI_E10_PROOF_BASE_CAP): the kept proof script is run a second time against
 # the base commit. A check that also passes there proves nothing about the change; a line whose passing checks all pass there is named (and, under the cap,
 # not met). Real git, real bash, no model: a repository whose change adds one file, with installed node_modules that are not in the commit, and a script
@@ -1657,4 +1757,38 @@ const same = k("GET /v1/items/3f2a9c1e-11aa-4b2c-9d3e-0123456789ab on port 51234
 const r = p.compareWithBase([c("1", "a", true), c("1", "a", true), c("2", "b", true), c("3", "c", false)], [c("1", "a", true), c("1", "a", false), c("2", "x", true), c("3", "c", true)]);
 console.log(same, r.available, r.same["1"].passing, r.same["1"].on_base, r.same["2"].on_base, r.same_total, r.head_proved, p.keepsWorkingAsk("Tests passing."), p.keepsWorkingAsk("Build faceted search UI"));' 2>&1 | tail -1)"
 [ "$PBK" = "true true 2 1 0 1 3 true false" ] && ok "proof on base: a check is matched by item and description with ids, ports and counts removed; two checks that read the same are paired by count; a check described differently on base is never stripped; 'Tests passing.' reads as a keep-working line and 'Build faceted search UI' does not" || bad "proof on base matching gave: $PBK"
+
+# ---- RW-02 ONE ROAD: the lines of a run on the proof road whose task has no list, when they are fixed, and what a listed text task with no run of
+# Loki's own gets. No model, no run (the stub runs are in engine10-e2e-stub.sh).
+#   lines:     the plan's Acceptance lines when a plan gave any; otherwise the first line of the task text on intake's record, whole (markdown heading mark
+#              removed; never intake's `title`, which is that line cut at 72 characters, as on the recorded run whose title ends "time out on st"), source
+#              "title"; LOKI_E10_TITLE_ACCEPTANCE=0 gives none; a task's own list always wins; off the road there are none.
+#   fixed:     the lines come from the intake and plan records. A session that rewrites its own copy ($LOKI_SCRATCH/acceptance.txt) to one line changes
+#              nothing: labelAsks still gives both, and the count rule leaves line 2 unmet.
+#   no script: a text task with its own list and no run of Loki's own gets the note; an issue source, a stand-in line (no list of its own), a run that
+#              exists, and LOKI_E10_PROOF_RERUN=0 do not.
+# Plants: proof_rerun.ts fallbackLines: return the plan lines only (lines cell 2 reads 0/plan); labelAsks: read the lines back from the session's copy when it
+#         exists (fixed reads 1 line; no real code path does this, the plant shows the leg would catch it); noOwnProofNotes: drop `source === "text"`
+#         (no script cell 2 reads 1) or drop `listed > 0` (cell 3 reads 1).
+RWU="$(cd "$ROOT/loki-ts" && RWT="$T" bun --no-env-file --config=/dev/null -e '
+const pr = await import("./src/engine10/proof_rerun.ts"), fs = await import("node:fs");
+const on = { LOKI_E10_WORK_ROAD: "1" }, T = process.env.RWT, R = T + "/rw-repo", d = R + "/rw-scratch"; fs.mkdirSync(d, { recursive: true }); // R: a repository directory of its own, so a fixture of another leg never reads as a service this one needs
+const card = ["Intent: wait for the configured time", "Acceptance: the wait honours timeout.startup", "Acceptance: with none set it stays at 2 s"];
+const la = (intake, plan, env) => { const x = pr.labelAsks("claude", intake, plan, R, env); return x.asks.length + "/" + x.source + (x.asks.length === 1 ? "/" + x.asks[0] : ""); };
+const long = "Aria snapshots time out on standalone svg documents when the page has more than three thousand nodes in it";
+const lines = [la({ source: "issue", task: "Fix the startup wait\n\nbody" }, { intent_card: card }, {}), la({ source: "issue", task: "# Fix the `startup` wait\n\nbody", title: "# Fix the `startup` wait" }, undefined, {}), la({ source: "text", task: "Fix it\nbody" }, undefined, on),
+  la({ source: "issue", task: "Fix it" }, undefined, { LOKI_E10_TITLE_ACCEPTANCE: "0" }), la({ source: "issue", task: "Fix it", issue_acceptance: ["a works", "b works"] }, { intent_card: card }, {}), la({ source: "text", task: "Fix it" }, undefined, {}),
+  la({ source: "issue", task: "\n## Fix from the task text\nbody" }, undefined, {}), pr.labelAsks("claude", { source: "issue", task: long + "\n\nbody", title: long.slice(0, 72) }, undefined, R, {}).asks[0] === long, la({ source: "issue", title: "Only a title" }, undefined, {})];
+const intake = { source: "text", task: "Fix the wait" }, plan = { intent_card: card };
+const before = pr.labelAsks("claude", intake, plan, R, on); pr.writeProofKit(d, before.asks);
+const handed = fs.readFileSync(d + "/acceptance.txt", "utf8").trim().split("\n").length; fs.writeFileSync(d + "/acceptance.txt", "1. the wait honours timeout.startup\n");
+const after = pr.labelAsks("claude", intake, plan, R, on);
+const run = { exit: 0, seconds: 1, proved: 1, failed: 0, tail: "", script_chars: 1, stopped: 0, left: 0, lines: { "1": { proved: 1, failed: 0, first_proved: "x" } } };
+const fixed = [before.asks.length, before.source, handed, after.asks.length, pr.ruleStatus(after.asks, run).map((s) => s.status).join("+")];
+const ns = [pr.noOwnProofNotes("text", 2, null, {}).length, pr.noOwnProofNotes("issue", 2, null, {}).length, pr.noOwnProofNotes("text", 0, null, {}).length, pr.noOwnProofNotes("text", 2, run, {}).length, pr.noOwnProofNotes("text", 2, null, { LOKI_E10_PROOF_RERUN: "0" }).length];
+console.log([lines.join(","), fixed.join(","), ns.join(",")].join(" | "));' 2>&1 | tail -1)"
+[ "$RWU" = '2/plan,1/title/Fix the startup wait,1/title/Fix it,0/plan,2/issue,0/plan,1/title/Fix from the task text,true,1/title/Only a title | 2,plan,2,2,met+unmet | 1,0,0,0,0' ] \
+    && ok "RW-02 acceptance lines: with no list the plan lines stand, else the title line from intake; the lines are fixed in the run records (a session editing its own copy changes nothing); a listed text task with no run of Loki's own gets the note, a stand-in line does not" || bad "RW-02 acceptance lines gave: $RWU"
+# ---- end RW-02 ----
+
 finish

@@ -7,7 +7,7 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classifyCheck, goRunner, sealedWallCopy } from "./check_result.ts";
+import { classifyCheck, fileHashes, goRunner, sealedWallCopy } from "./check_result.ts";
 import { LEGACY_BRANCHES_DIR, listRunIds } from "../commands/run_status.ts";
 import { runOwnerAlive } from "./run_pid.ts";
 import { findInterrupted } from "./run_outputs.ts";
@@ -17,6 +17,7 @@ import { addedManifestOk } from "./lock_ecosystems.ts";
 import { isTestFile } from "./test_file_text.ts";
 import { currentBranch } from "../e10ext/stop_restore.ts";
 import { escapeRegex } from "./regex_escape.ts";
+import { splitDirty } from "../e10ext/preexisting_dirty.ts";
 
 function git(repoDir: string, args: string[], timeout = 20000, extraEnv: Record<string, string> = {}): string | null {
   try {
@@ -118,6 +119,112 @@ export function baseLine(repoDir: string): string {
   const same = !sk && t && /^loki\//.test(b) && git(repoDir, ["rev-parse", "-q", "--verify", "HEAD^{commit}"]) === git(repoDir, ["rev-parse", "-q", "--verify", `${t.ref}^{commit}`]);
   return `PR target: ${t ? t.ref : "unresolved"}, base: ${sk ? `${sk.target} (${sk.message})` : same ? t!.ref : b}`;
 }
+
+// ---- PR-BASE begin: the label must describe exactly what the pull request merges (FireLater#19, pull request 70: a run started on a
+// feature branch whose tip was not in main measured 12 files against that tip and opened a pull request into main that merged 40).
+/** What the run starts from and what its pull request targets, decided once by the supervisor before any model spend (PR mode only). */
+export interface PrBasePlan {
+  action: "keep" | "target-tip" | "current-branch" | "refuse";
+  target: string | null; // the ref the pull request is compared against (origin/main)
+  start_sha: string | null; // target-tip: the commit intake creates the run branch from
+  pr_base: string | null; // current-branch: the branch the pull request targets (LOKI_PR_BASE)
+  line: string | null; // one plain line for the user (the refusal text when action is refuse)
+  header: string | null; // the start line's target and base fragment; null keeps baseLine()
+}
+const short = (sha: string | null): string => (sha ?? "").slice(0, 7);
+const trackedDirt = (repoDir: string): string[] | null => { const o = git(repoDir, ["status", "--porcelain", "--untracked-files=no"]); return o === null ? null : o.split("\n").filter((l) => l !== "" && !/^.{0,2} "?\.loki\//.test(l)); };
+/** Paths the checkout of `target` would create that already exist in the working tree (untracked or ignored there): git would refuse or overwrite them. */
+function checkoutCollisions(repoDir: string, target: string): string[] | null {
+  const added = git(repoDir, ["diff", "--name-only", "--no-renames", "--diff-filter=A", "HEAD", target]);
+  if (added === null) return null;
+  return added.split("\n").filter((p) => p !== "" && ((): boolean => { try { lstatSync(join(repoDir, p)); return true; } catch { return false; } })());
+}
+/** The ref a pull request is really opened against: LOKI_PR_BASE when set (a stacked slice or --base-current; a loki/* parent is a valid one here,
+ *  unlike in resolveBase), else the default branch. Fetches that one branch best effort. Null: nothing to compare with. */
+export function prTargetRef(repoDir: string, prBase: string | undefined, fetchRemote = true): string | null {
+  if (!prBase) return resolveBase(repoDir, "", fetchRemote)?.ref ?? null;
+  if (fetchRemote && process.env.LOKI_E10_NO_FETCH !== "1" && git(repoDir, ["remote", "get-url", "origin"]) !== null) git(repoDir, ["fetch", "-q", "origin", prBase], 10000, { GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes" });
+  return exists(repoDir, `origin/${prBase}`) ? `origin/${prBase}` : exists(repoDir, prBase) ? prBase : null;
+}
+/** PR-BASE rule 1. Nothing changes, and nothing is fetched, when HEAD is already in the target. Otherwise, in this order: (a) a clean tree starts
+ *  from the target tip; (b) --base-current (LOKI_BASE_CURRENT=1) targets the current branch when origin has it and HEAD is in it; (c) refuse with the
+ *  two commands that work. A dirty tracked tree and a detached HEAD keep what intake does today (refusal; start from that commit). Never writes. */
+export function prBasePlan(repoDir: string, o: { baseCurrent: boolean; env?: NodeJS.ProcessEnv }): PrBasePlan {
+  const env = o.env ?? process.env, keep = (target: string | null, line: string | null = null): PrBasePlan => ({ action: "keep", target, start_sha: null, pr_base: null, line, header: null });
+  const anc = (ref: string): boolean => ok(repoDir, ["merge-base", "--is-ancestor", "HEAD", ref]);
+  if (env.LOKI_PR_BASE) return keep(prTargetRef(repoDir, env.LOKI_PR_BASE, false)); // a stacked slice (loki issues run): the caller chose the target
+  let t = resolveBase(repoDir, "", false); // "" and not LOKI_E10_BASE: the push opens the pull request into the default branch unless LOKI_PR_BASE names another
+  if (!t || !t.ref.startsWith("origin/")) return keep(null); // no origin, or origin has no default branch: there is no pull request target to compare with, so nothing is recorded or measured
+  if (anc(t.ref)) return keep(t.ref); // the normal run: no fetch, nothing printed
+  t = resolveBase(repoDir, "") ?? t; // HEAD is not in the local view of the target: look at the real one, once
+  if (!t.ref.startsWith("origin/")) return keep(null);
+  if (anc(t.ref) || stackedOnLokiRun(repoDir, t)) return keep(t.ref); // intake already moves an all-Loki run branch to the target tip
+  const branch = git(repoDir, ["symbolic-ref", "-q", "--short", "HEAD"]) || null, head = git(repoDir, ["rev-parse", "HEAD"]), tname = t.ref.replace(/^origin\//, "");
+  const n = Number(git(repoDir, ["rev-list", "--count", `${t.ref}..HEAD`]) ?? "0") || 0, commits = (k: number): string => `${k} other commit${k === 1 ? "" : "s"}`;
+  const refuse = (why: string, cmds: [string, string]): PrBasePlan => ({ action: "refuse", target: t!.ref, start_sha: null, pr_base: null, header: null, line: `${why}. Nothing was run. Either: ${cmds[0]}; or: ${cmds[1]}` });
+  const stackCmd = branch ? `git push -u origin ${branch}, then rerun with --base-current (pull request into ${branch})` : `git switch -c <branch>, git push -u origin <branch>, then rerun with --base-current`;
+  const wtCmd = `git worktree add ../${basename(repoDir)}-${tname.replace(/[^A-Za-z0-9._-]+/g, "-")} ${t.ref}, then rerun there (pull request into ${tname})`;
+  if (o.baseCurrent) {
+    if (!branch) return refuse(`--base-current needs a branch, and HEAD is detached at ${short(head)}: a pull request into ${tname} would carry ${commits(n)}`, [stackCmd, wtCmd]);
+    if (git(repoDir, ["remote", "get-url", "origin"]) !== null && env.LOKI_E10_NO_FETCH !== "1") git(repoDir, ["fetch", "-q", "origin", branch], 10000, { GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes" });
+    const remote = `origin/${branch}`;
+    if (exists(repoDir, remote) && anc(remote)) return { action: "current-branch", target: remote, start_sha: null, pr_base: branch, header: `PR target: ${remote}, base: ${branch}`, line: `building on your branch ${branch}: the pull request targets ${branch}, not ${tname} (stacked pull request)` };
+    const un = exists(repoDir, remote) ? Number(git(repoDir, ["rev-list", "--count", `${remote}..HEAD`]) ?? "0") || 0 : n;
+    return refuse(exists(repoDir, remote) ? `your branch ${branch} has ${un} commit${un === 1 ? "" : "s"} that origin/${branch} does not, so the pull request would carry ${commits(un)}` : `your branch ${branch} is not on origin, so the pull request would go into ${tname} and carry ${commits(n)}`,
+      [stackCmd, `rerun without --base-current to start from ${t.ref} (pull request into ${tname}, this change only)`]);
+  }
+  if (!branch) return keep(t.ref, `detached HEAD ${short(head)} is not in ${t.ref}: the pull request would carry ${commits(n)}, so the label is held at PARTIAL and the pull request opens as a draft (check out a branch, or pass --no-pr)`);
+  const dirt = trackedDirt(repoDir);
+  if (dirt === null) return refuse(`cannot read the working tree state, so the run cannot safely start from ${t.ref} instead of your branch ${branch}`, [stackCmd, wtCmd]);
+  if (dirt.length > 0) { // intake refuses a dirty tracked tree itself (unchanged); only a modified lockfile passes it, and that cannot be carried to another commit
+    const { blocking } = splitDirty(repoDir, dirt);
+    return blocking.length > 0 ? keep(t.ref) : refuse(`your branch ${branch} is not in ${t.ref} and the working tree has uncommitted changes (${dirt.map((l) => l.slice(3)).slice(0, 3).join(", ")}), so the run cannot start from ${t.ref} without touching them`, [stackCmd, wtCmd]);
+  }
+  const hit = checkoutCollisions(repoDir, t.ref), sha = git(repoDir, ["rev-parse", "--verify", "-q", `${t.ref}^{commit}`]);
+  if (hit === null || !sha || !/^[0-9a-f]{40}$/.test(sha)) return refuse(`${t.ref} cannot be read, so the run cannot start from it instead of your branch ${branch}`, [stackCmd, wtCmd]);
+  if (hit.length > 0) return refuse(`your branch ${branch} is not in ${t.ref}, and starting from ${t.ref} would overwrite ${hit.length} file${hit.length === 1 ? "" : "s"} in your working tree that ${branch} does not track (${hit.slice(0, 3).join(", ")}${hit.length > 3 ? `, +${hit.length - 3} more` : ""})`, [stackCmd, wtCmd]);
+  return { action: "target-tip", target: t.ref, start_sha: sha, pr_base: null, header: `PR target: ${t.ref}, base: ${t.ref}`, line: `starting from ${t.ref}, not from your branch ${branch}, so the pull request holds only this change (use --base-current to build on your branch)` };
+}
+/** The refusal intake gives when the checkout of the target tip fails after all (case c, before any session). */
+export const startFromRefusal = (target: string, branch: string | null, repoDir: string): string =>
+  `cannot start from ${target}: git could not create the run branch there without touching your working tree. Nothing was run. Either: ${branch ? `git push -u origin ${branch}, then rerun with --base-current (pull request into ${branch})` : "check out a branch and rerun with --base-current"}; or: git worktree add ../${basename(repoDir)}-base ${target}, then rerun there`;
+
+/** What a pull request into `target` would hold, against what the run measured (base_sha..head). GitHub's own semantics: files are the diff
+ *  from the merge base, commits are target..head, so a target that only moved forward changes nothing. Any git error is `ok: false`: never green. */
+export interface PrScope { target: string; target_sha: string | null; merge_base: string | null; base_sha: string; head_sha: string | null; pr_files: number | null; measured_files: number | null; pr_commits: number | null; measured_commits: number | null; unmeasured_files: number; ok: boolean; reason: string | null }
+export function prScope(repoDir: string, a: { target: string | null; baseSha: string | null; head?: string }): PrScope {
+  const headRef = a.head ?? "HEAD", target = a.target ?? "unresolved", base = a.baseSha ?? "";
+  const none: PrScope = { target, target_sha: null, merge_base: null, base_sha: base, head_sha: null, pr_files: null, measured_files: null, pr_commits: null, measured_commits: null, unmeasured_files: 0, ok: false, reason: `the pull request target ${target} could not be read, so what it would merge was not compared with what the label measured` };
+  if (!a.target || !/^[0-9a-f]{40}$/.test(base)) return a.target ? { ...none, reason: "the run recorded no base commit, so what the pull request would merge was not compared with what the label measured" } : none;
+  const tsha = git(repoDir, ["rev-parse", "--verify", "-q", `${a.target}^{commit}`]), head = git(repoDir, ["rev-parse", "--verify", "-q", `${headRef}^{commit}`]);
+  if (!tsha || !head) return none;
+  const mb = git(repoDir, ["merge-base", tsha, head]);
+  const list = (args: string[]): string[] | null => { const o = git(repoDir, args); return o === null ? null : o.split("\n").filter((l) => l !== ""); };
+  const files = (from: string): string[] | null => list(["diff", "--name-only", "--no-renames", from, head, "--", ".", ":(exclude).loki"]);
+  const prF = mb ? files(mb) : null, mF = files(base), prC = list(["rev-list", `${tsha}..${head}`]), mC = list(["rev-list", `${base}..${head}`]);
+  if (!mb || !prF || !mF || !prC || !mC) return { ...none, target_sha: tsha, head_sha: head, merge_base: mb };
+  const measured = new Set(mF), mine = new Set(mC), extraF = prF.filter((f) => !measured.has(f)).length, extraC = prC.filter((c) => !mine.has(c)).length;
+  const same = extraF === 0 && extraC === 0 && prF.length === mF.length && prC.length === mC.length;
+  const reason = same ? null : extraF > 0 ? `the pull request would merge ${extraF} file${extraF === 1 ? "" : "s"} the label did not measure (${prF.length} files and ${prC.length} commits into ${target}; the label measured ${mF.length} files and ${mC.length} commits from ${short(base)})`
+    : `the pull request into ${target} would not hold what the label measured (${prF.length} files and ${prC.length} commits, ${extraC} of them not this run's; the label measured ${mF.length} files and ${mC.length} commits from ${short(base)})`;
+  return { target, target_sha: tsha, merge_base: mb, base_sha: base, head_sha: head, pr_files: prF.length, measured_files: mF.length, pr_commits: prC.length, measured_commits: mC.length, unmeasured_files: extraF, ok: same, reason };
+}
+/** Intake's record of the plan (PR mode only: the supervisor exports LOKI_E10_PR_TARGET); absent otherwise, so other receipts keep their keys. */
+export function intakePrBase(repoDir: string, env: NodeJS.ProcessEnv, startBranch: string | null, fromTarget: boolean): { pr_base?: { target: string; target_sha: string | null; start_branch: string | null; mode: "target-tip" | "current-branch" | "head" } } {
+  const target = env.LOKI_E10_PR_TARGET;
+  if (!target || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,250}$/.test(target)) return {};
+  return { pr_base: { target, target_sha: git(repoDir, ["rev-parse", "--verify", "-q", `${target}^{commit}`]), start_branch: startBranch, mode: fromTarget ? "target-tip" : env.LOKI_PR_BASE ? "current-branch" : "head" } };
+}
+/** Seal time (the worker, no network): the same measurement, as one open note that holds the label at PARTIAL and one receipt block. Both empty when intake recorded no target. */
+export function sealPrScope(repoDir: string, intake: Record<string, unknown> | undefined, baseSha: string, head: string): { notes: string[]; receipt: Record<string, unknown> } {
+  const pb = intake?.["pr_base"] as { target?: unknown; mode?: unknown; start_branch?: unknown } | undefined;
+  if (!pb || typeof pb.target !== "string") return { notes: [], receipt: {} };
+  const s = prScope(repoDir, { target: pb.target, baseSha, head });
+  return { notes: s.ok ? [] : [s.reason!], receipt: { pr_base: { target: s.target, target_sha: s.target_sha, merge_base: s.merge_base, base_sha: s.base_sha, pr_files: s.pr_files, measured_files: s.measured_files, pr_commits: s.pr_commits, measured_commits: s.measured_commits, mode: typeof pb.mode === "string" ? pb.mode : "head", start_branch: typeof pb.start_branch === "string" ? pb.start_branch : null, line: prScopeLine(s) } } };
+}
+/** The one line the receipt and the pull request body carry: base and target. */
+export const prScopeLine = (s: PrScope): string => `Base and target: built from ${short(s.base_sha) || "an unrecorded base"}, pull request into ${s.target.replace(/^origin\//, "")}${s.target_sha ? ` at ${short(s.target_sha)}` : ""}; ${s.pr_files ?? "unknown"} file${s.pr_files === 1 ? "" : "s"} and ${s.pr_commits ?? "unknown"} commit${s.pr_commits === 1 ? "" : "s"} against that target, ${s.measured_files ?? "unknown"} file${s.measured_files === 1 ? "" : "s"} measured.`;
+// ---- PR-BASE end
 
 /** The recorded note from an intake stage.completed data object (null when absent). */
 export function noteOf(intake: Record<string, unknown> | undefined): string | null {
@@ -395,7 +502,7 @@ const tipOf = (repoDir: string, ref: string): string | null => {
 };
 export const keepRunBranch = (env: NodeJS.ProcessEnv = process.env): boolean => env.LOKI_KEEP_RUN_BRANCH === "1";
 export interface RunEnd { orig: string | null; pushed: boolean; deferred?: boolean; keepWork?: boolean; baseSha?: string | null }
-export interface BranchRecord { branch: string; head_sha: string; pushed: boolean; bundle: string | null; orig_branch?: string | null; deferred?: boolean }
+export interface BranchRecord { branch: string; head_sha: string; pushed: boolean; bundle: string | null; orig_branch?: string | null; deferred?: boolean; start_sha?: string } // start_sha: a deferred run that started on a detached HEAD returns to that commit (PR-BASE)
 
 function checkedOut(repoDir: string): { branches: Set<string>; trees: { path: string; head: string; detached: boolean }[] } {
   const branches = new Set<string>(), trees: { path: string; head: string; detached: boolean }[] = [];
@@ -488,6 +595,14 @@ function workLine(repoDir: string, branch: string, orig: string | null): string 
   return `engine10: the run's work is on branch ${branch}; your checkout is back on ${orig ?? "the starting branch"}; see it with: git diff ${orig ?? "HEAD"}...${branch}\n`;
 }
 
+/** True when the run's last run.completed is SPEC_CONFLICT (outcome BLOCKED): `loki answer <run>` resumes it on its local run branch. */
+function answerable(runDir: string): boolean {
+  try {
+    const last = readFileSync(join(runDir, "events.jsonl"), "utf8").split("\n").filter((l) => l.includes('"run.completed"')).pop();
+    return !!last && (JSON.parse(last) as { data?: { verdict?: unknown } }).data?.verdict === "SPEC_CONFLICT";
+  } catch { return false; }
+}
+
 /**
  * The end of one run: return the checkout, remove leftover base worktrees, delete the run branch once its history is safe, migrate loose
  * session files and sweep earlier runs' branches. Returns the lines to print. `deferred`: a detached deep verify still runs on the branch,
@@ -501,15 +616,16 @@ export function finishRunBranch(repoDir: string, runId: string, end: RunEnd, env
   try {
     if (end.deferred && tip) {
       mkdirSync(runDir, { recursive: true });
-      writeFileSync(join(runDir, "branch.json"), JSON.stringify({ branch, head_sha: tip, pushed: end.pushed, bundle: null, orig_branch: end.orig, deferred: true } satisfies BranchRecord, null, 2) + "\n");
-      return `engine10: the checkout stays on ${branch} while the background deep verify runs, then returns to ${end.orig ?? "the starting branch"}\n`;
+      const detachedAt = !end.orig && end.baseSha && /^[0-9a-f]{40}$/.test(end.baseSha) ? end.baseSha : null; // a detached start has no branch to record: keep its commit so the deferred end can return to it
+      writeFileSync(join(runDir, "branch.json"), JSON.stringify({ branch, head_sha: tip, pushed: end.pushed, bundle: null, orig_branch: end.orig, deferred: true, ...(detachedAt ? { start_sha: detachedAt } : {}) } satisfies BranchRecord, null, 2) + "\n");
+      return `engine10: the checkout stays on ${branch} while the background deep verify runs, then returns to ${end.orig ?? (detachedAt ? `commit ${detachedAt.slice(0, 7)}, detached` : "the starting branch")}\n`;
     }
     removeRunWorktrees(repoDir, end.baseSha);
     migrateSessionFiles(repoDir, runLive);
     let notes = "";
     const wallGone = removeOwnWallFiles(repoDir, runId); // the run's own untracked Wall files never stay behind in the user's tree
     if (wallGone.length) notes += `engine10: removed Loki's own acceptance test ${wallGone.join(", ")} from your tree; its sealed copy is under .loki/runs/${runId}/wall/\n`;
-    const keepHere = end.keepWork === true && tip !== null && tipOf(repoDir, end.baseSha ?? "") !== tip;
+    const keepHere = (end.keepWork === true || answerable(runDir)) && tip !== null && tipOf(repoDir, end.baseSha ?? "") !== tip; // DELIVER-WHAT-EXISTS: a BLOCKED run with a draft pull request keeps its local branch, `loki answer` resumes on it
     const stay = tip ? returnCheckout(repoDir, branch, end.orig, end.baseSha ?? null) : null; // run safety: every outcome returns the checkout to the start branch, a kept branch included
     if (stay) notes += stay;
     if (tip && !keepHere) {
@@ -525,7 +641,7 @@ export function finishDeferredRun(repoDir: string, runId: string, env: NodeJS.Pr
   const rec = readRecord(join(repoDir, ".loki", "runs", runId, "branch.json"));
   if (!rec?.deferred || rec.branch !== `loki/${runId}`) return "";
   const tip = tipOf(repoDir, `refs/heads/${rec.branch}`);
-  return finishRunBranch(repoDir, runId, { orig: rec.orig_branch ?? null, pushed: rec.pushed === true && tip === rec.head_sha }, env);
+  return finishRunBranch(repoDir, runId, { orig: rec.orig_branch ?? null, pushed: rec.pushed === true && tip === rec.head_sha, ...(!rec.orig_branch && typeof rec.start_sha === "string" && /^[0-9a-f]{40}$/.test(rec.start_sha) ? { baseSha: rec.start_sha } : {}) }, env);
 }
 
 /** Saves and removes loki/e10-* branches earlier runs left: never a branch checked out anywhere, a live run's, or the resumable run's. */
@@ -544,4 +660,166 @@ export function sweepRunBranches(repoDir: string, env: NodeJS.ProcessEnv = proce
   }
   if (removed === 0) return kept.join("");
   return `engine10: removed ${removed} run branch(es) left by earlier runs${saved ? `; ${saved} with unpushed commits saved as bundles under .loki/runs/ (restore one with: git fetch <bundle> <branch>:<branch>)` : ""}\n${kept.join("")}`;
+}
+
+// ---- WORK-RECOVERY: finished work is never lost -----------------------------------------------------------------------------------
+// opencode 63310 (Loki 11.152.0): a fix session ran `git stash -q; <look at the base>; git stash pop -q` and was stopped between the two.
+// The whole correct change sat in stash@{0}; the commit stage saw a clean tree ("committed false") and the run delivered nothing.
+// The record is one file in the run directory (work-ledger.jsonl; its name matches config_fence.ts RUN_RECORD, so Edit and Write never
+// reach it). Line 1 is the stash list at run start. A stash entry is the run's own only when it is absent from that list AND was made
+// on the run branch (the stash stack is shared by every worktree of the repository, so "new" alone could be the user's own entry made
+// elsewhere during the run). No record, an unreadable record, or an entry that fails either test: nothing is applied and nothing is
+// dropped. Nothing here ever discards work: a restore that cannot be clean keeps the entry and names it.
+const WORK_LEDGER = "work-ledger.jsonl";
+export const workLedgerPath = (runDir: string): string => join(runDir, WORK_LEDGER);
+type LedgerLine = { k: string; sha?: string; stashes?: string[]; at?: number; files?: number; paths?: string[]; reason?: string; stage?: string; where?: string; subject?: string; note?: string };
+function readLedger(runDir: string): LedgerLine[] | null {
+  let text: string;
+  try { text = readFileSync(workLedgerPath(runDir), "utf8"); } catch { return null; }
+  const out: LedgerLine[] = [];
+  for (const l of text.split("\n")) { if (!l.trim()) continue; try { const o = JSON.parse(l) as LedgerLine; if (o && typeof o === "object" && typeof o.k === "string") out.push(o); else return null; } catch { return null; } }
+  return out;
+}
+const appendLedger = (runDir: string, line: LedgerLine): void => { try { mkdirSync(runDir, { recursive: true }); writeFileSync(workLedgerPath(runDir), `${JSON.stringify(line)}\n`, { flag: "a" }); } catch { /* the restore already happened or was skipped; a lost line only loses the note */ } };
+/** The record's first line when it is a well-formed baseline, else null (then nothing is ever touched). */
+function baselineOf(lines: LedgerLine[] | null): { stashes: Set<string>; at: number } | null {
+  const b = lines?.[0];
+  if (!b || b.k !== "baseline" || !Array.isArray(b.stashes) || !b.stashes.every((s) => typeof s === "string" && /^[0-9a-f]{40,64}$/.test(s)) || typeof b.at !== "number") return null;
+  return { stashes: new Set(b.stashes), at: b.at };
+}
+const stashList = (repoDir: string): { sha: string; subject: string }[] | null => {
+  const out = git(repoDir, ["stash", "list", "--format=%H %gs"]);
+  if (out === null) return null;
+  return out.split("\n").filter(Boolean).map((l) => ({ sha: l.slice(0, l.indexOf(" ")), subject: l.slice(l.indexOf(" ") + 1) })).filter((e) => /^[0-9a-f]{40,64}$/.test(e.sha));
+};
+/** Writes the stash list at run start, once per run directory. Called at the first session start of a run; a repository git cannot read writes nothing. */
+export function recordStashBaseline(repoDir: string, runDir: string): void {
+  if (existsSync(workLedgerPath(runDir))) return;
+  const list = stashList(repoDir);
+  if (list === null) return;
+  appendLedger(runDir, { k: "baseline", stashes: list.map((e) => e.sha), at: Date.now() });
+}
+export interface WorkRecovery { recovered: { sha: string; files: number; paths: string[] }[]; kept: { sha: string; reason: string }[]; foreign: { sha: string; subject: string }[]; moved: string | null }
+const NO_RECOVERY = (): WorkRecovery => ({ recovered: [], kept: [], foreign: [], moved: null });
+/** True when `subject` is the reflog line `git stash` writes on `branch` ("WIP on <branch>: ..." or, with -m, "On <branch>: ..."). */
+export const stashMadeOn = (subject: string, branch: string): boolean => subject.startsWith(`WIP on ${branch}: `) || subject.startsWith(`On ${branch}: `);
+const chunks = <T>(xs: T[], n = 200): T[][] => { const out: T[][] = []; for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n)); return out; };
+/** One stash entry back onto the work tree. Returns the file count, or the reason it was kept. Applies only when the apply cannot conflict:
+ *  HEAD is the commit the stash was made on and none of its files has another change in the tree. Verified against the stash commit before the entry is dropped. */
+function restoreStash(repoDir: string, sha: string): { files: number; paths: string[] } | { reason: string } {
+  const head = git(repoDir, ["rev-parse", "HEAD"]), base = git(repoDir, ["rev-parse", "--verify", "-q", `${sha}^1`]);
+  if (!head || !base) return { reason: "its base commit could not be read" };
+  if (head !== base) return { reason: `the checkout moved to ${head.slice(0, 12)} after the stash was made on ${base.slice(0, 12)}` };
+  const z = (args: string[]): string[] | null => { try { return safeGit(repoDir, args, { timeout: 20000 }).split("\0").filter(Boolean); } catch { return null; } };
+  const tracked = z(["diff", "--name-only", "--no-renames", "-z", base, sha]);
+  const hasUntracked = git(repoDir, ["rev-parse", "--verify", "-q", `${sha}^3`]) !== null, untracked = hasUntracked ? z(["ls-tree", "-r", "--name-only", "-z", `${sha}^3`]) : [];
+  if (tracked === null || untracked === null) return { reason: "its file list could not be read" };
+  if (tracked.length + untracked.length === 0) return { reason: "it holds no file change" };
+  for (const part of chunks(tracked)) { // a file of the stash with another change in the tree or the index: git would refuse or merge, so nothing is tried
+    const dirty = z(["--literal-pathspecs", "status", "--porcelain", "-z", "--untracked-files=no", "--no-renames", "--", ...part]);
+    if (dirty === null) return { reason: "the work tree state could not be read" };
+    if (dirty.length > 0) return { reason: `the work tree has other changes to the same file(s): ${dirty.map((l) => l.slice(3)).slice(0, 5).join(", ")}` };
+  }
+  const there = untracked.filter((f) => { try { lstatSync(join(repoDir, f)); return true; } catch { return false; } });
+  if (there.length > 0) return { reason: `the work tree already has the untracked file(s) it would restore: ${there.slice(0, 5).join(", ")}` };
+  try { safeGit(repoDir, ["stash", "apply", "-q", sha], { timeout: 120000, repoDrivers: true, stdio: ["ignore", "pipe", "pipe"] }); } catch (e) {
+    return { reason: `git stash apply failed (${String((e as { stderr?: unknown }).stderr ?? (e as Error).message).split("\n").map((l) => l.trim()).filter(Boolean).slice(-1)[0]?.slice(0, 160) ?? "no error output"})` };
+  }
+  // applied: the tree must now hold exactly the stash's content for every file it names, with no unmerged entry, before the entry may go
+  if ((git(repoDir, ["ls-files", "-u"]) ?? "x") !== "") return { reason: "the apply left unmerged files" };
+  for (const part of chunks(tracked)) { try { safeGit(repoDir, ["--literal-pathspecs", "diff", "--quiet", sha, "--", ...part], { timeout: 60000, repoDrivers: true, stdio: "ignore" }); } catch { return { reason: "the restored files do not match the stash" }; } }
+  if (untracked.some((f) => { try { lstatSync(join(repoDir, f)); return false; } catch { return true; } })) return { reason: "an untracked file of the stash was not restored" };
+  // drop by SHA: the stack can shift under another worktree, so stash@{n} is resolved again right before the drop and the list is compared after it
+  const before = stashList(repoDir), idx = before?.findIndex((e) => e.sha === sha) ?? -1;
+  const done = { files: tracked.length + untracked.length, paths: [...tracked, ...untracked] };
+  if (before === null || idx < 0) return done; // already gone: the work is in the tree either way
+  if (git(repoDir, ["rev-parse", "--verify", "-q", `stash@{${idx}}`]) !== sha) return { reason: "the stash list changed while restoring; the entry is applied to the work tree and kept on the stack" };
+  if (git(repoDir, ["stash", "drop", "-q", `stash@{${idx}}`]) === null) return { reason: "the entry is applied to the work tree but could not be dropped" };
+  const after = new Set((stashList(repoDir) ?? []).map((e) => e.sha));
+  for (const e of [...before].reverse()) if (e.sha !== sha && !after.has(e.sha)) git(repoDir, ["stash", "store", "-q", "-m", e.subject, e.sha]); // another entry vanished in the same instant: put it back (its commit still exists)
+  return done;
+}
+/** Puts the checkout back on the run branch when a session left it elsewhere, without touching a file and without moving any other branch.
+ *  Same commit: HEAD is re-pointed. Commits made during the run on top of the run branch: the run branch is fast-forwarded to them. A plain
+ *  `git checkout` otherwise (it carries edits and refuses to overwrite one). Returns the line to disclose, or null when nothing was off. */
+export function returnToRunBranch(repoDir: string, branch: string, sinceMs: number): { moved: boolean; note: string } | null {
+  const tip = tipOf(repoDir, `refs/heads/${branch}`);
+  if (!tip) return null; // no run branch (a unit fixture, or intake never ran): today's behaviour
+  const cur = currentBranch(repoDir);
+  if (cur === branch) return null;
+  const head = git(repoDir, ["rev-parse", "HEAD"]);
+  if (!head) return null;
+  const where = cur ? `branch ${cur}` : `a detached HEAD at ${head.slice(0, 12)}`, repoint = (): boolean => git(repoDir, ["symbolic-ref", "-m", `loki: return to ${branch}`, "HEAD", `refs/heads/${branch}`]) !== null;
+  if (head === tip) return repoint() ? { moved: true, note: `a session left the checkout on ${where}; Loki put it back on ${branch} (same commit, every edit kept)` } : { moved: false, note: `a session left the checkout on ${where} and Loki could not return it to ${branch}; the run's work may be there` };
+  const isAncestor = (a: string, b: string): boolean => { try { safeGit(repoDir, ["merge-base", "--is-ancestor", a, b], { stdio: "ignore" }); return true; } catch { return false; } };
+  if (isAncestor(tip, head)) {
+    const times = (git(repoDir, ["log", "--format=%ct", `${tip}..${head}`]) ?? "").split("\n").filter(Boolean).map(Number);
+    const own = times.length > 0 && times.length <= 200 && times.every((t) => Number.isFinite(t) && t * 1000 >= sinceMs - 2000); // every stray commit was made during this run: the run's own, never the user's earlier work
+    if (own && git(repoDir, ["update-ref", "-m", `loki: commits a session made on ${where}`, `refs/heads/${branch}`, head, tip]) !== null && repoint()) return { moved: true, note: `a session made ${times.length} commit(s) on ${where}; Loki fast-forwarded ${branch} to ${head.slice(0, 12)} so they are part of this run (${cur ? `${cur} is unchanged` : "no other branch moved"})` };
+    return { moved: false, note: `a session left the checkout on ${where}, ${times.length} commit(s) ahead of ${branch}${own ? "" : " and not all made during this run"}: left untouched; see them with: git log ${branch}..${head.slice(0, 12)}` };
+  }
+  const ahead = Number(git(repoDir, ["rev-list", "--count", `${tip}..${head}`]) ?? NaN);
+  if (ahead === 0) { // HEAD is behind the run branch: a plain checkout carries the edits forward or refuses
+    try { safeGit(repoDir, ["checkout", "-q", branch], { repoDrivers: true, stdio: "ignore", timeout: 120000 }); return { moved: true, note: `a session left the checkout on ${where}; Loki put it back on ${branch} (edits carried over)` }; } catch { /* disclosed below */ }
+  }
+  return { moved: false, note: `a session left the checkout on ${where}${ahead > 0 ? `, with ${ahead} commit(s) that are not on ${branch}` : ""}: left untouched; the run's work may be there (git log ${branch}..${head.slice(0, 12)}; git diff ${branch} ${head.slice(0, 12)})` };
+}
+/**
+ * Restores the run's own set-aside work onto the work tree of `repoDir`: called at every session end (engine10/session.ts), at the top of the commit
+ * stage (stages/seal.ts) and before the run-end WIP and backstop commits (e10ext/commit_filter.ts). `branch` is the run branch; `moveBranch`
+ * also returns the checkout to it (never while a session may still be running). Never throws; returns what it did for the event and the receipt.
+ */
+export function recoverRunWork(o: { repoDir: string; runDir: string; branch: string; stage?: string; where: "session" | "commit" | "run-end"; moveBranch?: boolean }): WorkRecovery {
+  const res = NO_RECOVERY();
+  try {
+    const lines = readLedger(o.runDir), base = baselineOf(lines);
+    if (!base) return res; // no record of the start state: nothing is the run's for sure, so nothing is touched
+    if (o.moveBranch) { const m = returnToRunBranch(o.repoDir, o.branch, base.at); if (m) { res.moved = m.note; if (!lines!.some((l) => l.k === "branch" && l.note === m.note)) appendLedger(o.runDir, { k: "branch", note: m.note, where: o.where }); } }
+    const list = stashList(o.repoDir);
+    if (list === null) return res;
+    const said = (k: string, sha: string, reason?: string): boolean => lines!.some((l) => l.k === k && l.sha === sha && (reason === undefined || l.reason === reason));
+    for (const e of list) { // newest first, the order a repeated `git stash pop` would take
+      if (base.stashes.has(e.sha)) continue; // existed before the run: the user's, never read further
+      if (!stashMadeOn(e.subject, o.branch)) { res.foreign.push(e); if (!said("foreign", e.sha)) appendLedger(o.runDir, { k: "foreign", sha: e.sha, subject: e.subject.slice(0, 200), where: o.where }); continue; }
+      const r = restoreStash(o.repoDir, e.sha);
+      if ("files" in r) { res.recovered.push({ sha: e.sha, files: r.files, paths: r.paths }); appendLedger(o.runDir, { k: "recovered", sha: e.sha, files: r.files, paths: r.paths.length > RECOVERED_PATHS_MAX ? [...r.paths.slice(0, RECOVERED_PATHS_MAX), MORE_PATHS] : r.paths, where: o.where, ...(o.stage ? { stage: o.stage } : {}) }); }
+      else { res.kept.push({ sha: e.sha, reason: r.reason }); if (!said("kept", e.sha, r.reason)) appendLedger(o.runDir, { k: "kept", sha: e.sha, reason: r.reason, where: o.where }); }
+    }
+  } catch { /* a recovery bug never fails a session or a commit */ }
+  return res;
+}
+export const WORK_RECOVERED_NOTE = "work recovered";
+const RECOVERED_PATHS_MAX = 2000, MORE_PATHS = "(more files than the record lists)"; // a path that is no file: it never has a verify hash, so an over-long list always reads as not checked
+/** LATE-RECOVERY: the restored files no check saw. A file counts as checked only when the last verify recorded a hash for it (file_hashes, taken when verify starts)
+ *  and the file still has those bytes; no verify output, or one without hashes (a stopped verify), means none was. Empty when nothing was restored. */
+export function unverifiedRecovered(runDir: string, repoDir: string, verify: Record<string, unknown> | undefined): string[] {
+  const lines = readLedger(runDir);
+  if (!baselineOf(lines)) return [];
+  const paths = [...new Set(lines!.filter((l) => l.k === "recovered").flatMap((l) => (Array.isArray(l.paths) ? l.paths.filter((p): p is string => typeof p === "string") : [MORE_PATHS])))];
+  if (paths.length === 0) return [];
+  const seen = verify && verify["file_hashes"] !== null && typeof verify["file_hashes"] === "object" ? (verify["file_hashes"] as Record<string, unknown>) : null;
+  if (!seen) return paths;
+  const now = fileHashes(repoDir, paths);
+  return paths.filter((p) => typeof seen[p] !== "string" || seen[p] !== now[p]);
+}
+/** LATE-RECOVERY: a run whose restored work no check saw is never VERIFIED (or ALREADY_SATISFIED): the label is held at PARTIAL, and workRecoveryNotes names the files. */
+export const capLateRecovery = <V extends string>(verdict: V, unverified: readonly string[]): V | "PARTIAL" => (unverified.length > 0 && (verdict === "VERIFIED" || verdict === "ALREADY_SATISFIED") ? "PARTIAL" : verdict);
+/** The receipt lines of this run's record: what was restored, what was kept and where it is, and a branch a session left the checkout on. `repoDir` drops a
+ *  kept or foreign line whose entry is no longer on the stash stack (restored by a later pass, or taken back by its owner). */
+export function workRecoveryNotes(runDir: string, repoDir: string, unverified: readonly string[] = []): string[] {
+  const lines = readLedger(runDir);
+  if (!baselineOf(lines)) return [];
+  const live = new Set((stashList(repoDir) ?? []).map((e) => e.sha)), recovered = new Set(lines!.filter((l) => l.k === "recovered").map((l) => l.sha)), out: string[] = [];
+  const lastKept = new Map<string, LedgerLine>(); for (const l of lines!) if (l.k === "kept" && l.sha) lastKept.set(l.sha, l); // one line per entry: the latest reason
+  for (const l of lines!) {
+    const id = String(l.sha ?? "").slice(0, 12);
+    if (l.k === "recovered") {
+      const unseen = (Array.isArray(l.paths) ? l.paths : [MORE_PATHS]).filter((p) => unverified.includes(p)), what = `${WORK_RECOVERED_NOTE}: ${l.files} file(s) ${l.where === "session" ? `a ${l.stage ?? "stage"} session had set aside with git stash` : "set aside with git stash during the run"} were put back on the work tree (stash ${id})`;
+      out.push(unseen.length > 0 ? `${what} after the last check ran: no check saw ${unseen.slice(0, 5).join(", ")}${unseen.length > 5 ? ` (+${unseen.length - 5} more)` : ""}; the label is held at PARTIAL` : `${what}; the checks ran on the restored files (disclosed, does not cap)`);
+    }
+    else if (l.k === "kept" && l.sha && lastKept.get(l.sha) === l && live.has(l.sha) && !recovered.has(l.sha)) out.push(`work NOT restored: stash ${id} was made during this run on its branch and is kept, not dropped: ${l.reason}; it is not in the delivered change; restore it with: git stash apply ${l.sha}`);
+    else if (l.k === "foreign" && l.sha && live.has(l.sha)) out.push(`a stash entry made during the run was left untouched because it was not made on this run's branch: ${id} (${l.subject}); if it holds this run's work, restore it with: git stash apply ${l.sha}`);
+    else if (l.k === "branch" && l.note) out.push(l.note);
+  }
+  return [...new Set(out)];
 }

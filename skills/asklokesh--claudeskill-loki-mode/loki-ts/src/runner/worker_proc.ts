@@ -2,6 +2,7 @@
 // spawn the worker in its own process group, drain its stdout, and kill the group on a backstop or stop.
 import { spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
+import { StringDecoder } from "node:string_decoder";
 import { join, resolve } from "node:path";
 import { accessSync, chmodSync, constants as fsConstants, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -82,6 +83,8 @@ export function ulimitArgv(argv: string[], env: NodeJS.ProcessEnv): string[] {
 }
 // Spawns the worker in its own process group, waits for exit plus stdout drain (DRAIN_MS), and backstops at
 // backstopMs with SIGTERM then SIGKILL after escalateMs, clamped so a SIGTERM-trapping worker cannot outlive the cap.
+/** True only while the live console owns the terminal (console.ts sets the mark while its wrapper is installed) and this process's stderr is that terminal. */
+export const forwardsWorkerStderr = (stream: { isTTY?: boolean } = process.stderr): boolean => stream.isTTY === true && (globalThis as Record<symbol, unknown>)[Symbol.for("loki.consoleOwnsTerminal")] === true;
 export function spawnWorker(
   argv: string[], env: NodeJS.ProcessEnv, cwd: string, backstopMs: number, escalateMs: number, onLine: (l: string) => void, onStopped: (stopped: boolean) => void = () => {},
 ): Promise<{ code: number | null; killed: boolean; cancelled?: NodeJS.Signals }> {
@@ -90,12 +93,28 @@ export function spawnWorker(
     let wrapped: string[];
     try { wrapped = ulimitArgv(argv, env); } catch (e) { process.stderr.write(`${(e as Error).message}\n`); return resolve({ code: ULIMIT_REFUSED_EXIT, killed: false }); }
     const [cmd, ...args] = wrapped as [string, ...string[]];
-    const child = spawn(cmd, args, { cwd, env: envWithPwd(env, cwd), stdio: ["ignore", "pipe", "inherit"], detached: true });
+    // The worker's stderr is the supervisor's own stderr, with one exception: while the live console owns the terminal, a byte the worker wrote straight
+    // to it would land under the panel and the next redraw would leave that many rows of the old panel behind. So in that one case (the console is up
+    // AND stderr is the terminal) stderr is a pipe, and each line is written through process.stderr.write, which the console wraps to print it above the
+    // panel. Every other case (--json, --verbose, a pipe, `2>file`) keeps "inherit", byte for byte as before.
+    const fwd = forwardsWorkerStderr();
+    const child = spawn(cmd, args, { cwd, env: envWithPwd(fwd ? { ...env, LOKI_E10_STDERR_TTY: "1" } : env, cwd), stdio: ["ignore", "pipe", fwd ? "pipe" : "inherit"], detached: true });
     const rl = createInterface({ input: child.stdout! });
     rl.on("line", onLine);
     let killed = false;
     let settled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    // Whole lines are passed on as they arrive, in order; an unfinished line waits 200 ms for its end (so one line is never printed as two), and whatever
+    // is left is written when the pipe ends and again before this returns, so a crash trace or a last line with no newline is never lost.
+    const dec = new StringDecoder("utf8"); let errTail = "", errTimer: ReturnType<typeof setTimeout> | null = null;
+    const flushErr = (): void => { if (errTimer) { clearTimeout(errTimer); errTimer = null; } if (errTail) { const t = errTail; errTail = ""; process.stderr.write(t); } };
+    const onErr = (b: Buffer | string): void => {
+      errTail += typeof b === "string" ? b : dec.write(b);
+      const cut = errTail.lastIndexOf("\n");
+      if (cut >= 0) { const whole = errTail.slice(0, cut + 1); errTail = errTail.slice(cut + 1); if (errTimer) { clearTimeout(errTimer); errTimer = null; } process.stderr.write(whole); }
+      if (errTail && !errTimer) errTimer = setTimeout(() => { errTimer = null; flushErr(); }, 200);
+    };
+    if (fwd && child.stderr) { child.stderr.on("data", onErr); child.stderr.on("end", () => { errTail += dec.end(); flushErr(); }); }
     // Cancel: SIGTERM the worker so it can stop its sessions and record partial usage, keep draining its stdout, and
     // SIGKILL the group after CANCEL_GRACE_MS (a second signal escalates at once). finish() then reports `cancelled`.
     let cancelled: NodeJS.Signals | undefined;
@@ -119,6 +138,7 @@ export function spawnWorker(
       for (const t of timers) clearTimeout(t);
       rl.close();
       child.stdout?.destroy();
+      if (fwd && child.stderr) { for (let b = child.stderr.read() as Buffer | string | null; b !== null; b = child.stderr.read() as Buffer | string | null) onErr(b); flushErr(); child.stderr.off("data", onErr); child.stderr.destroy(); }
       killGroup(child.pid, "SIGKILL"); onStopped(cancelled !== undefined); // reap anything the worker left in its group, and every announced session group (backstop and worker-exit paths too)
       resolve({ code, killed, ...(cancelled ? { cancelled } : {}) });
     };
@@ -129,8 +149,10 @@ export function spawnWorker(
     }, backstopMs));
     child.on("error", () => finish(null));
     child.on("exit", (code) => {
-      if (child.stdout?.readableEnded) return finish(code);
-      child.stdout?.once("end", () => finish(code));
+      const drained = (): boolean => (child.stdout?.readableEnded ?? true) && (!fwd || (child.stderr?.readableEnded ?? true)); // a piped stderr is read to its end too
+      if (drained()) return finish(code);
+      const check = (): void => { if (drained()) finish(code); };
+      child.stdout?.once("end", check); if (fwd) child.stderr?.once("end", check);
       timers.push(setTimeout(() => finish(code), DRAIN_MS));
     });
   });
@@ -166,6 +188,8 @@ export function spawnDetached(cmd: string, args: string[], opts: { cwd?: string;
 // title overwrites the environment area) and is found only when its --dir is in scratch. macOS also hides the environment of its own platform binaries
 // (/bin/sleep and the like) from ps; such a process is found only by its directory, its command line or its parent.
 export const SCRATCH_MARKER = ".loki-scratch-owned", SCRATCH_RECORD = "scratch.json", OWNER_ENV = "LOKI_RUN_OWNER";
+/** TASK MEMORY: the read-only subdirectory of an implement scratch that holds Loki's MEMORY.md (engine10/proof_rerun.ts writeTaskMemory). */
+export const TASK_MEMORY_SUBDIR = "task-memory";
 export interface SessionScratch { dir: string; since: number; nonce: string }
 export function createSessionScratch(runDir?: string): SessionScratch {
   const base = existsSync("/tmp") ? realpathSync("/tmp") : realpathSync(tmpdir());
@@ -256,7 +280,7 @@ export function cleanupSessionScratch(s: SessionScratch, o: { signal?: (pid: num
   const live = stopped.filter((x) => still.some((y) => y.pid === x.pid));
   if (live.length) return { dir: s.dir, stopped, left, removed: false, kept: `kept: ${live.length} owned process(es) did not stop: ${live.map((x) => x.pid).join(", ")}` };
   let removed = false;
-  try { if (readFileSync(join(s.dir, SCRATCH_MARKER), "utf8") === s.dir) { rmSync(s.dir, { recursive: true, force: true }); removed = !existsSync(s.dir); } } catch { removed = !existsSync(s.dir); }
+  try { if (readFileSync(join(s.dir, SCRATCH_MARKER), "utf8") === s.dir) { try { chmodSync(join(s.dir, TASK_MEMORY_SUBDIR), 0o700); } catch { /* no task memory here */ } rmSync(s.dir, { recursive: true, force: true }); removed = !existsSync(s.dir); } } catch { removed = !existsSync(s.dir); } // TASK MEMORY: its read-only directory is made writable first, or the removal fails on it
   return { dir: s.dir, stopped, left, removed };
 }
 /** The record a run wrote at scratch creation, when its directory still exists. */

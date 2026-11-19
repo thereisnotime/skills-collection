@@ -144,4 +144,80 @@ const bad = rows.filter(([t, o, w, e]) => (m.goalRef(t, o, isRef, e ?? {})?.ref 
 console.log(bad.length ? "BAD " + JSON.stringify(bad) : "OK " + rows.length);' 2>&1)"
 [ "$gr" = "OK 18" ] && ok "goalRef: 18 rows (URL suffixes, #N, verb prefix, text stays text, off switch)" || bad "goalRef table: $gr"
 
+# 7. the live console of an interactive run (loki-ts/src/e10ext/console.ts) redraws ONE panel in place. The driver draws it into
+# a terminal emulator (cursor-up, erase, newline, scrollback, reflow on resize) and after every step compares the whole terminal
+# with the console's current frame: nothing of an older frame may be left. Each leg failed on the code before the fix:
+#   other-output-during-a-run  a line printed by the process during a run (the console is built as `loki start` builds it)
+#   console-calls-during-a-run console.log and console.warn, which under Bun do not pass through process.stdout.write
+#   taller-than-the-window     more lines than the window has rows (the cursor cannot go up past the top row)
+#   resize                     the window made narrower, wider and shorter between two frames
+#   long-and-wide-lines        a line longer than the window, and two-cell characters
+# grow-and-shrink and details-on-and-off (the list growing 7, 8, 9 then dropping to 3; the d key) hold the cases that already worked.
+#   worker-stderr-above-the-panel  the engine worker (a child process) writes to stderr while the console is up: its stderr is a
+#                              pipe then, and each line (the intent card, a warning, a crash trace with no final newline) is printed
+#                              once above the panel, in order, and the worker is told stderr is a terminal (LOKI_E10_STDERR_TTY=1)
+# In every other case the worker's stderr stays the process's own stderr, as before (worker-stderr-inherited): no console at all
+# (--json, --verbose) even on a terminal, and a console whose stderr is not the terminal. That leg runs twice below, with stderr
+# to a file (2>file) and to a pipe, and the bytes that arrived must be exactly the worker's, in order, crash trace included.
+# (--quiet on a terminal has the console, so it is the first case; --quiet with stderr elsewhere is the second.)
+LCD="$ROOT/tests/min/fixtures/live-console.js"; LCC="$ROOT/loki-ts/src/e10ext/console.ts"
+lc="$(bun --no-env-file --config=/dev/null "$LCD" "$LCC" 2>"$T/lc-all.err")"
+for leg in grow-and-shrink details-on-and-off long-and-wide-lines taller-than-the-window resize other-output-during-a-run console-calls-during-a-run worker-stderr-above-the-panel; do
+    grep -qx "PASS $leg" <<< "$lc" && ok "live console, $leg: the terminal holds exactly one panel after every redraw" || bad "live console, $leg: $(grep -A12 "^FAIL $leg" <<< "$lc" | cut -c1-240)"
+done
+# The o key (this run's page in the dashboard) and the Dashboard: line of the final summary. The dashboard, the page choice and the
+# browser are stand-ins passed through the console's options: no server is started, no browser is opened, port 47821 is never touched.
+#   keys-line                          `o dashboard` is always on the keys line; a narrow window drops the link, then whole words
+#   o-opens-this-run                   the browser gets this run's URL once (argv), the panel says so, the run goes on
+#   o-run-not-known-yet                the repository's page or the home page instead of a broken link, and the panel says which
+#   o-without-a-browser-shows-the-link LOKI_NO_BROWSER=1 or no terminal: nothing is spawned, the whole link is on the panel
+#   o-cannot-start-says-so-in-one-line one line ending in the command to run; the run goes on
+#   summary-dashboard-line             Dashboard: <url> in the final summary inside the line cap, absent when no dashboard runs
+for leg in keys-line o-opens-this-run o-run-not-known-yet o-without-a-browser-shows-the-link o-cannot-start-says-so-in-one-line summary-dashboard-line; do
+    grep -qx "PASS $leg" <<< "$lc" && ok "dashboard key, $leg" || bad "dashboard key, $leg: $(grep -A12 "^FAIL $leg" <<< "$lc" | cut -c1-300)"
+done
+printf 'no console: tty=[]\nno console: second line\nstderr is not the terminal: tty=[]\nTraceback: boom, no newline' > "$T/lc-want.err"
+lcf="$(bun --no-env-file --config=/dev/null "$LCD" "$LCC" worker-stderr-inherited 2>"$T/lc-file.err")"
+[ "$lcf" = "PASS worker-stderr-inherited" ] && cmp -s "$T/lc-file.err" "$T/lc-want.err" && ok "worker stderr, no console (--json, --verbose) or stderr to a file: the worker's bytes arrive untouched, in order, crash trace included" || bad "worker stderr to a file: $lcf; got: $(head -c 400 "$T/lc-file.err")"
+bun --no-env-file --config=/dev/null "$LCD" "$LCC" worker-stderr-inherited 2>&1 >"$T/lc-pipe.out" | /bin/cat > "$T/lc-pipe.err"
+[ "$(/bin/cat "$T/lc-pipe.out")" = "PASS worker-stderr-inherited" ] && cmp -s "$T/lc-pipe.err" "$T/lc-want.err" && ok "worker stderr to a pipe (not a terminal): the worker's bytes arrive untouched, in order, crash trace included" || bad "worker stderr to a pipe: $(/bin/cat "$T/lc-pipe.out"); got: $(head -c 400 "$T/lc-pipe.err")"
+
+# ---- RW-02 ONE ROAD: which road a goal takes (engine10/supervisor.ts workRoad, runRoad), the one gate the stages read (types.ts issueRunBrief) and the time
+# cap rule (util/run_cap.ts issueCapRule, resizeCap). No model, no run.
+#   road: a description of work longer than the small bar that carries its own acceptance list takes the work road; the same text in prose stays on the
+#         plain road unless LOKI_E10_ONE_ROAD=all; a goal at or under the bar, a spec that sizes large by structure, --spec,
+#         --seal-existing, a group unit, a provider other than claude and LOKI_E10_PROVE_BY_RUNNING=0 keep theirs; LOKI_E10_ONE_ROAD=0 turns the road off; an issue ref and an issue supplied as a file are "issue".
+#   gate: a text source is on the proof and acceptance road only with the run's flag, only on claude, and not under the prove-by-running opt-out; an issue
+#         source is as before.
+#   words: the three lines written for an issue run (the finish line, take the time, deliver each) say "task" to a text task on the road; an issue run is
+#         sent them as they were; nothing else in the rules differs between the two. Plant: types.ts taskWording: return its input (cells 1 and 2 read true).
+#   cap:  a text task on the road gets the issue floor (2400 s) exactly as a run directory with issue.json does; a plain text task keeps the sized cap (900 s);
+#         a fixed cap wins.
+# Plants: supervisor.ts workRoad: drop the small bar (road row 2 reads true); drop `deliverables(task, []).large` (row 3 reads true); drop the list test (row 11, prose, reads true);
+#         types.ts issueRunBrief drop `workRoadOn(env)` -> `true` (gate cell 1 reads true); run_cap.ts issueCapRule drop `workRoadOn(env)` (cap cell 2 reads 900).
+rw="$(cd "$ROOT/loki-ts" && RWT="$T" bun --no-env-file --config=/dev/null -e '
+const sv = await import("./src/engine10/supervisor.ts"), ty = await import("./src/engine10/types.ts"), rc = await import("./src/util/run_cap.ts"), fs = await import("node:fs");
+const T = process.env.RWT, o = { spec: false, sealPatch: false, provider: "claude" };
+const prose = "Fix the startup wait: " + "the server waits two seconds for a slow dependency and then gives up, although a longer timeout is configured. ".repeat(6);
+const work = prose + "\n\n## Acceptance criteria\n\n- the wait honours the configured timeout\n- with none configured it stays at two seconds\n";
+const spec = "# Product\n\n" + "It is a calculator people use from the command line. ".repeat(12) + "\n\n## Requirements\n\n- add\n- subtract\n- multiply\n- divide\n\n## Acceptance criteria\n\n- [ ] add works\n- [ ] subtract works\n- [ ] multiply works\n- [ ] divide works\n";
+fs.writeFileSync(T + "/rw-issue.json", JSON.stringify({ title: "t", body: "b" })); fs.mkdirSync(T + "/rw-run-plain", { recursive: true }); fs.mkdirSync(T + "/rw-run-issue", { recursive: true }); fs.writeFileSync(T + "/rw-run-issue/issue.json", "{}");
+const road = [
+  sv.workRoad(work, o, {}), sv.workRoad("add a multiply(a, b) function to calc.ts", o, {}), sv.workRoad(spec, o, {}), sv.workRoad(work, { ...o, spec: true }, {}), sv.workRoad(work, { ...o, sealPatch: true }, {}),
+  sv.workRoad(work, o, { LOKI_UNIT_ID: "u1" }), sv.workRoad(work, o, { LOKI_E10_ONE_ROAD: "0" }), sv.workRoad(work, o, { LOKI_E10_SMALL_MAX_CHARS: "5000" }), sv.workRoad(work, { ...o, provider: "opencode" }, {}), sv.workRoad(work, o, { LOKI_E10_PROVE_BY_RUNNING: "0" }), sv.workRoad(prose, o, {}), sv.workRoad(prose, o, { LOKI_E10_ONE_ROAD: "all" }), sv.workRoad("fix the typo", o, { LOKI_E10_ONE_ROAD: "all" }),
+  sv.runRoad(work, { isIssue: false, ...o }, {}), sv.runRoad("acme/x#1", { isIssue: true, ...o }, {}), sv.runRoad(work, { isIssue: false, ...o }, { LOKI_E10_ISSUE_JSON: T + "/rw-issue.json" }),
+  sv.runRoad(work, { isIssue: false, ...o }, { LOKI_E10_ISSUE_JSON: T + "/missing.json" }), sv.runRoad(work, { isIssue: false, ...o, spec: true }, {}), sv.runRoad("fix the typo", { isIssue: false, ...o }, {}),
+];
+const on = { LOKI_E10_WORK_ROAD: "1" };
+const gate = [ty.issueRunBrief("claude", "text", {}), ty.issueRunBrief("claude", "text", on), ty.issueRunBrief("opencode", "text", on), ty.issueRunBrief("claude", "text", { ...on, LOKI_E10_PROVE_BY_RUNNING: "0" }), ty.issueRunBrief("claude", "issue", {}), ty.issueRunBrief("claude", undefined, on)];
+const cap = [rc.resizeCap(T + "/rw-run-plain", null, true, undefined, {}), rc.resizeCap(T + "/rw-run-plain", null, true, undefined, on), rc.resizeCap(T + "/rw-run-issue", null, true, undefined, {}),
+  rc.resizeCap(T + "/rw-run-plain", null, true, undefined, { LOKI_E10_ISSUE_JSON: T + "/rw-issue.json" }), rc.resizeCap(T + "/rw-run-plain", null, true, 500, on), rc.resizeCap(T + "/rw-run-plain", null, false, undefined, on)];
+const cx = await import("./src/e10ext/context.ts"), blk = (src) => cx.proveByRunningBlock("claude", src, on), tail = (b) => b.split("\n\n").slice(-2).join(" ");
+const words = [/\bissue\b/.test(ty.TEXT_FINISH_LINE), /\bissue\b/.test(tail(blk("text"))), /\btask\b/.test(tail(blk("text"))), cx.fixedRules({}, "text").endsWith(ty.TEXT_FINISH_LINE), cx.fixedRules({}, true).endsWith(ty.ISSUE_FINISH_LINE),
+  blk("issue").includes("This is an issue to deliver in full") && blk("issue").includes("This issue lists several things"), cx.fixedRules({}, "text").slice(0, -ty.TEXT_FINISH_LINE.length) === cx.fixedRules({}, true).slice(0, -ty.ISSUE_FINISH_LINE.length)];
+console.log([road.join(","), gate.join(","), cap.join(","), words.join(",")].join(" | "));' 2>&1 | tail -1)"
+[ "$rw" = "true,false,false,false,false,false,false,false,false,false,false,true,false,work,issue,issue,work,spec,text | false,true,false,false,true,false | 900,2400,2400,2400,500,2400 | false,false,true,true,true,true,true" ] \
+    && ok "RW-02 road, gate and cap: a description of work with its own acceptance list takes the work road and the issue time cap rule; prose stays plain (=all opts it in); a short goal, a spec, --spec, --seal-existing, a group unit, another provider, the prove-by-running opt-out and the road opt-out keep theirs ($rw)" || bad "RW-02 road, gate and cap gave: $rw"
+# ---- end RW-02 ----
+
 finish

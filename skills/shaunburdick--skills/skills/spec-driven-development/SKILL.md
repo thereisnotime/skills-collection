@@ -1,17 +1,19 @@
 ---
 name: spec-driven-development
-description: Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to "plan", "spec out", "design", or "architect" something — even if they don't use the word "spec". A size gate routes the change first — a Small change (no decisions to agree, nothing outside the repo broken, reversible in one revert) gets a two-paragraph note and no artifacts; anything else runs the six phases — constitution → specification → clarification → plan → tasks → implement. Always review existing specs before creating new ones, and amend them by editing the requirement in place rather than appending.
+description: >-
+  Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to "plan", "spec out", "design", or "architect" something — even if they don't use the word "spec".
+  Two independent questions route the work: a spec exists only when a contract changes — new, amended, or consolidated — and a plan exists only when a decision is open, so effort size scales the plan and never the spec. Always review existing specs before creating new ones, and amend by editing the requirement in place rather than appending.
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.10.0"
+  version: "2.11.1"
 ---
 
 # Spec-Driven Development
 
 A disciplined, phase-gated approach to software development based on the [SDD philosophy](https://github.com/github/spec-kit/blob/main/spec-driven.md): **specifications are the source of truth — code serves specifications, not the other way around**.
 
-The most common failure mode of AI-assisted coding is jumping straight to implementation before the problem is understood. This workflow prevents that.
+The most common failure mode of AI-assisted coding is jumping straight to implementation before the problem is understood. This workflow prevents that. A spec describes what the system must do; the change that gets it there is a plan.
 
 ## Tooling: spec-kit
 
@@ -43,57 +45,57 @@ project/
 
 > For full CLI setup, slash commands, and state detection, see the **`spec-kit` skill**.
 
-## Phases Overview
+## Two Questions
 
-| #   | Phase         | Owner     | Output                                     | Gate                                 |
-| --- | ------------- | --------- | ------------------------------------------ | ------------------------------------ |
-| 1   | Constitution  | Planner   | `.specify/memory/constitution.md`          | User approves                        |
-| 2   | Specification | Planner   | `specs/###-name/spec.md`                   | User approves                        |
-| 3   | Clarification | Planner   | Updated specs, zero ambiguities            | Zero `[NEEDS CLARIFICATION]` markers |
-| 4–5 | Plan + Tasks  | Architect | `specs/###-name/plan.md` and `tasks.md`, one handoff | One gate: user approves both |
-| 6   | Implement     | Architect | Working, tested code                       | All acceptance criteria met          |
+Specs and plans are independent. Routing a change through a single size decision is how a
+rewrite becomes a feature spec: it has decisions, so it is "not small", so it
+gets a spec, and the spec describes the rewrite.
 
-**Size gate — check this first.**
+**Spec — does the contract change?** The contract is whatever a consumer
+relies on: behaviour, a name, a path, a schema, a default. Consumers are
+people, other repos and other agents; maintainers of this repo are not.
 
-| Lane | Condition | Artifacts |
-|---|---|---|
-| **Small** | All three checks below pass | Two-paragraph note in the PR body (or the commit body when there is no PR). No spec, no plan, no tasks, no full gates; one conformance check against the acceptance criteria. |
-| **Full** | Any one check fails | Phases 1–6. |
+- **No** — no spec. If the document itself is wrong (drifted from the code,
+  written around a migration, or one contract split across several specs),
+  repair it.
+- **Yes, nobody owns it** — new spec (Phase 2).
+- **Yes, one spec owns it** — amend it in place (Phase 2, Triage).
+- **Yes, several specs own it** — consolidate into one owner, then amend.
 
-The gate asks one question: **are there decisions here that must be agreed before
-someone writes code?** That is what the Full lane exists to do, so a change with
-no decisions to resolve gains nothing from it.
+**Plan — is a decision open?** A decision is open when someone else must agree
+to it before code: an interface, a parity strategy, a migration, a target to
+adopt.
 
-**All three must pass for Small:**
+- **No** — no plan. The commit or PR body carries what changed, what was
+  removed, and why.
+- **Yes** — a design note sized to the decision (Phase 4), with tasks when it
+  spans more than one sitting (Phase 5).
 
-1. **You can write the acceptance criteria without asking anyone anything.** If
-   you cannot, there is something to agree on. This is Phase 3's entire job — if
-   nothing needs clarifying, the phase has nothing to do.
-2. **Nothing breaks that no local test can catch.** Wire format, public API,
-   persisted schema, event payload, authz boundary — anything consumed outside
-   this repo. **Additive is not breaking**: a new optional field is Small;
-   changing or removing an existing one is Full.
-3. **One `git revert` undoes it.** No data migration, no external coordination,
-   no published artifact to recall. A wrong guess should cost one commit.
+Both axes at once is normal. Effort size appears on the plan axis only: a
+ten-line contract change still amends, and a 500-file refactor with no open
+decision still needs no spec. Nothing changing — a question, a review, an
+explanation — gets an answer, not an artifact.
 
-Worked examples, and why scale is not the gate:
-[references/size-gate-examples.md](references/size-gate-examples.md).
+### Work type to process
 
-"Never skip a phase" applies to the Full lane. Over-specifying a small change
-costs more than it prevents: the process artifacts get re-read by every later
-session, and a wrong premise baked into a spec survives longer than a wrong line
-of code.
+| Work | Process | Gate |
+| --- | --- | --- |
+| A question or review | Answer | None |
+| No contract change, no decision | The change + commit/PR body | None |
+| No contract change, a decision open | Plan, then change | User approves the plan |
+| Contract change, one owner | Amend in place + `changelog.md`; plan if a decision is open | User approves the amendment, and the plan if there is one |
+| Contract change, no owner | Phases 2–3, then plan/tasks if decisions are open | User approves the spec, and the plan |
 
-**Escalate mid-flight.** Small is a claim about now, not a licence for the rest
-of the task. If implementation surfaces a decision you were not authorised to
-make — an undefined case, an ambiguous requirement, a third-party behaviour you
-had assumed — stop and escalate to Full rather than quietly picking a default.
+The six phases below apply in full only to a new spec. An amendment edits the
+owning spec; a plan exists only when a decision is open, and its weight follows
+the decision, not the size of the spec or the diff.
 
-The Small lane skips artifacts, not judgement. These rules apply in **both**
-lanes:
+These rules apply to every change:
 
 - **Premise check** — verify claims about third-party behaviour before building
   on them (see [Premise check](#premise-check-mandatory-for-any-external-api)).
+- **Escalate mid-flight** — a decision that surfaces during implementation is
+  still a decision: stop and ask rather than quietly picking a default.
 - **Triage** — if the change belongs to an existing spec, amend it; do not
   create a parallel one (see [Phase 2](#triage-existing-specs-first)).
 - **Executable criteria** — write each acceptance criterion as a command and
@@ -106,7 +108,7 @@ lanes:
 
 ## Phase 1: Constitution
 
-Create `.specify/memory/constitution.md` **before anything else**. This is the north star for all decisions.
+Create `.specify/memory/constitution.md` **before anything else**. This is the north star for all decisions. It is project setup, not a per-change phase.
 
 Include:
 
@@ -125,25 +127,28 @@ The constitution must be approved before writing any feature specs. All subseque
 
 ## Phase 2: Specification
 
-A spec is a durable contract for a capability. Months later, someone who was not
-in the room opens it to learn what the system must do. So before creating one,
-name who would open it again; if nobody would, there is nothing to write.
+A spec is a durable contract for a feature: a capability someone can name and ask
+for. Months later, someone who was not in the room opens it to learn what the
+system must do. So before creating one, name who would open it again; if nobody
+would, there is nothing to write. If you cannot name, in one sentence, what a
+consumer relies on that this file now owns, stop: you are writing a plan.
 
 ### Triage: Existing Specs First
 
-Before creating any new spec, **scan all existing specs** to determine whether this work belongs to an existing spec. Amend when the request changes or extends a capability an existing spec describes; create a new spec only for a distinct user goal or capability, not merely because it depends on existing features. See [references/spec-triage-guide.md](references/spec-triage-guide.md) for the full decision matrix and examples.
+Before creating any new spec, **scan all existing specs** to determine whether this work belongs to an existing spec. Find the owner by the surface the change touches — a delivery channel, an interface, a store — not by the data it reads. Amend when the request changes or extends a contract an existing spec describes; create a new spec only for a distinct user goal or capability, not merely because it depends on existing features. See [references/spec-triage-guide.md](references/spec-triage-guide.md) for the full decision matrix and examples.
 
 **Process:** list `specs/`, read each spec's title, problem statement and
-first FRs, and ask whether this work modifies, extends, or fixes something
-already described. If yes, **amend by editing**: rewrite the changed
-requirements in place so the body describes only current behaviour, update the
-matching ACs, and add one `changelog.md` entry; never leave a superseded FR
-standing with a "superseded by" note. Each new FR names what it replaces, and
-a change that would net-add more than ~3 FRs, or lands on a spec past ~15,
-goes through the Amendment Gate in the triage guide. If no, create a new
-spec only after the approval step below. If ambiguous, ask. "Improve combat"
-is an amendment; "add inventory system" is new. A spec that has accreted a
-hundred lines of amendments is rewritten, not split.
+first FRs, and ask whether this work changes a contract an existing spec owns.
+If yes, **amend by editing**: rewrite the changed requirements in place so the
+body describes only current behaviour, update the matching ACs, and add one
+`changelog.md` entry; never leave a superseded FR standing with a "superseded
+by" note. If the spec has drifted from the code and nothing it requires
+changes, repair it instead — no changelog entry. Each new FR names what it
+replaces, and a change that would net-add more than ~3 FRs, or lands on a spec
+past ~15, goes through the Amendment Gate in the triage guide. If no spec owns
+it, create one only after the approval step below. If ambiguous, ask. "Improve
+combat" is an amendment; "add inventory system" is new. A spec that has accreted
+a hundred lines of amendments is rewritten, not split.
 
 ### Create the Spec
 
@@ -213,22 +218,31 @@ Before handing off to planning, eliminate every ambiguity.
 2. Ask 3–5 targeted questions at a time (not a wall of 20)
 3. For each question, explain _why_ the answer matters
 4. Give an example of what a complete answer looks like
-5. Document every answer as a requirement in the body — an existing FR edited
-   to the clarified behaviour, or a new one added alongside it
-6. Bump the spec version and record the question, answer, and resulting
-   requirement change in `changelog.md` — not in `spec.md`
+5. Record each answer where it belongs: an answer that changes what a consumer
+   gets edits an FR (or adds one beside it); an answer that constrains how the
+   work is delivered — sequencing, parity strategy, module split — goes to the
+   plan, not into a requirement
+6. Bump the spec version and record the question, answer, and any requirement
+   change in `changelog.md` — not in `spec.md`
 
-**Exit criteria:** Zero `[NEEDS CLARIFICATION]` markers remain. Every question has been answered and documented as a requirement. A developer could implement from this spec without asking further questions.
+**Exit criteria:** Zero `[NEEDS CLARIFICATION]` markers remain. Every question is answered and recorded — as a requirement only where behaviour changed. A developer could implement from this spec without asking further questions.
 
 ---
 
 ## Phase 4: Plan
 
+A plan exists when a decision is open, and its weight follows the decision. An
+interface choice gets a paragraph in the issue; a rewrite with a module split, a
+parity strategy and a migration gets `plan.md` and tasks. A plan with no spec
+lives where the work is tracked — the issue, or a short design note in the repo
+— not in a new spec directory invented to hold it.
+
 ### Premise check (mandatory for any external API)
 
 Before planning on a claim about a third party's behaviour ("GitHub does not
 record X"), fetch the endpoint and read it. One `curl` or one doc lookup.
-Record the response shape in `research.md`.
+Record the response shape in `research.md`, or in the plan when there is no
+spec.
 
 If a premise cannot be verified, do not specify on it. An unverified premise
 encodes a guess into the spec, and every FR derived from it multiplies the cost
@@ -236,19 +250,20 @@ of the guess.
 
 Read the response shape, not just the field list; a worked example of a
 premise that was half right is in
-[references/size-gate-examples.md](references/size-gate-examples.md#a-premise-that-was-half-right).
+[references/premise-check.md](references/premise-check.md#a-premise-that-was-half-right).
 
-Create a feature branch and run the planning setup:
+Create a branch (see `git-safety`). When a spec owns the work, run the planning
+setup:
 
 ```bash
-git checkout -b 001-feature-name   # see git-safety skill for branch rules
+git checkout -b 001-feature-name
 .specify/scripts/bash/setup-plan.sh --json
 ```
 
-Produce `plan.md` in `specs/###-feature-name/`: technical context the
-implementer cannot infer from the repository, constitution check, concrete
-project structure (no "Option A / Option B"), and key decisions with the
-alternative each was chosen over. A plan or task never schedules a code
+Produce `plan.md` beside the spec, or a design note at a path the issue names:
+technical context the implementer cannot infer from the repository, constitution
+check, concrete project structure (no "Option A / Option B"), and key decisions
+with the alternative each was chosen over. A plan or task never schedules a code
 comment — the engineer decides on comments while writing the code. A planned
 doc or test appears only with the reader question or regression it answers.
 
@@ -263,14 +278,15 @@ Say which you skipped.
 
 After planning, agent context files are managed by the integrations system — if you changed agents or upgraded spec-kit, refresh with `specify integration upgrade`.
 
-Phases 4 and 5 are **one handoff**: the architect returns `plan.md` and
-`tasks.md` together, and one gate covers both. Splitting them doubled the hops
-for no extra decision; the task list is the plan made concrete, and a reader
-can only judge one against the other.
+Phases 4 and 5 are **one handoff** when a plan exists: the architect returns
+`plan.md` and `tasks.md` together, and one gate covers both. Splitting them
+doubled the hops for no extra decision; the task list is the plan made concrete,
+and a reader can only judge one against the other.
 
 ## Phase 5: Tasks
 
-Create `specs/###-feature-name/tasks.md` in the same handoff:
+Create the tasks in the same handoff — `tasks.md` beside the spec, or in the
+issue when there is no spec:
 
 ```markdown
 # Tasks: <Feature Name>
@@ -295,14 +311,14 @@ Rules:
 
 ## Phase 6: Implement
 
-Execute tasks in order, following the approved plan and referencing the constitution for quality standards.
+Execute the plan's tasks, or the change itself when there is no plan, following the approved plan and referencing the constitution for quality standards.
 
 For all code quality rules, lint suppression policy, type safety requirements, and the pre-commit verification protocol, load and follow the **`code-quality` skill**.
 
 Key reminders:
 - ✅ Make the smallest change that satisfies the task, then remove anything in the diff that does not contribute
 - ✅ A new test must fail without the source change; if it cannot, do not add it
-- ✅ Check off tasks in `tasks.md` as you complete them
+- ✅ Check off tasks where they live as you complete them
 - ✅ When implementation changes what a requirement means, the spec edit lands in the same change — a spec that drifts from the code is a bug
 - ✅ Three acceptable outcomes: done; done with less than the task implied, with the reason; nothing needed
 - ❌ No lint suppressions of any kind — fix the code instead
@@ -315,8 +331,8 @@ Key reminders:
 - [references/feature-spec-template.md](references/feature-spec-template.md) — Full spec template to copy
 - [references/constitution-template.md](references/constitution-template.md) — Constitution template
 - [references/data-model-guide.md](references/data-model-guide.md) — Data model authoring guide
-- [references/spec-triage-guide.md](references/spec-triage-guide.md) — When to amend existing specs vs. create new ones
-- [references/size-gate-examples.md](references/size-gate-examples.md) — Size-gate worked examples and the premise-check example
+- [references/spec-triage-guide.md](references/spec-triage-guide.md) — When to amend an existing spec, create one, or repair the document
+- [references/premise-check.md](references/premise-check.md) — Verifying a third-party claim before building on it
 - **`spec-kit` skill** — CLI installation, slash commands, project state detection
 - [SDD philosophy](https://github.com/github/spec-kit/blob/main/spec-driven.md) — The full spec-driven development manifesto
 - [spec-kit repo](https://github.com/github/spec-kit) — Tooling source and docs

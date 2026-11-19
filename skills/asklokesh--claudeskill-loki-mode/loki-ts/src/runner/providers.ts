@@ -44,6 +44,7 @@ import { createTrimHook } from "./trim.ts";
 import { createConfigFenceHook, createHostGuardHook, HOST_GUARD_SCRIPT, hookTimeoutSeconds } from "./host_guard.ts";
 import { fenceEnabled, fencedDenyRules, harnessOutputs, stateDenyRules } from "../util/config_fence.ts";
 import { createStopChecksHook, parseStopChecks, STOP_HOOK_MARGIN_S } from "./stop_checks.ts";
+import { compactCardOn, createCompactCardHook, createPostCompactRecordHook, TASK_CARD_ENV } from "./compact_card.ts";
 import { advisorPair, probeAdvisor, ROUTER_ADVISOR_MODEL } from "./router/advisor_probe.ts";
 import { advisorOnlyEnabled, routerEnabled, routerPreset, sessionPlanEnabled } from "./router/flag.ts";
 import type {
@@ -398,6 +399,25 @@ export async function claudeCodeVersionForRoute(env: Record<string, string | und
 // Any haiku id ("haiku", "claude-haiku-5-5", ...) is a haiku executor.
 const isHaikuModel = (m: string): boolean => /haiku/i.test(m);
 
+// TASK MEMORY (LOKI_E10_TASK_MEMORY=1 opts in; default off: lever e10-task-memory's kill rule fired on two C1 Haiku tasks, two seeds). The 100K window above compacts every Haiku implement session (35 of 35 saved Haiku
+// transcripts, 254 compactions) and a summary keeps a median 1% of the brief's lines. Claude Code reads the auto-memory MEMORY.md again from disk after
+// each compaction (measured on the SDK route, Claude Code 2.1.318: the instructions attachment after compact_boundary carried text written after the
+// session started). engine10/stages/implement.ts writes a short read-only MEMORY.md (task title, acceptance lines, named sites) in the session's scratch
+// directory and names it in LOKI_E10_TASK_MEMORY_DIR; a Haiku implement session (and every resume of it) then carries autoMemoryDirectory on both routes.
+// Every other session is unchanged (no auto-memory setting or env from Loki). The memory directory is exempt from blockWritesOutsideWorkingDirectories (measured), so it is made read-only on disk instead.
+export const TASK_MEMORY_DIR_ENV = "LOKI_E10_TASK_MEMORY_DIR";
+export const taskMemoryOn = (env: Readonly<Record<string, string | undefined>> = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_TASK_MEMORY"] ?? "").trim());
+/** The auto-memory setting a session carries: only a Haiku implement session whose scratch holds Loki's task memory. One definition for both routes. */
+export function taskMemorySettings(model: string, env: Readonly<Record<string, string | undefined>> = process.env): { autoMemoryDirectory: string } | undefined {
+  const dir = env[TASK_MEMORY_DIR_ENV];
+  return dir && isAbsolute(dir) && env["LOKI_E10_STAGE"] === "implement" && isHaikuModel(model) && taskMemoryOn(env) ? { autoMemoryDirectory: dir } : undefined;
+}
+/** The auto-memory env of a session that carries Loki's task memory: an inherited off switch is cleared (measured on the CLI: =0 keeps the memory, =1 drops it).
+ *  Every other session gets nothing from Loki. */
+export function autoMemoryEnv(env: Readonly<Record<string, string | undefined>>, memory: boolean): Record<string, string> {
+  return memory && env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] !== undefined ? { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "0" } : {};
+}
+
 // Cached per process and CLI path; only a successful read is cached so a transient failure is retried.
 const _installedVersionCache = new Map<string, string>();
 async function installedClaudeCodeVersion(cli: string): Promise<string> {
@@ -454,7 +474,7 @@ export function planRouterSession(args: {
 
 // One --settings JSON for the CLI route: the host guard hooks (when required) merged with the router's
 // advisor settings (when the router is on and the advisor is available).
-function cliSettingsJson(hostGuard: boolean, router: Partial<NonNullable<RouterSessionPlan["settings"]>> | undefined, fence?: WriteFence): string {
+function cliSettingsJson(hostGuard: boolean, router: (Partial<NonNullable<RouterSessionPlan["settings"]>> & { autoMemoryDirectory?: string }) | undefined, fence?: WriteFence): string {
   if (!router && !fence) return hostGuardSettingsJson();
   const guard = hostGuard ? (JSON.parse(hostGuardSettingsJson()) as Record<string, unknown>) : {};
   return JSON.stringify({ ...guard, ...router, ...fence });
@@ -528,7 +548,8 @@ export function claudeProvider(): ProviderInvoker {
         : null;
       const model = routed ? routed.model : baseModel;
       const window = compactWindowSettings(model); // T036: every Haiku session, routed or not
-      const sessionSettings = routed?.settings || window ? { ...window, ...routed?.settings } : undefined;
+      const memory = taskMemorySettings(model); // TASK MEMORY: a Haiku implement session only (the SDK route reads the same helper)
+      const sessionSettings = routed?.settings || window || memory ? { ...window, ...routed?.settings, ...memory } : undefined;
       const modelArgv = useProviderDefaultModel(call) ? [] : ["--model", model];
 
       // v7.5.19 Phase B: prime the claude --help cache once, then compose
@@ -626,7 +647,7 @@ export function claudeProvider(): ProviderInvoker {
       const _callTimeoutMs = providerCallTimeoutMs(process.env);
       const r = await shellRun(argv, {
         cwd: call.cwd,
-        env: { ...otelPassthroughEnv(process.env), ...cavemanEnv, ...modelRouteEnv(process.env), ...engine10CacheTtlEnv(process.env) },
+        env: { ...otelPassthroughEnv(process.env), ...cavemanEnv, ...modelRouteEnv(process.env), ...engine10CacheTtlEnv(process.env), ...autoMemoryEnv(process.env, memory !== undefined) },
         timeoutMs: _callTimeoutMs,
       });
       await writeCaptured(call.iterationOutputPath, neutralizeEngineMarkers(r.stdout), neutralizeEngineMarkers(r.stderr));
@@ -710,7 +731,8 @@ export interface SdkLoopExtraOptions {
   fallbackModel?: string;
   tools?: string[];
   model?: string;
-  settings?: { advisorModel?: string; autoCompactWindow?: number; permissions?: WriteFence["permissions"] };
+  settings?: { advisorModel?: string; autoCompactWindow?: number; permissions?: WriteFence["permissions"]; autoMemoryDirectory?: string } & Record<string, unknown>;
+  authEnv?: Record<string, string>; // the user's auth and proxy env from ~/.claude/settings.json, for a session that does not load the user source
   noAppend?: boolean;
   systemPrompt?: string;
   excludeDynamic?: boolean;
@@ -730,6 +752,22 @@ export function engine10StaticPrefix(env: Readonly<Record<string, string | undef
   if (env["LOKI_E10_FULL_SESSION"] === "1") return { tools: [], excludeDynamic: env["LOKI_E10_STABLE_PREFIX"] !== "0" };
   const lean = env["LOKI_E10_PREFIX"] === "lean";
   return { tools: ENGINE10_TOOLS, ...(lean ? { systemPrompt: LEAN_PREFIX } : {}), excludeDynamic: !lean && env["LOKI_E10_STABLE_PREFIX"] !== "0" };
+}
+// An engine10 session loads only the project source (above), so a user whose base URL, proxy or key lives in ~/.claude/settings.json lost it (measured on
+// the SDK route through sdkQueryProvider: an env ANTHROPIC_BASE_URL and an apiKeyHelper there gave "Not logged in" and no request). Forwarded: env keys
+// for auth, endpoint, proxy and certificates that the process does not already set, and the credential helpers. Nothing else of the user source.
+const USER_AUTH_ENV = /^(ANTHROPIC_[A-Z_]+|CLAUDE_CODE_OAUTH_TOKEN|CLAUDE_CODE_USE_(BEDROCK|VERTEX|FOUNDRY)|CLAUDE_CODE_SKIP_(BEDROCK|VERTEX|FOUNDRY)_AUTH|AWS_[A-Z_]+|CLOUD_ML_REGION|VERTEX_REGION_[A-Z0-9_]+|GOOGLE_[A-Z_]+|HTTPS?_PROXY|https?_proxy|NO_PROXY|no_proxy|NODE_EXTRA_CA_CERTS|SSL_CERT_(FILE|DIR)|CLAUDE_CODE_CLIENT_(CERT|KEY|KEY_PASSPHRASE))$/;
+const USER_AUTH_KEYS = ["apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "otelHeadersHelper"] as const;
+/** The auth and proxy parts of the user's own Claude settings, for a session that does not load the user source. Never throws; empty when there is none. */
+export function userAuthSettings(env: Readonly<Record<string, string | undefined>> = process.env): { env: Record<string, string>; settings: Record<string, string> } {
+  const out = { env: {} as Record<string, string>, settings: {} as Record<string, string> };
+  try {
+    const dir = env["CLAUDE_CONFIG_DIR"] || resolve(env["HOME"] ?? "", ".claude");
+    const u = JSON.parse(readFileSync(resolve(dir, "settings.json"), "utf8")) as { env?: Record<string, unknown> } & Record<string, unknown>;
+    for (const [k, v] of Object.entries(u.env ?? {})) if (USER_AUTH_ENV.test(k) && typeof v === "string" && env[k] === undefined) out.env[k] = v;
+    for (const k of USER_AUTH_KEYS) if (typeof u[k] === "string") out.settings[k] = u[k] as string;
+  } catch { /* no user settings, or unreadable: nothing to forward */ }
+  return out;
 }
 export function buildSdkLoopOptions(args: {
   tier: string | undefined;
@@ -754,6 +792,8 @@ export function buildSdkLoopOptions(args: {
   }
   const window = compactWindowSettings(out.model ?? args.model); // T036: every Haiku session, routed or not
   if (window) out.settings = { ...window, ...out.settings };
+  const memory = taskMemorySettings(out.model ?? args.model); // TASK MEMORY: the same helper as the CLI route
+  if (memory) out.settings = { ...out.settings, ...memory };
   const fence = implementWriteFence();
   if (fence) out.settings = { ...out.settings, ...fence };
   const engine10 = Boolean(process.env["LOKI_E10_STAGE"]);
@@ -788,6 +828,11 @@ export function buildSdkLoopOptions(args: {
   // settingSources: match the shell route's claude_code preset behavior (project
   // + user settings resolved by the CLI). Explicit so the SDK does not diverge.
   out.settingSources = engine10 ? ["project"] : ["user", "project", "local"];
+  if (engine10) { // the user source is not loaded: carry only its auth and proxy parts (userAuthSettings), so a user whose login lives there still signs in
+    const ua = userAuthSettings();
+    if (Object.keys(ua.settings).length) out.settings = { ...ua.settings, ...out.settings };
+    if (Object.keys(ua.env).length) out.authEnv = ua.env;
+  }
 
   // effort tier (same mapping as buildAutoFlags).
   try {
@@ -879,6 +924,8 @@ export function sdkQueryProvider(): ProviderInvoker {
           complexity: process.env["DETECTED_COMPLEXITY"] ?? process.env["LOKI_COMPLEXITY"],
           allowHaiku: process.env["LOKI_ALLOW_HAIKU"] === "true",
         });
+        if (extra.settings?.autoMemoryDirectory) delete env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"]; // TASK MEMORY: a session with Loki's task memory drops an inherited off switch; every other session's env is unchanged
+        for (const [k, v] of Object.entries(extra.authEnv ?? {})) if (env[k] === undefined) env[k] = v; // user-settings auth and proxy env, never over a value the process has
 
         // SLICE 6b note: the Agent SDK query() prompt contract is a plain
         // string (or a stream of SDKUserMessage objects), NOT raw content
@@ -918,6 +965,7 @@ export function sdkQueryProvider(): ProviderInvoker {
               ? {
                   hooks: {
                     ...(stopSpec ? { Stop: [{ timeout: stopSpec.budgetS + STOP_HOOK_MARGIN_S, hooks: [createStopChecksHook(stopSpec)] }] } : {}),
+                    ...(process.env["LOKI_E10_STAGE"] && compactCardOn() && process.env[TASK_CARD_ENV] ? { SessionStart: [{ matcher: "compact", hooks: [createCompactCardHook(call.cwd)] }], PostCompact: [{ hooks: [createPostCompactRecordHook(call.cwd)] }] } : {}), // COMPACT CARD: the task card and Loki's progress block after every compaction (runner/compact_card.ts)
                     ...(hostGuardRequired(call.cwd) || process.env["LOKI_E10_STAGE"]
                       ? {
                           PreToolUse: [

@@ -60,6 +60,7 @@ Instructions for the agent...
 ## SKILL.md Authoring Guidelines
 
 - **`description`** is the most important field — agents use it to decide when to activate the skill. Be specific about both *what* it does and *when* to use it. Max 1024 characters.
+- **Frontmatter must stay valid YAML.** CI parses every `skills/*/SKILL.md` with PyYAML; run `python3 .github/scripts/validate-skills.py` before pushing. A `: ` inside an unquoted `description` breaks the parse; fold it with `>-` or quote it.
 - **Keep `SKILL.md` focused and concise** (under 500 lines). Move detailed reference material to `references/` files — agents load those on demand.
 - **Prefer live sources over duplicated content.** If install instructions live in an external repo or URL, instruct the agent to fetch them at runtime rather than copying them here. This keeps the skill evergreen without maintenance overhead.
 - **`allowed-tools`** can pre-approve specific tools (e.g. `Bash(git:*) Read`) — use sparingly and only when the skill has a well-defined, safe set of operations.

@@ -18,7 +18,7 @@ When a new piece of work is requested:
 | Work modifies existing FRs or ACs | **Amend existing spec** | "Improve combat damage calculation" → update FR-003 in the combat spec |
 | Work changes or extends a capability an existing spec describes, including another case, input, or variant | **Amend existing spec** — after consolidating what the change replaces (see [How to Amend](#how-to-amend-an-existing-spec)) | "Add ranged weapons to combat" → generalize the weapon FRs rather than appending a sibling |
 | Work would net-add ≈3+ FRs, or the spec is already past ~15 | **Run the [Amendment Gate](#amendment-gate-run-before-writing-the-amendment)** — do not grow | "Add a subsystem to a 100-FR spec" → merge, generalize, or split first |
-| Work fixes bugs in existing spec's scope | **Amend existing spec** | "Fix combat hit detection" → update ACs in the combat spec |
+| Work fixes code that already contradicts the spec | **No edit** — fix the code. Amend only when the fix needs a decision the spec does not settle | "Fix combat hit detection" → the AC already says what should happen; the code is wrong. If the case is silent in the AC, add it |
 | Work introduces a distinct user goal or capability | **Create new spec** — dependency on existing capabilities does not make it an amendment | "Add inventory system" → new spec (first time this domain appears) |
 | A distinct new capability uses multiple existing capabilities | **Create new spec** with explicit references | "Crafting system that uses inventory + combat" → new spec that cites both |
 | Work is ambiguous — could go either way | **Ask the user** before proceeding | "Better NPC behavior" — is this combat AI or dialogue? |
@@ -28,6 +28,12 @@ When a new piece of work is requested:
 An amendment **rewrites the spec to describe the current intended behaviour.** It
 is an edit, not an append. A spec is not a record of how it got here — it is a
 description of what it now requires.
+
+A **repair** is the other edit: the document disagrees with reality — drifted
+from the code, written around a migration, or one contract split across several
+specs — and nothing about what is required changes. Edit the body to match. A
+repair adds no changelog entry, because no requirement moved; an amendment does,
+because what a consumer gets changed.
 
 1. **Consolidate before adding.** Read the existing FRs in the affected area
    first. A merge candidate (a sibling FR sharing the subject), a
@@ -128,7 +134,7 @@ made once. `## Out of Scope` states what is excluded, and points at
 |---|---|---|
 | "Improve X" as a new spec | Fragments related work, creates orphaned specs | Amend the X spec |
 | Treating a variation of a capability Z describes as a new spec | Splits one capability across specs | Amend Z's spec; create a new spec only for a distinct user goal or capability |
-| "Fix bug in X" as a new spec | Bugs are part of the spec's scope | Update ACs in X's spec |
+| "Fix bug in X" as a new spec | A bug is code that contradicts the spec, not a new capability | No new spec. If the spec already states the behaviour, fix the code; if the case is not settled, amend the AC |
 | Never amending specs | Specs become stale snapshots, not living documents | Rewrite the body; log to `changelog.md` |
 | **Append-only amendment** | Requirements accumulate in arrival order and superseded text stays authoritative-looking, so a reader of the FR section implements the old behaviour | Edit the requirement in place; delete what it replaced |
 | **Additive-only amendment** (`+N / ~0 / −0`) | The change nets nothing out — no merge, no generalization, nothing invalidated. The spec grows past the point where one pass describes the system and the new feature hides in the tail | Run the Amendment Gate: merge, generalize, or split before adding |

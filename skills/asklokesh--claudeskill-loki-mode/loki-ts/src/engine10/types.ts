@@ -200,6 +200,7 @@ export interface Receipt {
   no_regression?: string[]; // LOKI_E10_NRD: keep-case differential lines; omitted (hash unchanged) when none ran
   tournament?: string[]; // LOKI_E10_TOURNAMENT: one line per candidate, per probe disagreement, and the decision; omitted (hash unchanged) when no tournament ran
   attempts?: string[]; // LOKI_E10_ATTEMPTS: one line per implement attempt and the selection reason; omitted (hash unchanged) when no extra attempt ran
+  verified_mode?: { bounds: { rounds: number; wall_s: number; usd: number; tokens: number }; closure_rounds_built: boolean; rounds: unknown[] }; // RW-03: present only on a `--verified` / LOKI_VERIFIED=1 run
   cost_preview?: Record<string, unknown>; // 11.3.0 T1: absent under LOKI_COST_PREVIEW=0
   verdict: Verdict;
   toolchain?: import("../util/receipt_signer.ts").Toolchain; loki_version?: string; // TEN-GATES-22: absent on receipts sealed before it existed, which still verify; loki_version (VERSION at seal) likewise
@@ -273,9 +274,21 @@ export function pushArgv(a: PushArgs): string[] {
 export const FINISH_LINE = "Finish with exactly one line: LOKI_DONE, or LOKI_ALREADY_DONE: <file:line evidence>, or LOKI_SPEC_CONFLICT: <reason; cite test as path:line>."; // E-150: the brief's last line, byte-identical every task (e10ext/context.ts re-exports it)
 /** Candidate 1 (e10ext/context.ts): the issue-run finish rule, the opt-out and the scope rule, here in the leaf so conflict_resume and machine import them without a cycle. */
 export const ISSUE_FINISH_LINE = "Finish with exactly one line: LOKI_DONE, or LOKI_ALREADY_DONE: <file:line evidence>, or LOKI_SPEC_CONFLICT: <reason; cite test as path:line>, or LOKI_UNFINISHED: <what is left> when something the issue requires is not delivered. An item the issue marks optional is not required: do it or skip it, say which in your reply, and still finish with LOKI_DONE. Use LOKI_SPEC_CONFLICT only when a test in the repository contradicts the task.";
+/** RW-02: the road's own lines as a text task is sent them. The three lines written for an issue run (this finish line, and the take-the-time and deliver-each
+ *  lines in e10ext/context.ts) call the task "the issue"; a text task on the work road is sent the same lines with "task" in its place. An issue run is sent
+ *  the constants as they are, byte for byte. */
+export const taskWording = (s: string): string => s.replace(/\bThis is an issue\b/g, "This is a task").replace(/\bThis issue\b/g, "This task").replace(/\bthe issue\b/g, "the task");
+export const TEXT_FINISH_LINE = taskWording(ISSUE_FINISH_LINE);
 export const proveByRunningOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_PROVE_BY_RUNNING"] ?? "").trim());
-/** The one scope rule for everything above: an issue run on the claude provider with the opt-out unset. */
-export const issueRunBrief = (provider: string, source: unknown, env: NodeJS.ProcessEnv = process.env): boolean => provider === "claude" && source === "issue" && proveByRunningOn(env);
+/** RW-02 ONE ROAD (LOKI_E10_ONE_ROAD, default on; 0/off/false/no keeps a text task on the plain road): a text task that describes work in an existing repository
+ *  takes the same proof and acceptance road as a GitHub issue. The supervisor decides once per run (engine10/supervisor.ts workRoad) and carries the answer to
+ *  every worker of the run in this variable, so a resumed or deep worker reads the same fact. Measured 2026-11-17 on six runs on unfamiliar repositories: every one
+ *  took the plain road (no acceptance lines, no proof re-run, a 900 s cap) and none could end VERIFIED on Loki's own evidence. */
+export const WORK_ROAD_ENV = "LOKI_E10_WORK_ROAD";
+export const workRoadOn = (env: NodeJS.ProcessEnv = process.env): boolean => env[WORK_ROAD_ENV] === "1";
+/** The one scope rule for everything above: an issue run, or a text task on the work road, on the claude provider with the opt-out unset. Intake's source stays
+ *  "issue" or "text": only what needs GitHub reads the source itself. */
+export const issueRunBrief = (provider: string, source: unknown, env: NodeJS.ProcessEnv = process.env): boolean => provider === "claude" && (source === "issue" || (source === "text" && workRoadOn(env))) && proveByRunningOn(env);
 export function taskBlock(task: string): string[] { return ["Task (untrusted, quoted verbatim):", "<<<TASK", task, "TASK"]; }
 
 // Shapes produced by extension modules (receipt time, cost records); defined here so core never imports them.

@@ -113,6 +113,11 @@ const FAIL_EVIDENCE = /\[(?:build|setup) failed\]|^--- FAIL|^[\w./-]+\.go:\d+:\d
 /** Extra failure evidence honoured only for a Go runner under a non-zero exit: a package FAIL line (log.Fatal, init panic, timeout) or a panic. */
 const GO_FAIL_EVIDENCE = /^FAIL\t\S+\t[\d.]+s$|^panic: /m;
 export const UNMEASURED_REASON = "executed count unmeasured (Loki could not parse the runner summary, harness-owned)";
+/** UNMEASURED-TAIL: the last 40 lines of a check that read UNMEASURED_REASON, ANSI stripped and secrets redacted, kept on its test.result event only (never the receipt).
+ *  hm155462 (11.158.0) left 227 unmeasured checks with no output at all, so the cause could only be replayed from the scorer's logs of other files. */
+export const UNMEASURED_TAIL_LINES = 40;
+export const unmeasuredTail = (c: { result?: unknown; reason?: unknown }, out: string): { out_tail?: string } =>
+  c.result === "not_run" && c.reason === UNMEASURED_REASON ? { out_tail: redactSecrets(stripAnsi(out).trimEnd().split("\n").slice(-UNMEASURED_TAIL_LINES).map((l) => l.replace(UNSAFE_TERMINAL_CHARS_RE, "")).join("\n")) } : {};
 
 /** PRETTY LOKI_E10_PYTEST_PRETTY (default on, =0 opts out): a repo that loads pytest-pretty (pydantic) prints "Results (0.66s):" then "   271 passed", "    25 skipped"
  *  and no "N passed in Xs" line, so every pytest check read "executed count unmeasured". The block counts only when it ends the output and every line in it is a count. */
@@ -136,8 +141,22 @@ export function ran(raw: string, path?: string, ok?: boolean): number | null {
     if (k >= 0) { const body = tail.slice(k + 1).map((x) => /^\s+(\d+) (passed|failed|errors?|skipped|xfailed|xpassed|deselected|warnings?)$/.exec(x)); if (body.length && body.every(Boolean)) return body.reduce((t, m) => t + (/^(?:passed|failed|errors?)$/.test(m![2]!) ? +m![1]! : 0), 0); }
   }
   const l = tail.filter((x) => /^(?:=+ )?(?:\d+ \w+.*|no tests ran) in [\d.]+s|^\s*Tests?:?\s+\d|^No tests found/.test(x) && (!/^\s*Tests?:?\s+\d/.test(x) || tail.some((y) => /^\s*Test (?:Files|Suites):?\s+\d/.test(y)))).pop(); // forge guard: a bare "Tests: 5 passed" needs its "Test Files|Suites" sibling in the trailer
-  if (!l) return null;
-  return /^(?:=+ )?no tests (?:ran|found)|^No tests found|skipped/i.test(l) || /\d+ (?:passed|failed|errors?)/.test(l) ? n(l, /(\d+) passed/) + n(l, /(\d+) failed/) + n(l, /(\d+) errors?/) : null;
+  if (!l) return perFileRunnerCount(out);
+  return /^(?:=+ )?no tests (?:ran|found)|^No tests found|skipped|deselected/i.test(l) || /\d+ (?:passed|failed|errors?)/.test(l) ? n(l, /(\d+) passed/) + n(l, /(\d+) failed/) + n(l, /(\d+) errors?/) : null;
+}
+/** PER-FILE: a repo wrapper that runs each test file in its own pytest process (hermes-agent's scripts/run_tests.sh, via run_tests_parallel.py) swallows a
+ *  passing file's pytest output and prints only its own "=== Summary: 1 files, 1 tests passed, 0 failed (100% complete) in 3.7s (14 workers) ===", followed by
+ *  a durations note and a per-file time table of up to 17 lines, so the pytest trailer rule never matched and every passing check read "executed count unmeasured".
+ *  Read only as ran()'s fallback. The runner's own trailer shapes are popped from the end and the Summary must then be the last line, and the only one in the output;
+ *  anything else after it (the FLAKY block or the failure report, which echo test output) leaves the run unmeasured. Counts passed + failed + errors, never skipped. */
+const PER_FILE_SUMMARY = /^=== Summary: \d+ files?, (\d+) tests? passed, (\d+) failed(?:, (\d+) errors?)?(?:, \d+ files? CRASHED)?(?:, \d+ skipped)?(?:; FAILED: \d+ of \d+ files?(?: \(\d+ at import\/collection\))?)? \(\d+% complete\) in [\d.]+s \(\d+ workers?\) ===$/;
+const PER_FILE_TRAILER = /^ {2}Durations cached to \S+ \(\d+ files?\)$|^=== Per-file subprocess time distribution ===$|^ {2}Files: +\d+$|^ {2}Total subprocess CPU-wall: |^ {2}P50: [\d.]+s +P90: |^ {2}<1s: \d+ files? |^ {2}Top \d+ slowest:$|^ {3,}[\d.]+s {2}\S|^ {2}note: platforms\(.*\) tests \(in \d+ files?\) were SKIPPED on this host |^=== \u2717 NO TESTS RAN \S+ 0 collected across \d+ files?\. This is NOT a pass\. ===$|^ {2}Common causes: |^ {2}Check the per-file output above for the real error\.$/;
+function perFileRunnerCount(out: string): number | null {
+  const ls = out.split("\n").filter((x) => x.trim());
+  if (ls.filter((x) => x.startsWith("=== Summary: ")).length !== 1) return null;
+  while (ls.length && PER_FILE_TRAILER.test(ls[ls.length - 1]!)) ls.pop();
+  const m = PER_FILE_SUMMARY.exec(ls[ls.length - 1] ?? "");
+  return m ? +m[1]! + +m[2]! + +(m[3] ?? 0) : null;
 }
 /** FC-69: the ONE ANSI stripper every tool-output parser reads through (CSI, 8-bit CSI, OSC; CRLF folded to LF). */
 export const stripAnsi = (s: string): string => s.replace(/\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g, "").replace(/(?:\u001b\[|\u009b)[0-9;?]*[ -\/]*[@-~]/g, "").replace(/\r\n?/g, "\n");

@@ -9,6 +9,11 @@ Copy this template to `specs/###-feature-name/spec.md`. Replace all `<placeholde
 > companion `changelog.md`; behavioural detail lives in ACs and Edge Cases,
 > not in the FR list.
 
+> **A spec exists because a contract changed.** If you cannot name, in one
+> sentence, what a consumer relies on that this file now owns — and who relies
+> on it — stop: you are writing a plan. Route decisions belong in `plan.md`,
+> not in a requirement.
+
 **If the request does not say it, do not specify it.** Leave the section out
 and list the gap under Open Questions. A missing section is a question for the
 user, not a slot to fill with a reasonable default. In particular: no

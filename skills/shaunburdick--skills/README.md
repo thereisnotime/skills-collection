@@ -25,7 +25,7 @@ npx skills add shaunburdick/skills -a claude-code -a opencode
 
 ### [spec-driven-development](skills/spec-driven-development/)
 
-Structured spec-driven development workflow: clarify requirements, write specs, plan architecture, break into tasks, then implement. Use when starting a new feature, building from scratch, or when requirements are unclear.
+Structured spec-driven development workflow: a spec exists only when a contract changes, and a plan only when a decision is open. Covers routing the work — new spec, amendment, or no artifact — then writing specs, planning, tasks, and implementation. Use when starting a new feature, building from scratch, or when requirements are unclear.
 
 ### [spec-kit](skills/spec-kit/)
 

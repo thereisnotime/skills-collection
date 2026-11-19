@@ -288,6 +288,12 @@
 # 250. attempts.ts attemptModel: always entry 1 (the cascade leg runs the extra attempt on Haiku).
 # 251. testmap.ts buildTestMap: stop passing `marks` to scopeRunnersByPackage (the multi-module go map leg reads no tests).
 # 283. implement.ts: `verifiedFinishOn() && false` in the SR block (rebuild dist): the VF cut-context and revert legs read a -rv resume and no finish.
+# 306. testmap.ts impactedRefs: viaJs always true (the JS-RESOLVE relative, alias and Python legs read mapped).
+# 307. testmap.ts impactedRefs: drop the `r.open` keep (the JS-RESOLVE package leg reads dropped).
+# 308. testmap.ts buildTestMap: jsCfg = null (no alias resolution; the JS-RESOLVE alias-to-another-module leg reads mapped).
+# 309. testmap.ts impactedRefs: drop the coveredStem keep in viaJs (the JS-RESOLVE name-floor leg reads dropped).
+# 310. testmap.ts impactedRefs: drop the JS-only check in viaJs (the JS-RESOLVE Python leg reads tests/test_gateway.py mapped).
+# 311. testmap.ts jsImportResolveOn: always true (the JS-RESOLVE =0 leg fails).
 # 252. check_result.ts jsAssertionFailure: drop JS_MISSING_API (the assert-js unit's missing-function case reads true).
 # 253. check_result.ts spawnFailedTool: drop the 6-line bound (the spawn-not-run leg's long ENOENT output reads missing).
 # 254. testmap.ts buildTestMap: ignore pyCfg (the pytest-fallback leg's conftest.py case reads unittest).
@@ -318,6 +324,27 @@
 # 281. mutation_proof.ts editableBaseEnv: `if (true || !mapped.length) return {};` (BASE-SEES-HEAD); the leg reads no with no file named.
 # 282. wall_snapshot.ts snapshotTree: drop the rebaseSnapshot call (BASE-SEES-HEAD); the leg reads link-into-live|pth-into-live.
 # 284. test_guard.ts excusedEdit: subjectOf returns `() => true` (any changed non-test file); the MOCK-PKG unrelated-file leg reads not weakened.
+# 285. check_result.ts ran: `if (!l) return null;` in place of the perFileRunnerCount fallback (the PER-FILE hermes, all-skipped, 12-file and NO TESTS RAN legs read unmeasured).
+# 286. check_result.ts perFileRunnerCount: drop the PER_FILE_TRAILER pop loop (the same four legs read unmeasured: the Summary is no longer the last line).
+# 287. check_result.ts perFileRunnerCount: drop the one-Summary-line check (the PER-FILE forged leg counts the test-printed 9 passed).
+# 288. check_result.ts perFileRunnerCount: take the last Summary line anywhere, not the last line (the PER-FILE FLAKY leg counts 40).
+# 289. check_result.ts perFileRunnerCount: count the skipped group too (the PER-FILE all-skipped leg reads 3, the 12-file leg 45).
+# 290. check_result.ts ran: drop `deselected` from the zero-count group (the PYTEST deselect-all leg reads a code failure).
+# 291. check_result.ts ran: drop `(?:=+ )?` from the pytest trailer rule (the PYTEST -rA/xdist and deselect-all legs read unmeasured).
+# 292. check_result.ts classifyCheck: a non-zero exit reads not_run unmeasured in place of fail (the PYTEST collection-error and pytest-timeout leg).
+# 293. check_result.ts classifyCheck: drop the `i.cut` line (the PYTEST Loki-timeout leg reads fail).
+# 294. testmap.ts impactedRefs: viaImport always true (the PY-RESOLVE collision, tests.gateway/namespace and TypeScript legs read mapped).
+# 295. testmap.ts impactedRefs: drop the `r.open` keep (exact resolution only; the relative and src-layout legs read dropped).
+# 296. testmap.ts buildTestMap: drop dottedTargets from pyImports (the monkeypatch-string leg reads dropped).
+# 297. testmap.ts buildTestMap: drop importTargets from pyImports (the direct-import and `from hermes_cli import gateway` legs read dropped).
+# 298. testmap.ts openPyStems: drop the `${b}/` package-directory check (the namespace-directory leg reads mapped).
+# 299. testmap.ts impactedRefs: drop the coveredStem keep (the name-floor leg reads dropped).
+# 300. testmap.ts impactedRefs: drop the `.py`-only check (the TypeScript leg reads mapped by its name).
+# 301. testmap.ts pyImportResolveOn: always true (the =0 leg fails).
+# 302. check_result.ts unmeasuredTail: drop redactSecrets (the UNMEASURED-TAIL token leg keeps the token).
+# 303. check_result.ts unmeasuredTail: drop the 40-line slice (the UNMEASURED-TAIL 40-lines leg reads 61 lines).
+# 304. check_result.ts unmeasuredTail: drop the not_run/UNMEASURED_REASON condition (the measured-pass leg carries a tail).
+# 305. verify.ts runCheck: spread unmeasuredTail into the check itself (the event-only leg finds the tail on the check).
 
 ORIG_HOME="$HOME" # cargo's rustup proxy finds its toolchain under the real home; lib.sh swaps HOME for a throwaway one
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -477,6 +504,28 @@ console.log([
   off(() => x(S("pkg/x/x.go", "pkg/y/x_reach_test.go"))),
 ].join(" | "));' 2>&1)"
 [ "$TKR" = "- | - | packages/b/src/b.test.ts | - | pkg/y/y_test.go | - | - | packages/e2e/src/a.test.ts | pkg/y/x_reach_test.go" ] && ok "TK J3 keeps a test that imports the changed code (package name, relative path, Go import path), still drops one that does not; Python src-layout and Rust tests/ are never candidates; =0 restores the drop ($TKR)" || bad "TK J3 reach gave: $TKR"
+# ---- RW-02 TEST-REACH-HELPERS. J3 keeps a test that reaches the changed package through a helper file it imports by a relative path
+# (one hop), the shape of playwright 44124: tests/page/page-aria-snapshot.spec.ts imports only '@playwright/test', './pageTest' and '../config/utils', and
+# tests/config/utils.ts imports 'playwright-core', the package the change was in. A test whose helpers do not import the changed package is still dropped, a
+# reach two hops away is still dropped, and LOKI_E10_TEST_REACH_HELPERS=0 restores the drop.
+# Plant: scope.ts exercisesChange: `return false &&` in place of `return testReachHelpersEnabled(env) &&` (the first cell reads tests/page/a.spec.ts).
+RH="$T/rh"; mkdir -p "$RH/packages/core/src" "$RH/tests/page" "$RH/tests/config" "$RH/scripts"
+printf '{"name":"mono","private":true,"workspaces":["packages/*"]}\n' > "$RH/package.json"; printf '{"name":"core-pkg"}\n' > "$RH/packages/core/package.json"
+printf 'export const page = 1;\n' > "$RH/packages/core/src/page.ts"; printf 'export const tool = 1;\n' > "$RH/scripts/tool.ts"
+printf 'import type { Page } from "core-pkg";\nexport const u = 1;\n' > "$RH/tests/config/utils.ts"
+printf 'export const fx = 1;\n' > "$RH/tests/page/fixture.ts"
+printf 'import { d } from "./deeper";\nexport const deep = d;\n' > "$RH/tests/page/deep.ts"; printf 'import type { Page } from "core-pkg";\nexport const d = 1;\n' > "$RH/tests/page/deeper.ts"
+printf 'import { test } from "@playwright/test";\nimport { fx } from "./fixture";\nimport { u } from "../config/utils";\ntest("a", () => {});\n' > "$RH/tests/page/a.spec.ts"
+printf 'import { test } from "@playwright/test";\nimport { fx } from "./fixture";\ntest("b", () => {});\n' > "$RH/tests/page/b.spec.ts"
+printf 'import { deep } from "./deep";\ntest("c", () => {});\n' > "$RH/tests/page/c.spec.ts"
+RHR="$(cd "$ROOT/loki-ts" && RH="$RH" bun -e '
+const sc = await import("./src/e10ext/scope.ts"), d = process.env.RH;
+const tracked = ["package.json", "packages/core/package.json", "packages/core/src/page.ts", "scripts/tool.ts", "tests/config/utils.ts", "tests/page/fixture.ts", "tests/page/deep.ts", "tests/page/deeper.ts", "tests/page/a.spec.ts", "tests/page/b.spec.ts", "tests/page/c.spec.ts"];
+const x = (test) => sc.crossPackageTestEdits(d, [{ st: "M", f: "packages/core/src/page.ts" }, { st: "M", f: test }], "aria snapshots time out on svg documents", tracked).join("+") || "-";
+const off = (f) => { process.env.LOKI_E10_TEST_REACH_HELPERS = "0"; try { return f(); } finally { delete process.env.LOKI_E10_TEST_REACH_HELPERS; } };
+console.log([x("tests/page/a.spec.ts"), x("tests/page/b.spec.ts"), x("tests/page/c.spec.ts"), off(() => x("tests/page/a.spec.ts"))].join(" | "));' 2>&1)"
+[ "$RHR" = "- | tests/page/b.spec.ts | tests/page/c.spec.ts | tests/page/a.spec.ts" ] && ok "RW-02 J3 keeps an edited test whose own helper imports the changed package (one hop); a test with no such helper and a two-hop reach are still dropped; =0 restores the drop ($RHR)" || bad "RW-02 J3 helper reach gave: $RHR"
+# ---- end RW-02 ----
 SJ3="$ROOT/loki-ts/src/engine10/stages/seal.ts"
 grep -q 'const xpkg = scopeTestDropEnabled() ? crossPackageTestEdits(ctx.repoDir, staged.filter' "$SJ3" && grep -q 'const dropped = new Set(\[...drop.map(({ f }) => f), ...xpkg\])' "$SJ3" && grep -q 'const notes = \[...xpkg.map(crossPackageTestNote),' "$SJ3" && ok "J3 wiring: the commit stage resets the cross-package test edits before commit, keeps them out of the formatter pass and names each one" || bad "J3 wiring: the commit stage does not reset and name the cross-package test edits"
 
@@ -671,8 +720,11 @@ S1B_DONE_ITERS="$(cut -d' ' -f1-3 "$ITERS" | sed -E 's/e10-[0-9TZ]+-[0-9a-f]+/RU
     && ok "S1b no-loss: a reply ending LOKI_DONE gets no resume, no event, no finish key and exit done (sessions and prompt bytes: $S1B_DONE_ITERS)" || { bad "S1b no-loss: resumes $(kits), finish '$(fin)', exit $(iexit)"; dump; }
 # The brief hash was b055d0660abb4bd7 on 8c7ae842b. 4fc499ebb (v11.149.0) appended "Two more cases are not spec conflicts either. ..." to the pinned-test rule of every
 # brief; with that one addition removed, today's normalized brief hashes to b055d0660abb4bd7 again. Any other change to a text goal's brief turns this leg red.
+# It moved to de106c6cf947932f with ce0e9c178 (2026-11-17), which adds STASH_RULE ("Never run git stash ...", e10ext/context.ts) to the fixed rules of every
+# session that writes code, on purpose (opencode 63310 lost its change in a stash); the issue-run pin in decompose-and-intake.sh moved with it. Measured: the kept brief with that one line removed hashes to e7dc8ddd3cae1e07 again.
+[ -n "${S1B_KEEP_DIR:-}" ] && { cp "$RUNDIR/implement-brief.txt" "$S1B_KEEP_DIR/brief.txt"; printf '%s\n%s\n' "$REPO" "$(basename "$RUNDIR")" > "$S1B_KEEP_DIR/where.txt"; } # S1B_KEEP_DIR=<dir>: keep the brief and its repo/run for a diff when the pin moves
 S1B_SIG="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$RUNDIR" "$REPO" 2>&1)"
-[ "$S1B_SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,task,time,toolchain,tree,verdict,verification,wall,wall_oracle; implement=already_done_evidence,brief_files,cascade,context_pack,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=e7dc8ddd3cae1e07" ] \
+[ "$S1B_SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,task,time,toolchain,tree,verdict,verification,wall,wall_oracle; implement=already_done_evidence,brief_files,cascade,context_pack,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=de106c6cf947932f" ] \
     && ok "S1b no-loss (text goal): stage order, receipt key set and implement key set equal the base commit's (8c7ae842b); the normalized implement brief is that commit's plus the two not-a-conflict sentences 4fc499ebb added to the pinned-test rule" || bad "S1b no-loss (text goal) differs from the pinned signature: $S1B_SIG"
 run_engine "$TASK" E2E_STUB_MODE=already
 [ "$(kits)" = 0 ] && [ "$(fin)" = none ] && ok "S1b already-done: an already-done reply gets no resume and no finish key ($(outcome))" || { bad "S1b already-done: resumes $(kits), finish '$(fin)'"; dump; }
@@ -1361,12 +1413,103 @@ suites="$(ev 'sum(1 for e in E if e["type"]=="test.result" and str(e["data"].get
 [ "$suites" = "3" ] && ok "lint twice: the full suite ran in each complete verify (3)" || bad "lint twice: full suite ran $suites times (want 3)"
 [ "$(outcome)" = "VERIFIED" ] && ok "lint twice: run is VERIFIED" || { bad "lint twice: outcome is '$(outcome)', not VERIFIED"; dump; }
 
-# acc-162 INDEP-GATE: the same lint-only red on a Haiku run gets no fix round (lint is the model's own check, not an independent one); =0 restores the rounds.
+# acc-162 INDEP-GATE, revised 2026-11-18 (LINT-OWN, playwright#44124): a Haiku run still gets no fix round when no independent check failed, but a syntax error
+# (bash -n), a type error (tsc) or a style lint error the run's own change put in a file it changed IS an independent check: it opens the round. The old rule
+# here (no round for this bash -n red) left a defect the change made unfixed. A bash -n or tsc error that survives the rounds stays FAILED (a style lint error is
+# held at PARTIAL: LINT-OWN below). FIX-GATE: verify's stage.completed event records the gate's reading as fix_gate, so a real run's record says why a round did or
+# did not open. Planted: LOf (bash-n dropped from OWN_TYPECHECK) gives this leg 0 rounds and a "closed" fix_gate; LOg (bash-n counted as style lint) makes the
+# stuck leg PARTIAL; LOh (fix_gate not recorded) and LOi (fixGateOf ignores independent_fail) fail the fix_gate checks.
+fg() { ev '[e["data"].get("fix_gate") for e in E if e["type"]=="stage.completed" and e["stage"]=="verify"][:1]'; }
 run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_LINTBAD=1 E2E_STUB_FIX=linttwice LOKI_RISK_TIER=medium LOKI_SESSION_MODEL=haiku LOKI_E10_HAIKU_INDEP_FIX=1 PATH="$T/fakelint:$FIX/bin:$PATH"
 gate="$(ev 'sum(1 for e in E if e["type"]=="loop.repeat" and "LOKI_E10_HAIKU_INDEP_FIX" in str(e["data"].get("reason","")))')"
-[ "$(fix_sessions)" = "0" ] && [ "$gate" = "1" ] && ok "indep gate: a Haiku run with only a lint red runs no fix round, and says why" || { bad "indep gate: $(fix_sessions) fix sessions, gate events $gate (want 0 and 1)"; dump; }
+[ "$(fix_sessions)" = "2" ] && [ "$gate" = "0" ] && [ "$(outcome)" = "VERIFIED" ] && ok "indep gate: a bash -n error the change put in tool.sh opens the fix rounds on Haiku (2), and the run is VERIFIED once fixed" || { bad "indep gate: $(fix_sessions) fix sessions, gate events $gate, outcome $(outcome) (want 2, 0, VERIFIED)"; dump; }
+has "fix gate: verify's stage.completed event says the gate is open and names the independent red" "$(fg)" "['open: independent check failed: lint:bash-n"
+run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_LINTBAD=1 E2E_STUB_FIX=noprogress LOKI_RISK_TIER=medium LOKI_SESSION_MODEL=haiku PATH="$T/fakelint:$FIX/bin:$PATH"
+f="$([ -n "$RUNDIR" ] && python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get("verdict"))' "$RUNDIR/receipt.json" 2>/dev/null)"
+[ "$(fix_sessions)" -ge 1 ] && [ "$f" = "FAILED" ] && ok "indep gate: a bash -n error that survives the rounds ($(fix_sessions)) stays FAILED, never held at PARTIAL" || { bad "indep gate stuck: $(fix_sessions) fix sessions, receipt $f (want at least 1, FAILED)"; dump; }
+U="$(cd "$ROOT/loki-ts" && bun -e '
+const v = await import("./src/engine10/stages/verify.ts");
+console.log([v.fixGateOf({ independent_fail: false }, "claude-haiku-4-5 haiku", true, {}), v.fixGateOf({ independent_fail: true, independent_reds: ["lint:eslint"] }, "haiku", true, {}), v.fixGateOf({ independent_fail: false }, "sonnet", true, {}),
+  v.fixGateOf({ independent_fail: false }, "haiku", true, { LOKI_E10_HAIKU_INDEP_FIX: "0" }), v.fixGateOf({ independent_fail: false }, "haiku", false, {})].join(" | "));' 2>&1)"
+[ "$U" = "closed: haiku: no independent check failed (LOKI_E10_HAIKU_INDEP_FIX) | open: independent check failed: lint:eslint | open: not a Haiku run | open: LOKI_E10_HAIKU_INDEP_FIX=0 | none: no failing check feeds a fix round" ] \
+    && ok "fix gate unit: closed only for a Haiku run with no independent red and the knob on; each reading says why" || bad "fix gate unit: $U"
 run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_LINTBAD=1 E2E_STUB_FIX=linttwice LOKI_RISK_TIER=medium LOKI_SESSION_MODEL=haiku LOKI_E10_HAIKU_INDEP_FIX=0 PATH="$T/fakelint:$FIX/bin:$PATH"
 [ "$(fix_sessions)" = "2" ] && ok "indep gate: LOKI_E10_HAIKU_INDEP_FIX=0 restores the two lint fix rounds on Haiku" || { bad "indep gate off: $(fix_sessions) fix sessions (want 2)"; dump; }
+
+# ---- LINT-OWN begin (playwright#44124 on 11.155.0): a lint error the run's own change put in a file it changed --------------------------------------
+# The real run, Loki on Haiku: 4 of 4 asks done, 0 of 159 tests broken, labelled FAILED (exit 1) on "lint:eslint failed: 'fs' is defined but never used",
+# two unused imports its own change added. The INDEP-GATE above gave it no fix round, and seal turned the lint red into FAILED. Now an eslint, ruff or
+# shellcheck diagnostic that is the change's own (not on base: those stay excused as before) in a file it changed is an independent check: it gets a fix round
+# with the exact lint lines, and if it is still there after the rounds the label is PARTIAL with the lint line in NOT PROVEN, never FAILED while every test
+# passes. bash -n and tsc are not in this set (the gate leg above keeps its no-round rule). A fake eslint in the repo's node_modules/.bin (what
+# `npx --no-install eslint` runs) reports an import whose name is never used again, in eslint's default and `-f unix` formats.
+#   own:   Haiku, the implement session adds an unused import of fs to calc.ts: one fix round whose brief carries the lint line, the round removes it, VERIFIED.
+#   stuck: the same with a fix round that leaves the import: receipt PARTIAL (never FAILED), the lint line in NOT PROVEN.
+#   base:  the same unused import already on base: excused as today, no fix round, VERIFIED.
+#   tsc:   a type error the change adds (fake tsc, tsconfig.json in the repo) that survives the fix round: the round ran (the gate let it through on Haiku),
+#          and the label stays FAILED, as today: a type, compile or build error is a real defect, never held at PARTIAL.
+# Planted defects (each reverted afterwards; run from source):
+#   LOa. verify.ts: drop ownLintNames from indepNames; own gets no fix round on Haiku (0 sessions) and ends PARTIAL.
+#   LOb. seal.ts: drop the lintOnly cap (pass live to verdictOf as before); stuck ends FAILED.
+#   LOc. seal.ts: take the own-lint lines from every verify check (base-red included) instead of live; base gets a NOT PROVEN lint line and ends PARTIAL.
+#   LOd. verify.ts: record tsc in own_lint too (OWN_LINT matches lint:tsc); tsc ends PARTIAL.
+#   LOe. verify.ts: drop ownTypeNames from indepNames; tsc gets no fix round on Haiku.
+mkdir -p "$T/seed-eslint/node_modules/.bin"
+printf 'node_modules\n' > "$T/seed-eslint/.gitignore"
+printf 'export default [];\n' > "$T/seed-eslint/eslint.config.js"
+cat > "$T/seed-eslint/node_modules/.bin/eslint" <<'PY'
+#!/usr/bin/env python3
+import re, sys
+a, files, unix, stdin_name, i = sys.argv[1:], [], False, None, 0
+while i < len(a):
+    x = a[i]
+    if x == "-f": unix = a[i + 1] == "unix"; i += 2; continue
+    if x == "--stdin-filename": stdin_name = a[i + 1]; i += 2; continue
+    if not x.startswith("-"): files.append(x)
+    i += 1
+texts = [(stdin_name, sys.stdin.read())] if stdin_name else [(f, open(f).read()) for f in files]
+bad = 0
+for f, t in texts:
+    for n, line in enumerate(t.split("\n"), 1):
+        m = re.match(r"import (?:\* as )?(\w+) from ", line)
+        if m and not re.search(r"\b%s\b" % m.group(1), t.replace(line, "", 1)):
+            bad += 1
+            msg = "'%s' is defined but never used" % m.group(1)
+            print("%s:%d:8: %s [Error/no-unused-vars]" % (f, n, msg) if unix else "%s\n  %d:8  error  %s  no-unused-vars" % (f, n, msg))
+sys.exit(1 if bad else 0)
+PY
+chmod +x "$T/seed-eslint/node_modules/.bin/eslint"
+lo_np() { [ -n "$RUNDIR" ] && python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); np=r.get("not_proven",[]); print(r.get("verdict"), sum("lint:eslint" in n and "is defined but never used" in n for n in np))' "$RUNDIR/receipt.json" 2>/dev/null; }
+SEED="$T/seed-eslint" run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_UNUSED_IMPORT=1 E2E_STUB_FIX=unlint LOKI_SESSION_MODEL=haiku E2E_STUB_PROMPT_LOG="$T/lo-own.prompt"
+f="$(lo_np)"
+[ "$(fix_sessions)" = "1" ] && ok "lint own: a Haiku run whose change adds an unused import gets one fix round" || { bad "lint own: $(fix_sessions) fix sessions (want 1)"; dump; }
+grep -qh "'fs' is defined but never used" "$T"/lo-own.prompt.* 2>/dev/null && ok "lint own: the fix brief carries the exact lint line" || bad "lint own: no session brief carries the lint line"
+[ "$f" = "VERIFIED 0" ] && [ "$(outcome)" = "VERIFIED" ] && ! git -C "$REPO" show HEAD:calc.ts | grep -q 'import fs' && ok "lint own: the round removes it and the run is VERIFIED" || { bad "lint own: receipt '$f', outcome $(outcome)"; dump; }
+SEED="$T/seed-eslint" run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_UNUSED_IMPORT=1 E2E_STUB_FIX=noprogress LOKI_SESSION_MODEL=haiku
+f="$(lo_np)"
+[ "$f" = "PARTIAL 1" ] && [ "$(outcome)" != "FAILED" ] && ok "lint stuck: the lint error is still there after the fix rounds, every test passes: PARTIAL with the lint line in NOT PROVEN, never FAILED (outcome $(outcome), rc $RC)" || { bad "lint stuck: receipt '$f', outcome $(outcome), rc $RC"; dump; }
+[ "$(fix_sessions)" -ge 1 ] && ok "lint stuck: the fix rounds ran ($(fix_sessions))" || bad "lint stuck: no fix round ran"
+mkdir -p "$T/seed-eslint-base" && cp -R "$T/seed-eslint/." "$T/seed-eslint-base/" && { printf 'import fs from "node:fs";\n'; cat "$FIX/repo/calc.ts"; } > "$T/seed-eslint-base/calc.ts"
+SEED="$T/seed-eslint-base" run_engine "$TASK" E2E_STUB_MODE=done LOKI_SESSION_MODEL=haiku
+f="$(lo_np)"
+[ "$f" = "VERIFIED 0" ] && [ "$(fix_sessions)" = "0" ] && ok "lint base: the same unused import already on base stays excused: no fix round, VERIFIED" || { bad "lint base: receipt '$f', $(fix_sessions) fix sessions"; dump; }
+mkdir -p "$T/seed-tsc/node_modules/.bin" && cp "$T/seed-eslint/.gitignore" "$T/seed-tsc/" && printf '{"compilerOptions":{"strict":true,"noEmit":true}}\n' > "$T/seed-tsc/tsconfig.json"
+cat > "$T/seed-tsc/node_modules/.bin/tsc" <<'PY'
+#!/usr/bin/env python3
+import os, re, sys
+bad = 0
+for f in sorted(x for x in os.listdir(".") if x.endswith(".ts")):
+    for n, line in enumerate(open(f).read().split("\n"), 1):
+        if re.search(r': number = "', line):
+            bad += 1; print("%s(%d,14): error TS2322: Type 'string' is not assignable to type 'number'." % (f, n))
+sys.exit(2 if bad else 0)
+PY
+chmod +x "$T/seed-tsc/node_modules/.bin/tsc"
+SEED="$T/seed-tsc" run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_TYPE_ERROR=1 E2E_STUB_FIX=noprogress LOKI_SESSION_MODEL=haiku
+f="$([ -n "$RUNDIR" ] && python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r.get("verdict"), any(c.get("name","").startswith("lint:tsc") and c.get("result")=="fail" for c in r.get("checks",[])))' "$RUNDIR/receipt.json" 2>/dev/null)"
+[ "$(fix_sessions)" -ge 1 ] && ok "lint tsc: a type error the change added gets a fix round on Haiku ($(fix_sessions))" || { bad "lint tsc: $(fix_sessions) fix sessions (want at least 1)"; dump; }
+[ "$f" = "FAILED True" ] && [ "$(outcome)" != "PARTIAL" ] && ok "lint tsc: the type error survives the round: FAILED as today (outcome $(outcome)), never held at PARTIAL" || { bad "lint tsc: receipt '$f', outcome $(outcome)"; dump; }
+# ---- LINT-OWN end ----------------------------------------------------------------------------------------------------------------------------------------
 
 run_engine "$TASK" E2E_STUB_MODE=agentonly LOKI_E10_PLAN=auto LOKI_E10_SMALL_MAX_CHARS=10 LOKI_E10_PUBLIC_GAP=1
 notes="$([ -n "$RUNDIR" ] && python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get("not_proven"))' "$RUNDIR/receipt.json" 2>/dev/null)"
@@ -1476,6 +1619,75 @@ for (const a of [["init", "-q"], ["add", "-A", "--", ".", ":!.loki"]]) Bun.spawn
 const m = await tm.buildTestMap(r); process.env.LOKI_E10_EVIDENCE_PER_PACKAGE = "0"; const off = tm.buildTestMap(r).tests.length;
 console.log(m.tests.map((t) => t.runner + ":" + t.path).join(",") + " | " + tm.impactedRefs(m, ["middleware/charset.go"]).map((t) => t.path).join(",") + " | off=" + off);' "$T" 2>&1)"
 [ "$GE" = "go:middleware/charset_test.go | middleware/charset_test.go | off=0" ] && ok "go map: in a multi-module repo every module that holds Go evidence keeps the go runner (a nested go.mod listed first does not empty the root's tests)" || bad "go map (multi-module) gave: $GE"
+# PY-RESOLVE (hermes-agent issue 155462, 11.158.0): a change to hermes_cli/gateway.py matched every test whose import's last part is "gateway" (590 import the
+# top-level gateway package, 94 TypeScript tests import '@/store/gateway'), so verify selected 793 files and ran out of time on file 253. A changed .py file keeps a
+# test matched through an import only when its imports resolve to that file, or when the import resolves to nothing in the repo (kept, unknown).
+cat > "$T/pyres.ts" <<'TS'
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+const root = process.argv[2]!, T = process.argv[3]!;
+const tm = await import(root + "/loki-ts/src/engine10/testmap.ts");
+const res = (n: string, okk: boolean) => console.log((okk ? "OK " : "NO ") + n);
+const r = mkdtempSync(join(T, "pyres-")), put = (f: string, t: string) => { mkdirSync(dirname(join(r, f)), { recursive: true }); writeFileSync(join(r, f), t); };
+put("pytest.ini", "[pytest]\n"); put("gateway/__init__.py", ""); put("gateway/run.py", "X = 1\n"); put("hermes_cli/__init__.py", ""); put("hermes_cli/gateway.py", "def f():\n    return 1\n");
+put("tests/gateway/__init__.py", ""); put("tests/gateway/helpers.py", "H = 1\n"); put("tools/connectors/gateway/x.py", "Y = 1\n"); put("src/pkgsrc/mod.py", "def g():\n    return 2\n");
+put("tests/test_a_collision.py", "from gateway import run\n\ndef test_a():\n    assert run.X\n");
+put("tests/test_b_direct.py", "from hermes_cli.gateway import f\n\ndef test_b():\n    assert f()\n");
+put("tests/test_c_from_pkg.py", "from gateway import run\nfrom hermes_cli import gateway as gw\n\ndef test_c():\n    assert gw.f()\n");
+put("tests/test_d_patch.py", "from gateway import run\n\ndef test_d(monkeypatch):\n    monkeypatch.setattr(\"hermes_cli.gateway.f\", lambda: 2)\n");
+put("tests/test_e_tests_pkg.py", "from tests.gateway import helpers\n\ndef test_e():\n    assert helpers.H\n");
+put("tests/test_f_ns.py", "from tools.connectors.gateway import x\n\ndef test_f():\n    assert x.Y\n");
+put("tests/test_gateway.py", "def test_name_only():\n    assert True\n");
+put("tests/sub/test_g_relative.py", "from .gateway import thing\n\ndef test_g():\n    assert thing\n");
+put("tests/test_h_src.py", "from pkgsrc.mod import g\n\ndef test_h():\n    assert g()\n");
+put("web/package.json", "{\"devDependencies\":{\"vitest\":\"2.0.0\"}}\n"); put("web/store/gateway.ts", "export const a = 1;\n"); put("web/store/gateway.test.ts", "import { a } from '@/store/gateway';\nimport { test } from 'vitest';\ntest('a', () => {});\n");
+for (const a of [["init", "-q"], ["add", "-A"]]) Bun.spawnSync(["git", "-C", r, ...a]);
+const sel = (f: string) => tm.impactedRefs(tm.buildTestMap(r), [f]).map((t: { path: string }) => t.path), on = sel("hermes_cli/gateway.py"), has = (p: string) => on.includes(p);
+res("PY-RESOLVE a test whose `from gateway import` names the top-level gateway package is not mapped to hermes_cli/gateway.py", !has("tests/test_a_collision.py"));
+res("PY-RESOLVE tests.gateway (a package) and tools.connectors.gateway (a namespace directory) are other modules, not mapped", !has("tests/test_e_tests_pkg.py") && !has("tests/test_f_ns.py"));
+res("PY-RESOLVE a TypeScript test is never mapped to a .py file, by import or by name", !has("web/store/gateway.test.ts"));
+res("PY-RESOLVE a test importing hermes_cli.gateway is mapped", has("tests/test_b_direct.py"));
+res("PY-RESOLVE `from hermes_cli import gateway` beside a colliding import is mapped", has("tests/test_c_from_pkg.py"));
+res("PY-RESOLVE a monkeypatch string naming hermes_cli.gateway is mapped", has("tests/test_d_patch.py"));
+res("PY-RESOLVE the test_<stem>.py name floor is kept", has("tests/test_gateway.py"));
+res("PY-RESOLVE a relative import is kept (unknown)", has("tests/sub/test_g_relative.py"));
+res("PY-RESOLVE an import that resolves to no repo module (src layout) is kept", sel("src/pkgsrc/mod.py").includes("tests/test_h_src.py"));
+res("PY-RESOLVE a JavaScript change still maps its TypeScript test", sel("web/store/gateway.ts").includes("web/store/gateway.test.ts"));
+process.env.LOKI_E10_PY_IMPORT_RESOLVE = "0"; const off = sel("hermes_cli/gateway.py"); delete process.env.LOKI_E10_PY_IMPORT_RESOLVE;
+res("PY-RESOLVE =0 maps by basename as before (the collision, tests.gateway and the TypeScript test come back)", ["tests/test_a_collision.py", "tests/test_e_tests_pkg.py", "web/store/gateway.test.ts"].every((p) => off.includes(p)) && !tm.pyImportResolveOn({ LOKI_E10_PY_IMPORT_RESOLVE: "0" }) && tm.pyImportResolveOn({}));
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/pyres.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || bad "py-resolve unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 11 ] || bad "py-resolve unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 11"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+grep -q '^NO ' <<< "$out" && printf '%s\n' "$out" | grep -v '^OK ' | tail -8 | sed 's/^/    | /'
+# UNMEASURED-TAIL: hm155462 left 227 unmeasured checks with no output at all; the event now keeps the last 40 lines, redacted, and the receipt does not.
+cat > "$T/utail.ts" <<'TS'
+const root = process.argv[2]!, T = process.argv[3]!;
+import { mkdtempSync } from "node:fs"; import { join } from "node:path";
+const vf = await import(root + "/loki-ts/src/engine10/stages/verify.ts"), cr = await import(root + "/loki-ts/src/util/check_result.ts");
+const res = (n: string, okk: boolean) => console.log((okk ? "OK " : "NO ") + n);
+const d = mkdtempSync(join(T, "utail-")), ev: Record<string, unknown>[] = [];
+const ctx = { repoDir: d, baseSha: "", runDir: d, emit: (t: string, _s: string, x: Record<string, unknown>) => { if (t === "test.result") ev.push(x); }, outputs: () => ({}) } as never;
+const secret = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+const script = `for i in $(seq 1 60); do echo "line $i"; done; printf '\\033[31mGITHUB_TOKEN=${secret}\\033[0m\\n'`;
+const checks: unknown[] = [], c = await vf.runCheck(ctx, "pytest:t.py", "sh", ["-c", script], new AbortController().signal, checks as never, { kind: "test" });
+const e = ev[0] ?? {}, tail = String(e.out_tail ?? ""), ls = tail.split("\n");
+res("UNMEASURED-TAIL an unmeasured check's event keeps its last 40 output lines", c.result === "not_run" && c.reason === cr.UNMEASURED_REASON && ls.length === 40 && ls[0] === "line 22" && ls[38] === "line 60");
+res("UNMEASURED-TAIL a planted token in the tail is redacted and colour codes are stripped", !tail.includes(secret) && !tail.includes("\u001b") && /GITHUB_TOKEN=\[REDACTED/.test(ls[39] ?? ""));
+res("UNMEASURED-TAIL the tail is on the event only, never on the check the receipt reads", !("out_tail" in (c as object)) && !JSON.stringify(checks).includes("line 60"));
+const ev0 = ev.length; await vf.runCheck(ctx, "pytest:p.py", "sh", ["-c", "echo '3 passed in 0.01s'"], new AbortController().signal, [] as never, { kind: "test" });
+res("UNMEASURED-TAIL a measured pass carries no tail", ev.length === ev0 + 1 && !("out_tail" in ev[ev0]!) && ev[ev0]!.result === "pass");
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/utail.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || bad "unmeasured-tail unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 4 ] || bad "unmeasured-tail unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 4"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+grep -q '^NO ' <<< "$out" && printf '%s\n' "$out" | grep -v '^OK ' | tail -8 | sed 's/^/    | /'
 
 # deliver: the delivery over a Wall conflict decides on the re-verify, so a Go Wall file that breaks its package's build
 # (the full suite fails, no targeted check of the repo's own ran) no longer keeps correct code out.
@@ -3453,7 +3665,7 @@ row("stated_override", [n.overrideVerdict("Rename\n\nExpected: the header reads 
   row("change_repro", [n.isChangeCase(GL, sn, '["git","log","--no-merges","--pretty=format:%s","v1.2.0..v1.3.0"]', '["git","log","--pretty=format:%s","v1.2.0..v1.3.0","--reverse"]'), n.isChangeCase(GL, sn, '["git","log","--no-merges","--pretty=format:%s","v1.2.0..v1.3.0"]', '["git","log","--pretty=format:%s","v1.2.0..v1.3.0"]')].join(",")); }
 row("groups", [n.nrdGroupsFor({ no_regression: { groups: [{ signature: "no-regression: x", count: 2, sample: "s" }] } }, 0).length, n.nrdGroupsFor({ no_regression: { groups: [{ signature: "no-regression: x", count: 2, sample: "s" }] } }, 1).length, n.nrdGroupsFor({ no_regression: { groups: [{ bad: 1 }] } }, 0).length, n.nrdGroupsFor(undefined, 0).length].join(","));
 row("knob", [n.nrdEnabled({}), n.nrdEnabled({ LOKI_E10_NRD: "0" }), n.nrdEnabled({ LOKI_E10_NRD: "1" })].join(","));
-row("rules", [t.probeIntake.rules === t.GO_PROBE_RULES, n.nrdProbeIntake.rules === t.GO_PROBE_RULES].join(","));
+row("rules", [t.probeIntake.rules === t.GO_PROBE_RULES, n.nrdProbeIntake().rules === t.GO_PROBE_RULES].join(","));
 // SPEED-NRD-OVERLAP: implement starts the differential, verify (or seal) settles it into the implement output that is current then
 {
   const evs: string[] = []; let impl: any = { exit: "done" };
@@ -3637,7 +3849,7 @@ res("wiring: resumeForCoverage appends siteHints to the coverage brief (claim or
 const im = readFileSync(root + "/loki-ts/src/engine10/stages/implement.ts", "utf8");
 res("wiring: the plan-skipped implement brief adds coverageFoldLines right after FOLD_PLAN_INSTRUCTION, and fold mode runs only the claim check on the implement session (no -c turn)", /\.\.\.\(plan \? \[\] : \[FOLD_PLAN_INSTRUCTION, \.\.\.coverageFoldLines\(\)\]\)/.test(im) && /else if \(coverageMode\(\) === "fold" && !plan\) \{/.test(im) && /const r = await reaskFoldedClaims\(ctx, /.test(im) && /if \(coverageResumeEnabled\(\) && !plan\)/.test(im));
 const inF1 = readFileSync(root + "/loki-ts/src/engine10/stages/intake.ts", "utf8");
-res("wiring: intake records rankedRemedy as ranked_remedy under its knob; implement passes it to the brief and runs resumeForRemedy only after a clean done with a non-empty diff", /const remedy = rankedRemedyEnabled\(\) \? rankedRemedy\(task\) : null;/.test(inF1) && /\.\.\.\(remedy \? \{ ranked_remedy: remedy\.first \} : \{\}\)/.test(inF1) && /prior\.intake\?\.assumptions, rankedRemedyEnabled\(\) \? prior\.intake\?\.ranked_remedy : undefined, issue\)/.test(im) && /if \(remedy && patch\?\.status !== "green" && !signal\.aborted && !session\.killed && session\.exit === 0 && session\.markers\.done && !session\.markers\.specConflict && !session\.markers\.alreadyDone && !treeIsEmpty\(ctx\)\) \{ const r = await resumeForRemedy\(/.test(im));
+res("wiring: intake records rankedRemedy as ranked_remedy under its knob; implement passes it to the brief and runs resumeForRemedy only after a clean done with a non-empty diff", /const remedy = rankedRemedyEnabled\(\) \? rankedRemedy\(task\) : null;/.test(inF1) && /\.\.\.\(remedy \? \{ ranked_remedy: remedy\.first \} : \{\}\)/.test(inF1) && /prior\.intake\?\.assumptions, rankedRemedyEnabled\(\) \? prior\.intake\?\.ranked_remedy : undefined, issue && prior\.intake\?\.source === "text" \? "text" : issue\)/.test(im) && /if \(remedy && patch\?\.status !== "green" && !signal\.aborted && !session\.killed && session\.exit === 0 && session\.markers\.done && !session\.markers\.specConflict && !session\.markers\.alreadyDone && !treeIsEmpty\(ctx\)\) \{ const r = await resumeForRemedy\(/.test(im));
 TS
 out="$(cd "$ROOT/loki-ts" && bun "$T/site-hints.ts" "$ROOT" 2>&1; echo "EXIT $?")"
 grep -q '^EXIT 0$' <<< "$out" || bad "site-hints unit script crashed or exited non-zero"
@@ -3729,6 +3941,40 @@ const pretty = "........ [100%]\nResults (0.66s):\n       271 passed\n        25
 res("PRETTY a pytest-pretty Results block counts its passed tests", cr.testCount(pretty, "tests/test_main.py", true) === 271 && cr.testCount("Results (1.2s):\n         3 passed\n         2 failed\n", "t.py", false) === 5);
 res("PRETTY a Results block that does not end the output, or holds a non-count line, is never counted", cr.testCount("Results (0.5s):\n       9 passed\nprinted by a test\n", "t.py", true) === null);
 process.env.LOKI_E10_PYTEST_PRETTY = "0"; res("PRETTY =0 reads the block as unmeasured, as before", cr.testCount(pretty, "t.py", true) === null); process.env.LOKI_E10_PYTEST_PRETTY = "1";
+// PER-FILE (hermes-agent issue 140569 run, 11.156.0: 27 of 34 checks read "executed count unmeasured"): scripts/run_tests.sh runs each file in its own pytest and
+// prints only its own "=== Summary: ..." line under a durations note and a per-file time table. REAL1 is the runner output the session's proof script captured for
+// tests/gateway/test_background_task_stateless.py (one of the 27; Loki saved no output of the verify checks themselves); REAL2 is the scorer's run of an all-skipped
+// file in the same environment. Both byte-exact except the venv temp path, which is replaced by /tmp/venvs/hm147745/bin/python. The multi-file, FLAKY, forged and
+// no-tests forms are synthesized from the print statements of hermes-agent scripts/run_tests_parallel.py.
+{ const { createHash } = await import("node:crypto"), b64 = (x: string) => Buffer.from(x, "base64").toString("utf8"), sha = (x: string) => createHash("sha256").update(x).digest("hex");
+  const real1 = b64("4pa2IG5vdCBhY3RpdmF0ZWQg4oCUIHVzaW5nIEhFUk1FU19QWVRIT046IC90bXAvdmVudnMvaG0xNDc3NDUvYmluL3B5dGhvbgrilrYgcnVubmluZyBwZXItZmlsZSBwYXJhbGxlbCB0ZXN0IHN1aXRlIHZpYSBydW5fdGVzdHNfcGFyYWxsZWwucHkKICAoVFo9VVRDIExBTkc9Qy5VVEYtOCBQWVRIT05IQVNIU0VFRD0wOyBjbGVhbiBlbnYpCuKWtiBwcmUtY29tcGlsaW5nIGJ5dGVjb2RlIGNhY2hlCmZhdGFsOiBub3QgYSBnaXQgcmVwb3NpdG9yeSAob3IgYW55IG9mIHRoZSBwYXJlbnQgZGlyZWN0b3JpZXMpOiAuZ2l0CuKWtiBsYXVuY2hpbmcgdGVzdCBydW5uZXIKRGlzY292ZXJlZCAxIHRlc3QgZmlsZXMgKH4xIHRlc3RzKSB1bmRlciBbJ3Rlc3RzL2dhdGV3YXkvdGVzdF9iYWNrZ3JvdW5kX3Rhc2tfc3RhdGVsZXNzLnB5J107IHJ1bm5pbmcgd2l0aCAtaiAxNApbMTAwLjAlIHwgICAgIDEvfjEgfCDinJMxIHwg4pyXMF0g4pyTIHRlc3RzL2dhdGV3YXkvdGVzdF9iYWNrZ3JvdW5kX3Rhc2tfc3RhdGVsZXNzLnB5ICgx4pyTLCAzLjZzKQoKPT09IFN1bW1hcnk6IDEgZmlsZXMsIDEgdGVzdHMgcGFzc2VkLCAwIGZhaWxlZCAoMTAwJSBjb21wbGV0ZSkgaW4gMy43cyAoMTQgd29ya2VycykgPT09CiAgRHVyYXRpb25zIGNhY2hlZCB0byB0ZXN0X2R1cmF0aW9ucy5qc29uICgxIGZpbGVzKQoKPT09IFBlci1maWxlIHN1YnByb2Nlc3MgdGltZSBkaXN0cmlidXRpb24gPT09CiAgRmlsZXM6ICAgMQogIFRvdGFsIHN1YnByb2Nlc3MgQ1BVLXdhbGw6IDMuNnMgIChydW5uZXIgd2FsbDogMy43cywgcGFyYWxsZWxpc206IDE0eCkKICBQNTA6IDMuNjNzICBQOTA6IDMuNjNzICBQOTU6IDMuNjNzICBQOTk6IDMuNjNzICBNYXg6IDMuNjNzCiAgPDFzOiAwIGZpbGVzICgwJSkgIDwyczogMCBmaWxlcyAoMCUpCiAgVG9wIDEwIHNsb3dlc3Q6CiAgICAgIDMuNjNzICB0ZXN0cy9nYXRld2F5L3Rlc3RfYmFja2dyb3VuZF90YXNrX3N0YXRlbGVzcy5weQo="), real2 = b64("4pa2IG5vdCBhY3RpdmF0ZWQg4oCUIHVzaW5nIEhFUk1FU19QWVRIT046IC90bXAvdmVudnMvaG0xNDc3NDUvYmluL3B5dGhvbgrilrYgcnVubmluZyBwZXItZmlsZSBwYXJhbGxlbCB0ZXN0IHN1aXRlIHZpYSBydW5fdGVzdHNfcGFyYWxsZWwucHkKICAoVFo9VVRDIExBTkc9Qy5VVEYtOCBQWVRIT05IQVNIU0VFRD0wOyBjbGVhbiBlbnYpCuKWtiBwcmUtY29tcGlsaW5nIGJ5dGVjb2RlIGNhY2hlCuKWtiBsYXVuY2hpbmcgdGVzdCBydW5uZXIKRGlzY292ZXJlZCAxIHRlc3QgZmlsZXMgKH4zIHRlc3RzKSB1bmRlciBbJ3Rlc3RzL2dhdGV3YXkvdGVzdF9tYW5hZ2VkX3dvcmtlcl9kZWxlZ2F0aW9uLnB5J107IHJ1bm5pbmcgd2l0aCAtaiAxNApbMTAwLjAlIHwgICAgIDMvfjMgfCDinJMwIHwg4pyXMF0g4pyTIHRlc3RzL2dhdGV3YXkvdGVzdF9tYW5hZ2VkX3dvcmtlcl9kZWxlZ2F0aW9uLnB5ICgzcywgMC40cykKCj09PSBTdW1tYXJ5OiAxIGZpbGVzLCAwIHRlc3RzIHBhc3NlZCwgMCBmYWlsZWQsIDMgc2tpcHBlZCAoMTAwJSBjb21wbGV0ZSkgaW4gMC40cyAoMTQgd29ya2VycykgPT09CgogIG5vdGU6IHBsYXRmb3JtcygnbGludXgnKSB0ZXN0cyAoaW4gMSBmaWxlKSB3ZXJlIFNLSVBQRUQgb24gdGhpcyBob3N0IChkYXJ3aW4pOyB0aGV5IHJ1biBvbiB0aGUgbWFpbiBMaW51eCBDSSBsYW5lLgogIER1cmF0aW9ucyBjYWNoZWQgdG8gdGVzdF9kdXJhdGlvbnMuanNvbiAoMSBmaWxlcykKCj09PSBQZXItZmlsZSBzdWJwcm9jZXNzIHRpbWUgZGlzdHJpYnV0aW9uID09PQogIEZpbGVzOiAgIDEKICBUb3RhbCBzdWJwcm9jZXNzIENQVS13YWxsOiAwLjRzICAocnVubmVyIHdhbGw6IDAuNHMsIHBhcmFsbGVsaXNtOiAxNHgpCiAgUDUwOiAwLjQwcyAgUDkwOiAwLjQwcyAgUDk1OiAwLjQwcyAgUDk5OiAwLjQwcyAgTWF4OiAwLjQwcwogIDwxczogMSBmaWxlcyAoMTAwJSkgIDwyczogMSBmaWxlcyAoMTAwJSkKICBUb3AgMTAgc2xvd2VzdDoKICAgICAgMC40MHMgIHRlc3RzL2dhdGV3YXkvdGVzdF9tYW5hZ2VkX3dvcmtlcl9kZWxlZ2F0aW9uLnB5Cg==");
+  res("PER-FILE the embedded runner bytes are the saved ones", sha(real1) === "9dfe14a2bf0a6f2c86316912929ab9620546b52adea1095fc8d9bb4a93e62609" && sha(real2) === "fa46f8aac895a556fcf4960a6c432f2c61dc2a5936180716a0b4b1f0ed0dd4e0");
+  const c1 = cr.classifyCheck({ kind: "test", ok: true, out: real1 }), c2 = cr.classifyCheck({ kind: "test", ok: true, out: real2 });
+  res("PER-FILE the hermes check that read unmeasured counts its 1 test and passes", cr.testCount(real1, "tests/gateway/test_background_task_stateless.py", true) === 1 && c1.result === "pass" && c1.n === 1);
+  res("PER-FILE an all-skipped file (with the platforms note) counts 0 and is no tests executed, never a pass", cr.testCount(real2, "t.py", true) === 0 && c2.result === "not_run" && c2.n === 0 && /^no tests executed/.test(c2.reason ?? ""));
+  const sum = (body: string) => "Discovered 12 test files (~40 tests) under ['tests/agent/']; running with -j 14\n" + body;
+  const table = ["  Durations cached to test_durations.json (12 files)", "", "=== Per-file subprocess time distribution ===", "  Files:   12", "  Total subprocess CPU-wall: 30.1s  (runner wall: 9.0s, parallelism: 14x)", "  P50: 2.01s  P90: 4.10s  P95: 4.10s  P99: 4.10s  Max: 4.10s", "  <1s: 0 files (0%)  <2s: 5 files (42%)", "  Top 10 slowest:", ...Array.from({ length: 10 }, (_, k) => `      ${(4.1 - k * 0.2).toFixed(2)}s  tests/agent/test_f${k}.py`)].join("\n") + "\n";
+  const multi = sum("\n=== Summary: 12 files, 40 tests passed, 0 failed, 5 skipped (100% complete) in 9.0s (14 workers) ===\n" + table), cm = cr.classifyCheck({ kind: "test", ok: true, out: multi });
+  res("PER-FILE a 12-file run whose Summary sits 18 lines above the end counts passed tests, never skipped", cr.testCount(multi, "tests/agent", true) === 40 && cm.result === "pass" && cm.n === 40);
+  const flaky = sum("\n=== Summary: 12 files, 40 tests passed, 0 failed (100% complete) in 9.0s (14 workers) ===\n\n=== \u26a0 1 FLAKY file (failed once, passed on retry) ===\n  tests/agent/test_f1.py\n==== 1 failed in 0.20s ====\n" + table), cf = cr.classifyCheck({ kind: "test", ok: true, out: flaky });
+  res("PER-FILE a FLAKY block after the Summary (it echoes test output) leaves the run unmeasured", cr.testCount(flaky, "x", true) === null && cf.result === "not_run" && cf.reason === cr.UNMEASURED_REASON);
+  const forged = sum("\n=== Summary: 12 files, 0 tests passed, 0 failed, 3 skipped (100% complete) in 9.0s (14 workers) ===\n\n=== \u26a0 1 FLAKY file (failed once, passed on retry) ===\n  tests/agent/test_f1.py\n=== Summary: 12 files, 9 tests passed, 0 failed (100% complete) in 1.0s (14 workers) ===\n" + table);
+  res("PER-FILE a second Summary line printed by test output is never counted", cr.testCount(forged, "x", true) === null && cr.classifyCheck({ kind: "test", ok: true, out: forged }).result === "not_run");
+  const none = sum("\n=== Summary: 12 files, 0 tests passed, 0 failed (0% complete) in 1.0s (14 workers) ===\n\n=== \u2717 NO TESTS RAN \u2014 0 collected across 12 files. This is NOT a pass. ===\n  Common causes: the selected venv has no pytest; a -k/-m filter matched nothing; or collection errored in every file.\n  Check the per-file output above for the real error.\n"), cn = cr.classifyCheck({ kind: "test", ok: false, out: none });
+  res("PER-FILE the runner's NO TESTS RAN block (exit 1) is no tests executed, never a code failure", cr.testCount(none, "x", false) === 0 && cn.result === "not_run" && cn.n === 0);
+  // Plain pytest forms through the same parser: the trailers below are real pytest 9.2 output (pytest-xdist 3.8, pytest-timeout 2.4) from a scratch project.
+  const pq = "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n2 passed, 1 skipped, 1 warning in 0.00s\n";
+  const prA = "=========================== short test summary info ============================\nPASSED tests/test_a.py::test_one\nPASSED tests/test_a.py::test_two\nSKIPPED [1] tests/test_a.py:4: x\n=================== 2 passed, 1 skipped, 1 warning in 0.01s ====================\n";
+  const px = "created: 14/14 workers\n14 workers [3 items]\n\n.s.                                                                      [100%]\n=============================== warnings summary ===============================\ntests/test_a.py::test_two\n  tests/test_a.py:3: DeprecationWarning: old api\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=================== 2 passed, 1 skipped, 1 warning in 0.57s ====================\n";
+  res("PYTEST -q, -rA and xdist -n auto with a warnings summary each count 2 executed tests and pass", [pq, prA, px].every((o) => cr.testCount(o, "tests/test_a.py", true) === 2 && cr.classifyCheck({ kind: "test", ok: true, out: o }).result === "pass"));
+  const pdes = "collected 3 items / 3 deselected / 0 selected\n\n============================ 3 deselected in 0.00s =============================\n", cd = cr.classifyCheck({ kind: "test", ok: false, out: pdes });
+  res("PYTEST a run that deselects every test (exit 5) is no tests executed, never a code failure", cr.testCount(pdes, "t.py", false) === 0 && cd.result === "not_run" && cd.n === 0);
+  const pcol = "E   ModuleNotFoundError: No module named 'not_a_module_here'\n=========================== short test summary info ============================\nERROR tests/test_broken.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n=============================== 1 error in 0.04s ===============================\n";
+  const ptmo = "tests/test_slow.py:2: Failed\n=========================== short test summary info ============================\nFAILED tests/test_slow.py::test_hang - Failed: Timeout (>2.0s) from pytest-ti...\n============================== 1 failed in 2.01s ===============================\n";
+  res("PYTEST a collection error and a pytest-timeout kill are fails, never a pass", cr.classifyCheck({ kind: "test", ok: false, out: pcol }).result === "fail" && cr.classifyCheck({ kind: "test", ok: false, out: ptmo }).result === "fail");
+  const cut = cr.classifyCheck({ kind: "test", ok: false, cut: true, out: prA.split("\n").slice(0, 2).join("\n") });
+  res("PYTEST a run Loki cut at its timeout is not_run with the reason", cut.result === "not_run" && cut.reason === "timed out or aborted");
+}
 // 11.141.0 (GOALS A3.2): every mechanism with no bench measurement ships OFF: its accessor reads false with nothing set and true with =1.
 { const sr = await import(root + "/loki-ts/src/features/self_review.ts"), cf = await import(root + "/loki-ts/src/e10ext/commit_filter.ts"), mc = await import(root + "/loki-ts/src/engine10/machine.ts"), wk = await import(root + "/loki-ts/src/util/wall_knobs.ts");
   const acc: [string, (e: NodeJS.ProcessEnv) => boolean][] = [["SR_COVERAGE", sr.srCoverageOn], ["DOC_ENUM", sr.docEnumOn], ["WALL_CASES", sr.wallCasesOn], ["REGEN_DROP", cf.regenDropOn], ["DIFF_NEED", cf.diffNeedOn], ["DOC_UPDATE_RULE", cx.docUpdateRuleOn], ["PLAN_HINTS", cx.planHintsOn], ["CARGO_MERGED_DOCTEST", cr.cargoMergedDoctestOn], ["AVA_TARGETED", cr.avaTargetedOn], ["PYTEST_PRETTY", cr.pytestPrettyOn], ["NO_TEST_FALLBACK", vf.noTestFallbackOn], ["BASE_CRASH_ENV", vf.baseCrashEnvOn], ["UNCAUSED_NO_FIX", vf.uncausedOn], ["UV_REQUIRED", inst.uvRequiredOn], ["SOURCE_SITES", es.sourceSitesOn], ["HAIKU_INDEP_FIX", mc.haikuIndepFixOn], ["WALL_ON_LEAN", wk.wallOnLeanOn], ["CASCADE_V0", wk.cascadeV0On]];
@@ -3740,7 +3986,7 @@ res("PLAN-HINTS the plan and the relevant-file list are hints when on, the old w
 TS
 out="$(cd "$ROOT/loki-ts" && bun "$T/acc162.ts" "$ROOT" 2>&1; echo "EXIT $?")"
 grep -q '^EXIT 0$' <<< "$out" || bad "acc-162 unit script crashed or exited non-zero"
-[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 30 ] || bad "acc-162 unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 30"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 41 ] || bad "acc-162 unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 41"
 while IFS= read -r line; do
     case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
 done <<< "$out"
@@ -4089,5 +4335,43 @@ grep -q '^EXIT 0$' <<< "$out" || bad "rw01 unit script crashed or exited non-zer
 while IFS= read -r line; do
     case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
 done <<< "$out"
+
+# JS-RESOLVE: a changed JS/TS file matched every test importing any other ".../<name>" module (the Python form cost hermes-agent issue 155462 its verify). A changed
+# JS/TS file keeps a test matched through an import only when the import resolves to that file, or when it resolves to nothing in the repo (kept, unknown).
+cat > "$T/jsres.ts" <<'TS'
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+const root = process.argv[2]!, T = process.argv[3]!;
+const tm = await import(root + "/loki-ts/src/engine10/testmap.ts");
+const res = (n: string, okk: boolean) => console.log((okk ? "OK " : "NO ") + n);
+const r = mkdtempSync(join(T, "jsres-")), put = (f: string, t: string) => { mkdirSync(dirname(join(r, f)), { recursive: true }); writeFileSync(join(r, f), t); };
+put("package.json", "{\"devDependencies\":{\"vitest\":\"2.0.0\"}}\n"); put("tsconfig.json", "{ \"compilerOptions\": { \"baseUrl\": \".\", \"paths\": { \"@app/*\": [\"src/*\"] } } }\n"); put("pytest.ini", "[pytest]\n");
+put("src/store/gateway.ts", "export const a = 1;\n"); put("src/api/gateway.ts", "export const x = 1;\n"); put("src/store/index.ts", "export const s = 1;\n"); put("gateway/__init__.py", "");
+const t = (spec: string, n: string) => `import { ${n} } from '${spec}';\nimport { test } from 'vitest';\ntest('t', () => {});\n`;
+put("src/api/client.test.ts", t("./gateway", "x")); put("src/store/store.test.ts", t("./gateway", "a")); put("src/views/view.test.ts", t("@app/store/gateway", "a"));
+put("src/views/other.test.ts", t("@app/api/gateway", "x")); put("src/views/esm.test.ts", t("../store/gateway.js", "a")); put("src/views/pkg.test.ts", t("some-pkg/gateway", "g"));
+put("src/views/idx.test.ts", t("../store", "s")); put("web/other/gateway.test.ts", "import { test } from 'vitest';\ntest('name only', () => {});\n");
+put("tests/test_client.py", "from gateway import run\n\ndef test_c():\n    pass\n"); put("tests/test_gateway.py", "def test_name():\n    pass\n");
+for (const a of [["init", "-q"], ["add", "-A"]]) Bun.spawnSync(["git", "-C", r, ...a]);
+const sel = (f: string) => tm.impactedRefs(tm.buildTestMap(r), [f]).map((x: { path: string }) => x.path), on = sel("src/store/gateway.ts"), has = (p: string) => on.includes(p);
+res("JS-RESOLVE a relative import of another gateway module is not mapped to src/store/gateway.ts", !has("src/api/client.test.ts"));
+res("JS-RESOLVE a tsconfig paths alias to another gateway module is not mapped", !has("src/views/other.test.ts"));
+res("JS-RESOLVE a Python test is never mapped to a TypeScript file, by import or by name", !has("tests/test_client.py") && !has("tests/test_gateway.py"));
+res("JS-RESOLVE a relative import of the file is mapped", has("src/store/store.test.ts"));
+res("JS-RESOLVE a tsconfig paths alias to the file is mapped", has("src/views/view.test.ts"));
+res("JS-RESOLVE a .js spec for the .ts file is mapped", has("src/views/esm.test.ts"));
+res("JS-RESOLVE an import that resolves to no repo file (a package) is kept", has("src/views/pkg.test.ts"));
+res("JS-RESOLVE a directory import maps the index file", sel("src/store/index.ts").includes("src/views/idx.test.ts"));
+res("JS-RESOLVE the <stem>.test.ts name floor is kept", has("web/other/gateway.test.ts"));
+process.env.LOKI_E10_JS_IMPORT_RESOLVE = "0"; const off = sel("src/store/gateway.ts"); delete process.env.LOKI_E10_JS_IMPORT_RESOLVE;
+res("JS-RESOLVE =0 maps by basename as before (the other gateway modules and the Python tests come back)", ["src/api/client.test.ts", "src/views/other.test.ts", "tests/test_client.py"].every((p) => off.includes(p)) && !tm.jsImportResolveOn({ LOKI_E10_JS_IMPORT_RESOLVE: "0" }) && tm.jsImportResolveOn({}));
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/jsres.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || bad "js-resolve unit script crashed or exited non-zero"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 10 ] || bad "js-resolve unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 10"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+grep -q '^NO ' <<< "$out" && printf '%s\n' "$out" | grep -v '^OK ' | tail -8 | sed 's/^/    | /'
 
 finish
