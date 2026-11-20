@@ -6,7 +6,7 @@ import { join, relative } from "node:path";
 import { withStagePrefix } from "../../features/lean_prefix.ts"; import { fragmentWriterOn, outOfRepoReask, outOfRepoTests } from "../../project_model/conventions.ts";
 import { learningsBlock, lessonsForBrief, orgKnowledgeBlock } from "../../util/pr_lessons.ts"; export { learningsBlock }; // learningsBlock lives with the other brief-note helpers
 import { FINISH_LINE, fixedRules, briefRecord, ISSUE_FINISH_LINE, TEXT_FINISH_LINE, issueRunBrief, pinnedTestUpdateEnabled, PLAN_HINT_LEAD, planHintsOn, proveByRunningBlock, type BriefRecord } from "../../e10ext/context.ts"; import { pinnedTestUpdates } from "../../util/test_guard.ts";
-import { fastTierModel } from "../../runner/model_downgrades.ts";
+import { fastTierModel } from "../../runner/model_downgrades.ts"; import { noteRoleSkip, resolveClaudeModel, roleModel } from "../../util/claude_model.ts";
 import { cascadeDowngrade, loadRepoMap, namedFiles, sizeTask } from "../sizing.ts";
 import { attemptModels, attemptsK, type ExtraAttemptsDeps } from "../../features/attempts.ts";
 import { selectRelevantFiles } from "./plan.ts"; import { changedFiles, checkExcerpt, commandFor, runCheck, type VerifyCheck } from "./verify.ts"; import { loadProjectApi } from "../../project_model/resolve.ts"; import { suiteCmdsOpt } from "../../project_model/package_suite.ts"; import { planStopChecks } from "../../runner/stop_checks.ts";
@@ -15,7 +15,7 @@ import { NAMED_SITE_LINE, namedSites, namedSitesEnabled, type ContinueRecord, as
 import { INTERRUPTED_BRIEF, interruptedSession, planChain, readSessionId } from "../../runner/session_resume.ts"; import { issueAcceptanceCapOn, issueAcceptanceOf } from "../../util/intent_card.ts";
 import { routeEscalate, routeStart } from "../../runner/router/implement_route.ts";
 import { routerActive } from "../../runner/router/unit_model.ts";
-import { type ImplementExit, type RunContext, type SessionResult, type SessionRunOptions, type Stage, type StageResult, type TestMap, type TestRef, taskBlock } from "../types.ts";
+import { defaultBudgetsOn, noProgressRounds, type ImplementExit, type RunContext, type SessionResult, type SessionRunOptions, type Stage, type StageResult, type TestMap, type TestRef, taskBlock } from "../types.ts";
 import { safeGit } from "../../util/safe_git.ts"; import { runPickedChoice, sha256 } from "./seal.ts";
 import { adviceBlock, assumptionOf, consultEnabled, neverStopActive, runConsult, type NeverStopRecord } from "../../features/opus_consult.ts"; import { currentDiff } from "../../runner/session_resume.ts";
 import { assumptionsBlock, rankedRemedyBlock, rankedRemedyEnabled } from "../../features/spec_ambiguity.ts";
@@ -158,16 +158,17 @@ export const implementStage: Stage = {
     const plan = (prior.plan?.plan as string | undefined) ?? null;
     const impacted = impactedTests(ctx);
     const readOnly = (prior.wall?.readOnlyFiles as ReadOnlyFile[] | undefined) ?? [];
-    const routed = routerActive();
-    const downgrade = routed ? null : cascadeDowngrade(ctx.model); // the router (LOKI_ROUTER=auto for Haiku first) replaces the opt-in downgrade list
+    const devPin = roleModel("dev"), planPin = roleModel("plan"); // ROLE-MODELS: a dev pin is exact (no router ladder, no cascade downgrade); unset, nothing changes
+    const routed = routerActive() && !devPin;
+    const downgrade = routed || devPin ? null : cascadeDowngrade(ctx.model); // the router (LOKI_ROUTER=auto for Haiku first) replaces the opt-in downgrade list
     const cascade = downgrade !== null;
     if (downgrade) process.stderr.write(`${downgrade.note}\n`);
     const lessons = lessonsForBrief(ctx.repoDir, ctx.runId, task, [...((prior.plan?.relevant_files as string[] | undefined) ?? []), ...impacted], ctx.runDir); // T6: reviewer lessons plus run lessons on the relevant files or their impacted tests (util/pr_lessons.ts), tagged as used by this run and recorded in lessons-injected.json
-    const bc = briefCtx(ctx, routed ? undefined : downgrade?.to ?? ctx.model), repoMap = bc.text + lessons + learningsBlock(ctx.repoDir) + orgKnowledgeBlock(ctx.repoDir, task, ctx.runDir); // S41-10: up to 20 relevant files + impacted test commands, not the first 200 paths; FR06 org block is off unless LOKI_ORG_GRAPH=1
+    const bc = briefCtx(ctx, routed ? undefined : devPin ?? downgrade?.to ?? ctx.model), repoMap = bc.text + lessons + learningsBlock(ctx.repoDir) + orgKnowledgeBlock(ctx.repoDir, task, ctx.runDir); // S41-10: up to 20 relevant files + impacted test commands, not the first 200 paths; FR06 org block is off unless LOKI_ORG_GRAPH=1
 
     const spec = specFor(ctx);
     // CH-03: resume plan's session on the same model (never when routed: per-unit models differ). Wall, verify and seal never join the chain. planChain owns eligibility; `!plan` here only keeps plan_chain out of the data when plan was skipped.
-    const chain = routed || !plan ? null : planChain(ctx, downgrade?.to ?? ctx.model, fastTierModel(process.env));
+    const chain = routed || !plan ? null : devPin || planPin ? planChain(ctx, resolveClaudeModel(devPin ?? ctx.model), resolveClaudeModel(planPin ?? fastTierModel(process.env))) : planChain(ctx, downgrade?.to ?? ctx.model, fastTierModel(process.env)); // ROLE-MODELS: the plan session ran on the plan role, so the chain compares resolved ids
     const own = routed ? null : interruptedSession(ctx, `${ctx.runId}-impl`); // a rerun continues its own killed session before any plan link
     const ownId = own && "id" in own ? own.id : undefined;
     const resumeId = ownId ?? (chain && "id" in chain ? chain.id : undefined);
@@ -190,7 +191,7 @@ export const implementStage: Stage = {
     const card = issue ? envCard(ctx) : null; // the small environment card (util/stack_tools.ts envCard): server binaries off PATH that the repository needs
     const fullBrief = buildImplementBrief(task, plan, impacted, known ? `${repoMap}${repoMap ? "\n\n" : ""}${known.text}` : repoMap, [specBriefBlock(spec), execSpecBriefOf(ctx.runDir), ...adviceBlock(choiceAdvice), proveByRunningBlock(ctx.provider, prior.intake?.source, process.env, card?.line ?? null)].filter(Boolean).join("\n\n") || null, prior.intake?.assumptions, rankedRemedyEnabled() ? prior.intake?.ranked_remedy : undefined, issue && prior.intake?.source === "text" ? "text" : issue); // the advice joins the per-task part of the brief, never the cache-stable prefix // LOKI_E10_EXEC_SPEC: the binding and advisory spec cases the lean Wall stage left
     try { mkdirSync(ctx.runDir, { recursive: true }); writeFileSync(join(ctx.runDir, ATTEMPT_BRIEF_FILE), fullBrief, "utf8"); } catch { /* best effort: without it the machine starts no extra attempt */ } // EXP-0010: the extra attempts after a red verify start from this exact brief
-    const firstAttemptModel = attemptsK(ctx.model) > 0 ? attemptModels()[0] : undefined; // LOKI_E10_ATTEMPT_MODELS entry 1: the first of the best-of-N attempts (a downgrade still wins)
+    const attemptsNamed = (process.env.LOKI_E10_ATTEMPT_MODELS ?? "").trim() !== "", firstAttemptModel = attemptsK(devPin ?? ctx.model) > 0 && (!devPin || attemptsNamed) ? attemptModels()[0] : undefined; // ROLE-MODELS: under a dev pin only an explicit LOKI_E10_ATTEMPT_MODELS list (the narrower setting) names attempt 1, never the cascade default // LOKI_E10_ATTEMPT_MODELS entry 1: the first of the best-of-N attempts (a downgrade still wins)
     const first: SessionRunOptions = {
       stage: "implement",
       brief: ownId ? INTERRUPTED_BRIEF : fullBrief,
@@ -201,7 +202,7 @@ export const implementStage: Stage = {
       limitS: implementStage.limitS,
       signal,
       cwd: ctx.repoDir,
-      ...(downgrade ? { model: downgrade.to } : firstAttemptModel ? { model: firstAttemptModel } : {}),
+      ...(downgrade ? { model: downgrade.to } : firstAttemptModel ? { model: firstAttemptModel, ...(devPin ? { pinSource: "specific" as const } : {}) } : {}),
       ...suiteCmdsOpt(ctx.repoDir, prior.intake?.testmap), ...(resumeId ? { resumeSessionId: resumeId } : {}), ...planStopChecks(ctx.repoDir, prior, new Set(impacted), implementStage.limitS, ctx.baseSha), // in-session fix rounds, default on (LOKI_E10_STOP_CHECKS=0 off)
     };
     const unchained = (): SessionRunOptions => { const { resumeSessionId: _chained, ...rest } = first; return ownId ? { ...rest, brief: fullBrief } : rest; }; // read at call time: the router may rewrite first.model; retries and conflict reruns never inherit the chain link
@@ -210,8 +211,9 @@ export const implementStage: Stage = {
     const rt = routed ? routeStart(ctx, first, prior.plan, size) : null;
     // LOKI_E10_PATCH (default off): lean path only (no plan, no router, no session to continue). Green skips the agentic session; anything else restored the tree and the session below runs as today.
     let patch: PatchOutcome | undefined, patchS = 0, patchNote = ""; // patchNote: the patch reply's lines before its first edit block (its root cause), the green session's summary
-    const patchModel = downgrade?.to ?? ctx.model ?? resolveModel(ctx.provider); // a named model only: "claude (provider default)" names none for a tool-less call
+    const patchModel = devPin ?? downgrade?.to ?? ctx.model ?? resolveModel(ctx.provider); // a named model only: "claude (provider default)" names none for a tool-less call
     const patchOn = patchEnabled() && !plan && !routed && !resumeId && ctx.provider === "claude" && /^[\w.:@/-]+$/.test(patchModel);
+    if (patchEnabled() && ctx.provider !== "claude") noteRoleSkip("implement-patch", `LOKI_E10_PATCH: the patch protocol runs on the claude provider only (this run: ${ctx.provider})`); // recorded in the receipt's tool_calls_skipped
     if (patchOn && !signal.aborted) {
       const started = Date.now();
       try { patch = await runPatchProtocol({ rules: { repoDir: ctx.repoDir, readOnly: readOnly.map((f) => relative(ctx.repoDir, f.path)), task }, brief: patchBrief(ctx, task, impacted), iterationId: `${ctx.runId}-impl-p`, signal,
@@ -279,7 +281,11 @@ export const implementStage: Stage = {
     }
     const lineRounds: { met: number; unmet: number; usd: number | null }[] = [];
     const proofRounds: { exit: number | null; failed: number; seconds: number; base_seconds?: number }[] = []; // PROOF LOOP: Loki runs the proof itself and hands a failure back with its real output, so a session that is wrong is corrected by evidence, not asked to try harder
-    let reviewedEarly = false, earlyReviewCost: string | null = null; let proofFails = 0, lineTurns = 0; const LINE_TURNS_MAX = 2; // the acceptance check has its own two turns: a session that used every proof turn to get the script passing (Haiku did) used to get no acceptance feedback at all
+    let reviewedEarly = false, earlyReviewCost: string | null = null; let proofFails = 0, lineTurns = 0; const LINE_TURNS_MAX = 2;
+    // NO-DEFAULT-BUDGET: with no time limit the proof and acceptance turn counts are not the bound. A round makes progress when Loki's own proof run fails fewer
+    // checks, or fewer acceptance lines are unmet, than the best round so far; noProgressRounds() rounds in a row without either end the loop.
+    const noBudget = !defaultBudgetsOn(); let proofBest = { failed: Infinity, unmet: Infinity }, proofStill = 0;
+    const proofStep = (failed: number, unmet: number): void => { if (failed < proofBest.failed || unmet < proofBest.unmet) { proofBest = { failed: Math.min(failed, proofBest.failed), unmet: Math.min(unmet, proofBest.unmet) }; proofStill = 0; } else proofStill++; }; // the acceptance check has its own two turns: a session that used every proof turn to get the script passing (Haiku did) used to get no acceptance feedback at all
     // One independent review during the run, with its findings handed back; true when the session was resumed and the proof must run again.
     const reviewRound = async (tree: string): Promise<boolean> => {
       // REVIEW-THEN-FIX: every item is met by count and by the acceptance check. One independent review now, while the session can still act on it.
@@ -294,18 +300,19 @@ export const implementStage: Stage = {
       if (r3.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[after the independent review]\n${r3.session.summary}` };
       return true;
     };
-    for (let round = 0; proofFails < proofLoopMax() && scratch && proofRerunOn() && existsSync(join(scratch.dir, PROOF_SCRIPT)) && !signal.aborted && !session.killed && session.exit === 0 && !session.markers.specConflict && !session.markers.alreadyDone; round++) {
+    for (let round = 0; (noBudget ? proofStill < noProgressRounds() : proofFails < proofLoopMax()) && scratch && proofRerunOn() && existsSync(join(scratch.dir, PROOF_SCRIPT)) && !signal.aborted && !session.killed && session.exit === 0 && !session.markers.specConflict && !session.markers.alreadyDone; round++) {
       if (!keepProofScript(scratch.dir, ctx.runDir)) break;
       const pr = await rerunProof(ctx.repoDir, ctx.runDir, signal); if (!pr) break;
       const pb = pr.exit === 0 && pr.failed === 0 ? await proofOnBase(ctx.repoDir, ctx.runDir, ctx.baseSha, pr, signal) : null; // PROVES THE CHANGE: the same script against the base commit; a check that also passes there proves nothing about this change (proof_rerun.ts proofOnBase)
       if (pb) ctx.emit("proof.base", "implement", { round: round + 1, available: pb.available, ...(pb.why ? { why: pb.why } : {}), seconds: pb.seconds, ...(pb.cached ? { cached: true } : {}), base_checks: pb.base_checks, base_proved: pb.base_proved, passing: pb.head_proved, also_pass_on_base: pb.same_total });
       proofRounds.push({ exit: pr.exit, failed: pr.failed, seconds: pr.seconds, ...(pb && !pb.cached ? { base_seconds: pb.seconds } : {}) }); { const la0 = labelAsks(ctx.provider, prior.intake, prior.plan, ctx.repoDir); ctx.emit("proof.rerun", "implement", { round: round + 1, exit: pr.exit, proved: pr.proved, failed: pr.failed, seconds: pr.seconds, source: la0.source, statuses: ruleStatus(la0.asks, pr, proofBaseCapOn() ? pb : null).map((s, i) => ({ line: s.line, status: s.status, checks: pr.lines[String(i + 1)]?.proved ?? 0, ...(s.reason ? { reason: s.reason } : {}) })) }); } // the live console turns each line green from this
       if (pr.exit === 0 && pr.failed === 0) { // the proof passes when Loki runs it: now check it against every acceptance line, and hand unmet lines back with the reason
-        const la = labelAsks(ctx.provider, prior.intake, prior.plan, ctx.repoDir); if (!la.asks.length) break; if (lineTurns >= LINE_TURNS_MAX) { const t = await worktreeTree(ctx.repoDir); if (t && await reviewRound(t)) continue; break; } // the acceptance turns are used up: the review still gets its one round (a run that spent both turns never reached it)
+        const la = labelAsks(ctx.provider, prior.intake, prior.plan, ctx.repoDir); if (!la.asks.length) break; if (noBudget ? proofStill >= noProgressRounds() : lineTurns >= LINE_TURNS_MAX) { const t = await worktreeTree(ctx.repoDir); if (t && await reviewRound(t)) continue; break; } // the acceptance turns are used up: the review still gets its one round (a run that spent both turns never reached it)
         const tree = await worktreeTree(ctx.repoDir); if (!tree) break;
         const lc = await issueLineCheck(ctx, la.asks, tree, [], session.summary ?? "", [...(la.needs.length ? [`This repository needs: ${la.needs.join(", ")}.`] : []), "Loki's verify stage has not run yet at this point, so the check list is empty: a line about tests is met when the output of Loki's own run shows those tests passing.", ...proofFacts(ctx.runDir, pr, true), ...baseFacts(la.asks, pr, pb)]);
         const byRule = ruleStatus(la.asks, pr), empty = new Set(provesNothing(la.asks, pr, pb)), unmet = la.asks.flatMap((line, i) => { if (optionalAsk(line)) return []; if (byRule[i]!.status !== "met") return [{ line: `${i + 1}. ${line}`, reason: byRule[i]!.reason ?? "" }]; if (empty.has(i + 1)) return [{ line: `${i + 1}. ${line}`, reason: `${provesNothingReason(pb!, i + 1)}. ${PROVES_NOTHING_FIX}` }]; return lc.marks && !lc.marks.met.includes(i + 1) ? [{ line: `${i + 1}. ${line}`, reason: `it has a passing check, but a reviewer found a gap: ${lc.reasons?.[String(i + 1)] ?? "not stated"}` }] : []; }); // the count decides; the reviewer's gaps are handed back too, as advice the session should close
         const lineUnmet = unmet.length; // the acceptance count is about the lines only
+        proofStep(pr.failed, lineUnmet);
         for (const f of await unusedNewFiles(ctx.repoDir, ctx.baseSha, tree)) unmet.push({ line: `(not an acceptance line) ${f}`, reason: "no other file in the repository imports or names this new file, so a user cannot reach what it does. Mount it where it belongs (a page, a route, a registry, a menu) and prove that path, or remove it" });
         lineRounds.push({ met: lc.marks?.met.length ?? 0, unmet: unmet.length, usd: lc.usd }); ctx.emit("acceptance.round", "implement", { round: round + 1, met: la.asks.length - lineUnmet, unmet: lineUnmet, ...(empty.size ? { pass_on_base_too: empty.size } : {}), ...(unmet.length > lineUnmet ? { unused_new_files: unmet.length - lineUnmet } : {}) });
         if (!unmet.length) { if (await reviewRound(tree)) continue; break; } // REVIEW-THEN-FIX, then the proof again on the fixed tree
@@ -316,6 +323,7 @@ export const implementStage: Stage = {
         if (r2.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[after Loki's acceptance check, round ${round + 1}]\n${r2.session.summary}` };
         continue;
       }
+      proofStep(Math.max(1, pr.failed), Infinity); if (noBudget && proofStill >= noProgressRounds()) break; // the proof keeps failing the same number of checks
       const r = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, `Loki ran your proof script ($LOKI_SCRATCH/loki-proof.sh) by itself, in a new empty directory, and it did not pass: exit ${pr.exit === null ? "none (it did not finish in time)" : pr.exit}, ${pr.proved} PROVED and ${pr.failed} FAILED line(s). This is the real end of its output:\n\n${pr.tail.slice(-4000)}\n\nFind out why it fails when it starts from nothing. A script that passed for you and fails for Loki usually depends on something your earlier commands left behind (a database, a file, a running server, an environment variable). Fix the product if the product is wrong, or the script if the script is wrong, run it yourself with a new empty directory as its argument until it exits 0, leave it in place, and end with the same finish line.`);
       if (r.iterationId !== ids[ids.length - 1]) ids.push(r.iterationId); else break; // no room left to resume
       proofFails++;
@@ -367,7 +375,7 @@ export const implementStage: Stage = {
       impacted_tests: impacted, ...(known ? { repo_card: known.record } : {}), ...(plan && planHintsOn() ? { plan_hints: true } : {}), brief_files: bc.files, ...(bc.pack ? { context_pack: bc.pack } : {}), // L022: the exact files the brief named; L021: pack paths and line ranges
       cascade,
       ...(downgrade ? { model_downgrade: downgrade.note } : {}),
-      iteration_ids: earlyReviewCost ? [...ids, earlyReviewCost] : ids, model: rt ? rt.current : downgrade?.to ?? firstAttemptModel ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
+      iteration_ids: earlyReviewCost ? [...ids, earlyReviewCost] : ids, model: rt ? rt.current : downgrade?.to ?? firstAttemptModel ?? devPin ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
       duration_s: session.durationS, ...(session.exit === MAX_TURNS_EXIT && !session.killed ? { stop_cause: "max_turns", owner: "harness", limit_s: implementStage.limitS, elapsed_s: session.durationS, ...(capStopOf(session.summary) ? { session_cap: capStopOf(session.summary) } : {}) } : {}),
       ...(planChainMode ? { plan_chain: planChainMode } : {}),
       ...(sessionResume ? { session_resume: sessionResume } : {}),

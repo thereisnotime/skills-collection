@@ -1,5 +1,6 @@
 // loki-ts/src/engine10/stages/deep.ts -- E-23 Deep verify (ENGINE.md section 4). Runs after Seal + PR: full suite, app-boot probe, secret scan; reports via engine10-push.sh (comment + addendum + status). A refused or unavailable check is NOT PROVEN, never red; only a failing full suite (minus failures already red on base) or a secret match is failure. Rule of Two: assertWorkerEnv asserts no real GitHub token, since the deep worker runs repo code. L003: no model session here; the run's one review is seal's pre-seal xreview, whose verdict and cost reach the receipt.
 import { installOwned } from "../../project_model/install.ts";
+import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -12,8 +13,8 @@ import { assertWorkerEnv } from "../worker.ts";
 import { canonicalJson, sha256, signReceipt } from "./seal.ts";
 import { changedFiles } from "./verify.ts";
 import { NA_PREFIX, naNote, naText, runPackageSuites, suiteEnv, suiteTimeoutOn } from "../../project_model/package_suite.ts";
-import { classifyCheck, corroboratePass, failureExcerpt, failureShape, firstError, fullSuiteCmd, goRunner, NO_TESTS_REASON, stripAnsi } from "../../util/check_result.ts"; import { errorsById, failIds, unhandledBlock } from "../failures.ts"; import { attributeFullSuite, BASELINE_CMD_TIMEOUT_S, suiteEmptyOnBase } from "../../runner/repo_profile.ts";
-import { DEEP_CAP_S, type ReceiptCheck, type RunContext, type RunnerName, type SessionRunner, type Stage, type StageResult, STAGE_BUDGETS } from "../types.ts";
+import { classifyCheck, corroboratePass, failureExcerpt, failureShape, suiteFacts, firstError, fullSuiteCmd, goRunner, NO_TESTS_REASON, stripAnsi } from "../../util/check_result.ts"; import { errorsById, failIds, unhandledBlock, lineNamesChange } from "../failures.ts"; import { attributeFullSuite, BASELINE_CMD_TIMEOUT_S, suiteEmptyOnBase } from "../../runner/repo_profile.ts";
+import { defaultBudgetsOn, cmdSilenceS, deepCapS, type ReceiptCheck, type RunContext, type RunnerName, type SessionRunner, type Stage, type StageResult, STAGE_BUDGETS } from "../types.ts";
 import { safeGitRun } from "../../util/safe_git.ts"; import { REPO_ROOT } from "../../util/paths.ts";
 import { DEFAULT_PUSH_SH, SHA_RE } from "./pr.ts";
 /** RunContext plus the value this stage needs that E-03 will eventually  inject (same local-extension pattern pr.ts's PrContext already uses). */
@@ -23,7 +24,7 @@ export type DeepContext = RunContext & {
 /** ReceiptCheck (types.ts) plus a `reason` field the contract does not carry,  the same disclosed-extra-field pattern testmap.ts's EngineTestMap and  verify.ts's VerifyCheck already use. */
 export interface DeepCheck extends ReceiptCheck {
   secret_matches?: string[]; // SECRET-PUSH: set on every security scan fail: "<file>:<head line>" per secret hit ([] when only a secure-scan HIGH finding failed it); never the matched text
-  reason?: string; exit?: number | null; shape?: string; ids?: string[]; errors?: Record<string, string[]>; unhandled?: string[]; first_error?: string; excerpt?: string; base_red?: boolean; // first_error: the suite's first failing line (L005 stall signature); base_red: a full-suite fail whose every failing id already failed on base (repo-profile suites), never a red status; excerpt: redacted failure text for the fix brief; ids: failing test ids of the real run (failIds), read by verify's baseline attribution
+  reason?: string; exit?: number | null; shape?: string; executed?: number; load_errors?: string[]; names_changed?: boolean; ids?: string[]; errors?: Record<string, string[]>; unhandled?: string[]; first_error?: string; excerpt?: string; base_red?: boolean; // first_error: the suite's first failing line (L005 stall signature); base_red: a full-suite fail whose every failing id already failed on base (repo-profile suites), never a red status; excerpt: redacted failure text for the fix brief; ids: failing test ids of the real run (failIds), read by verify's baseline attribution
 }
 export interface DeepOptions {
   pushScriptPath?: string;
@@ -41,10 +42,10 @@ export interface DeepOptions {
   post?: boolean; // DEEP-POST: false when the detached deep-post poster (deepPost) posts the comment and status; the worker holds withheld credentials and could not
 }
 export const DEFAULT_SECRET_SCAN_SH = join(REPO_ROOT, "autonomy/lib/secret-scan.sh"); // HONEST-VERIFIED: a fixed depth from import.meta.url pointed outside the package in the dist bundle, so the security scan never ran there (NOT PROVEN on every high-risk run)
-const FULL_SUITE_TIMEOUT_MS = BASELINE_CMD_TIMEOUT_S * 1000; // 5 min per runner, the same budget its base run gets (repo_profile.ts); deep's own stage limit (2700s) is the outer bound
+const fullSuiteMs = (): number => (defaultBudgetsOn() ? BASELINE_CMD_TIMEOUT_S * 1000 : Infinity); // NO-DEFAULT-BUDGET: no time limit means no suite timeout (shell.run's silence guard ends a silent suite); with budgets, 5 min per runner, the same budget its base run gets (repo_profile.ts); deep's own stage limit (2700s) is the outer bound
 /** One check per detected runner, run to completion (no retry: flaky-rerun  is a fast-verify concept, ENGINE.md never asks for it in deep verify). */
 export async function runFullSuite(ctx: RunContext, signal: AbortSignal, opts: DeepOptions, checks: DeepCheck[], notProven: Set<string>): Promise<void> {
-  if (await runPackageSuites(ctx.repoDir, signal, { path: opts.path, timeoutMs: opts.suiteTimeoutMs ?? opts.fullSuiteTimeoutMs ?? FULL_SUITE_TIMEOUT_MS, baseSha: ctx.baseSha, skip: installOwned(ctx.repoDir, ctx.outputs().intake?.install_created), changed: opts.changed, proofFiles: opts.proofFiles, wallBaseRed: opts.wallBaseRed, targetPassed: opts.targetPassed, ...(opts.ownedOnly ? { ownedOnly: true } : {}), ...(opts.scope ? { scope: true } : {}), ...(opts.ensureBase ? { ensureBase: opts.ensureBase } : {}) }, checks, notProven)) return;
+  if (await runPackageSuites(ctx.repoDir, signal, { path: opts.path, timeoutMs: opts.suiteTimeoutMs ?? opts.fullSuiteTimeoutMs ?? fullSuiteMs(), baseSha: ctx.baseSha, skip: installOwned(ctx.repoDir, ctx.outputs().intake?.install_created), changed: opts.changed, proofFiles: opts.proofFiles, wallBaseRed: opts.wallBaseRed, targetPassed: opts.targetPassed, ...(opts.ownedOnly ? { ownedOnly: true } : {}), ...(opts.scope ? { scope: true } : {}), ...(opts.ensureBase ? { ensureBase: opts.ensureBase } : {}) }, checks, notProven)) return;
   const map = await ctx.tests.detect(ctx.repoDir);
   if (map.runners.length === 0) {
     notProven.add("full suite (no test runner detected)");
@@ -61,7 +62,7 @@ export async function runFullSuite(ctx: RunContext, signal: AbortSignal, opts: D
     const started = Date.now();
     const r = await run([spec.cmd, ...spec.args], {
       cwd: ctx.repoDir,
-      timeoutMs: opts.fullSuiteTimeoutMs ?? FULL_SUITE_TIMEOUT_MS,
+      timeoutMs: opts.fullSuiteTimeoutMs ?? fullSuiteMs(),
       env: suiteEnv(opts.path),
       ...(suiteTimeoutOn() ? { group: true, signal } : {}), // SUITE-TIMEOUT: the whole process tree stops at the limit, and at an abort (its own group is outside the worker's)
     });
@@ -71,12 +72,12 @@ export async function runFullSuite(ctx: RunContext, signal: AbortSignal, opts: D
       notProven.add(`not run: ${name} (aborted)`);
       continue;
     }
-    if (r.timedOut && suiteTimeoutOn()) { const why = `timed out after ${Math.round((opts.fullSuiteTimeoutMs ?? FULL_SUITE_TIMEOUT_MS) / 1000)}s`; checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: "not_run", duration_s: durationS, reason: why }); notProven.add(`not run: ${name} (${why})`); continue; } // SUITE-TIMEOUT (dev2 ink s1, pipx s2): a suite killed at its limit is not_run, never FAILED
+    if (r.timedOut && suiteTimeoutOn()) { const why = r.silent ? `stopped after ${cmdSilenceS()}s with no output` : `timed out after ${Math.round((opts.fullSuiteTimeoutMs ?? fullSuiteMs()) / 1000)}s`; checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: "not_run", duration_s: durationS, reason: why }); notProven.add(`not run: ${name} (${why})`); continue; } // SUITE-TIMEOUT (dev2 ink s1, pipx s2): a suite killed at its limit is not_run, never FAILED
     const out = stripAnsi(`${r.stdout}\n${r.stderr}`), lr = r.exitCode === 0 ? undefined : await harnessLoadReason({ repoDir: ctx.repoDir, baseSha: ctx.baseSha, skip: installOwned(ctx.repoDir, ctx.outputs().intake?.install_created), out, cmd: spec.cmd, args: spec.args, signal, ...(opts.path ? { env: { PATH: opts.path } } : {}) });
     if (lr) { checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: "not_run", duration_s: durationS }); notProven.add(`${lr} (${name}; harness-owned)`); continue; } // FC-02: harness-owned, never a code failure
     const cls = await corroboratePass(classifyCheck({ kind: "test", ok: r.exitCode === 0, out, ...goRunner(spec.cmd, spec.args) }), out, spec.cmd, spec.args, { cwd: ctx.repoDir, env: suiteEnv(opts.path), signal });
     if (cls.result === "not_run" && r.exitCode === 0 && opts.targetPassed === true && suiteEmptyOnBase(ctx.repoDir, ctx.baseSha, [spec.cmd, ...spec.args].join(" "), [spec.cmd, ...spec.args].join(" "), cls, out)) { notProven.add(`${NA_PREFIX}${name} (ran 0 tests on base and head; the Wall or a task-named check passed with executed tests)`); continue; } // a full suite that discovers nothing is a disclosed note, not a gate, once a target check proved the change
-    checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: cls.result, duration_s: durationS, ...(cls.result === "fail" ? { exit: r.exitCode, ...(failIds(out).length ? {} : { shape: failureShape(out) }), ids: failIds(out), errors: Object.fromEntries(errorsById(out)), ...(unhandledBlock(out).length ? { unhandled: unhandledBlock(out) } : {}), first_error: firstError(out), excerpt: failureExcerpt(out, ctx.repoDir) } : {}) }); // FC-16: exit 0 with no executed tests is not a pass
+    checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: cls.result, duration_s: durationS, ...(cls.result === "fail" ? { exit: r.exitCode, ...(failIds(out).length ? {} : { shape: failureShape(out) }), ids: failIds(out), errors: Object.fromEntries(errorsById(out)), ...(unhandledBlock(out).length ? { unhandled: unhandledBlock(out) } : {}), first_error: firstError(out), excerpt: failureExcerpt(out, ctx.repoDir), ...suiteFacts(out), names_changed: stripAnsi(out).split("\n").some(lineNamesChange(opts.changed ?? [])) } : {}) }); // FC-16: exit 0 with no executed tests is not a pass
     if (cls.result === "not_run") notProven.add(`not run: ${name} (${cls.reason ?? NO_TESTS_REASON})`);
   }
 }
@@ -242,7 +243,7 @@ export async function deepWorker(args: string[], deps: { opts?: DeepOptions } = 
   // ctx.model is the run's own model passed through (a DeepContext field, not a session option object); built without a conditional spread so the never-below-raw guard does not read it as a session pin.
   const pinned = origin ? { pinnedOrigin: origin } : {};
   const ctx: DeepContext = {
-    runId, repoDir, runDir, baseSha, branch: `loki/${runId}`, provider, model: resolved, deep: true, capS: DEEP_CAP_S,
+    runId, repoDir, runDir, baseSha, branch: `loki/${runId}`, provider, model: resolved, deep: true, capS: deepCapS(),
     emit: () => {}, sessions, failovers: () => [],
     tests: new (await import("../testmap.ts")).RealTestMapProvider(),
     cost: { read: () => ({ usd: null, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 }) },
@@ -262,12 +263,17 @@ export async function deepWorker(args: string[], deps: { opts?: DeepOptions } = 
  *  beside it with the push env. It runs no repository code: it waits for the deep worker's pid, reads the signed addendum the worker wrote, and posts the comment
  *  and the final status. When the worker died without an addendum it posts "error", so the status never stays pending.
  *  `engine10 deep-post <run-id> <deep-pid> <origin>`; the PR url comes from the run's pr.opened event and the head sha from the sealed receipt. */
-export async function deepPost(args: string[], deps: { pushScriptPath?: string; pushExtraEnv?: Record<string, string>; pollMs?: number; waitCapMs?: number } = {}): Promise<number> {
+export async function deepPost(args: string[], deps: { pushScriptPath?: string; pushExtraEnv?: Record<string, string>; pollMs?: number; waitCapMs?: number; addendumGraceMs?: number } = {}): Promise<number> {
   const [runId, pidArg = "", origin = ""] = args, pid = Number(pidArg);
   if (!runId || !/^e10-[A-Za-z0-9-]+$/.test(runId) || !Number.isInteger(pid) || pid <= 1) { process.stderr.write("engine10 deep-post: usage: deep-post <run-id> <deep-pid> <origin>\n"); return 2; }
-  const repoDir = process.cwd(), runDir = join(repoDir, ".loki", "runs", runId), pollMs = deps.pollMs ?? 2000, capMs = deps.waitCapMs ?? (DEEP_CAP_S + 300) * 1000;
+  const repoDir = process.cwd(), runDir = join(repoDir, ".loki", "runs", runId), pollMs = deps.pollMs ?? 2000, capMs = deps.waitCapMs ?? (deepCapS() + 300) * 1000; // NO-DEFAULT-BUDGET: Infinity waits while the deep worker lives (its own guards end it)
   const alive = (): boolean => { try { process.kill(pid, 0); return true; } catch (e) { return (e as NodeJS.ErrnoException).code === "EPERM"; } };
-  for (const t0 = Date.now(); alive() && Date.now() - t0 < capMs; ) await new Promise((r) => setTimeout(r, pollMs));
+  // NO-DEFAULT-BUDGET (fable-planner review): with no cap the wait must still end. It ends when the pid's start time changes (the worker exited and the pid
+  // was reused, even by another user, where kill(0) reads EPERM), or once the worker's addendum has existed for addendumGraceMs (the worker writes it last).
+  const startOf = (): string => { try { const r = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8", timeout: 5000 }); return r.status === 0 ? r.stdout.trim() : ""; } catch { return ""; } };
+  const born = startOf(), addPath = join(runDir, "receipt-addendum-1.json"), graceMs = deps.addendumGraceMs ?? 60_000; let sawAdd: number | null = null;
+  const waiting = (): boolean => { if (!alive() || (born !== "" && startOf() !== born)) return false; if (existsSync(addPath)) { sawAdd ??= Date.now(); if (Date.now() - sawAdd >= graceMs) return false; } return true; };
+  for (const t0 = Date.now(); waiting() && Date.now() - t0 < capMs; ) await new Promise((r) => setTimeout(r, pollMs));
   const read = (f: string): Record<string, unknown> | null => { try { return JSON.parse(readFileSync(join(runDir, f), "utf8")) as Record<string, unknown>; } catch { return null; } };
   const receipt = read("receipt.json"), headSha = typeof receipt?.head_sha === "string" && SHA_RE.test(receipt.head_sha) ? receipt.head_sha : "";
   let prUrl: string | undefined;

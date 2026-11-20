@@ -245,6 +245,21 @@
 # 115. exec_spec.ts isBinding: drop the one-example rule (any unit per literal) (exec spec atoms read bind=100001).
 # 116. exec_spec.ts isBinding: drop the caseLiterals check, want literals only (exec spec atoms read bind=110001 or more).
 # 117. seal.ts: drop specGap from verdictOf (the second-site leg reads VERIFIED).
+# ADSa. seal.ts alreadyDoneShown: drop `run.exit === 0 &&` (the failing re-run cell reads ALREADY_SATISFIED).
+# ADSb. seal.ts alreadyDoneShown: `run.proved > 99` in place of `run.proved > 0` (a passing re-run no longer shows it: the ALREADY_SATISFIED replay cell fails).
+# ADSc. seal.ts: drop `alreadyOk || ` from proof (the wiring cell fails).
+# ADSd. seal.ts alreadyLinesMet: `st.some((x) => x.status === "met")` alone (the 10-lines/1-proved plant reads ALREADY_SATISFIED).
+# ADSe. seal.ts alreadyLinesMet: drop `st.some((x) => x.status === "met") &&` (no acceptance lines reads ALREADY_SATISFIED).
+# ADSf. seal.ts: `alreadyOk = alreadyDoneShown(o, alreadyRun);` again (the wiring cell fails).
+# ADSg. seal.ts alreadyRealLines: never turn a met line unmet (Fable's 3-steps-of-true cell reads ALREADY_SATISFIED).
+# ADSh. proof_rerun.ts realStep: any `cmd:` counts (the realStep and 3-steps-of-true cells fail).
+# ADSi. proof_rerun.ts kit: loki_cmd prints no `cmd:` (the node/repo-path proof reads PARTIAL).
+# ADSj. seal.ts alreadyRealLines: the fresh-install line always counts (its no-answered-request cell reads ALREADY_SATISFIED).
+# ADSk. proof_rerun.ts realStep: any word that is a runner or a repo path counts again (the command-position cells fail).
+# ADSl. proof_rerun.ts kit: loki_cmd keeps "|" in the description (the forged-status plant reads ALREADY_SATISFIED).
+# ADSm. proof_rerun.ts realStep: any command with a repo path argument counts, not only a file reader (echo package.json counts).
+# ADSn. proof_rerun.ts realStep: drop the timeout skip (the timeout cells fail). ADSo. compare repoDir as text again (the realpath cells fail).
+# ADSp. proof_rerun.ts inRepo: accept the root itself again (`r === root ||`; the test -d root plants read ALREADY_SATISFIED).
 # 119. exec_spec.ts capSites: return every uncovered site (the passing-mention leg reads PARTIAL).
 # 120. seal.ts specSiteGap: ignore the changed-symbol list (exec spec atoms read gap=Report,Report,-).
 # 124. exec_spec.ts defectSites: count every span of a clause with a defect word again (the comparison, negated-scope and see legs read PARTIAL).
@@ -321,6 +336,11 @@
 # 275. check_result.ts testCount: drop the PRETTY block (the PRETTY leg reads null).
 # 276. implement.ts: `guard = false && preTurn && ...` in the SR block (rebuild dist): the TG revert leg keeps the review turn's breaking test (TG).
 # 268. scope.ts crossPackageTestEdits: `if (false) return false;` in place of the TK exercisesChange line (the TK leg drops the e2e, relative-import and Go reach tests).
+# F2a. scope.ts crossPackageTestEdits: `true &&` in place of the root-owner test (the F2 leg drops tests/root.spec.ts).
+# F2b. scope.ts crossPackageTestEdits: `true` in place of the proof-names-it test (the F2 leg drops the proof-named packages/b test).
+# F2c. scope.ts crossPackageTestEdits: `return kept;` in place of the leave-no-test guard (the F2 leg drops the change's only test).
+# F2d. scope.ts crossPackageTestEdits: `return [];` (keep everything; the F2 leg no longer drops the neighbouring coverage test beside the change's own test).
+# F2e. seal.ts: drop the proof-script argument from the crossPackageTestEdits call (the F2 wiring check fails).
 # 281. mutation_proof.ts editableBaseEnv: `if (true || !mapped.length) return {};` (BASE-SEES-HEAD); the leg reads no with no file named.
 # 282. wall_snapshot.ts snapshotTree: drop the rebaseSnapshot call (BASE-SEES-HEAD); the leg reads link-into-live|pth-into-live.
 # 284. test_guard.ts excusedEdit: subjectOf returns `() => true` (any changed non-test file); the MOCK-PKG unrelated-file leg reads not weakened.
@@ -461,7 +481,7 @@ for f in packages/a/src/a.test.ts packages/b/src/b.test.ts pkg/y/y_test.go tests
 XPR="$(cd "$ROOT/loki-ts" && XP="$XP" bun -e '
 const sc = await import("./src/e10ext/scope.ts"), d = process.env.XP;
 const tracked = ["packages/a/src/a.ts", "packages/b/src/b.ts", "pkg/x/x.go", "pkg/y/y.go", "py/m.py", "packages/a/src/a.test.ts", "packages/b/src/b.test.ts", "pkg/y/y_test.go", "tests/t_test.go", "py/test_m.py", "package.json", "packages/a/package.json", "packages/b/package.json"];
-const M = (...fs) => fs.map((f) => ({ st: "M", f })), x = (staged, task = "fix the parser bug") => sc.crossPackageTestEdits(d, staged, task, tracked).join("+") || "-";
+const M = (...fs) => fs.map((f) => ({ st: "M", f })), x = (staged, task = "fix the parser bug") => sc.crossPackageTestEdits(d, staged, task, tracked, "", { LOKI_E10_J3_KEEP: "0" }).join("+") || "-";
 console.log([
   x(M("packages/a/src/a.ts", "packages/b/src/b.test.ts")),
   x(M("packages/a/src/a.ts", "packages/b/src/b.test.ts"), "fix the parser bug and cover packages/b"),
@@ -475,6 +495,25 @@ console.log([
   [sc.scopeTestDropEnabled({}), sc.scopeTestDropEnabled({ LOKI_E10_SCOPE_TEST_DROP: "0" })].join(),
 ].join(" | "));' 2>&1)"
 [ "$XPR" = "packages/b/src/b.test.ts | - | - | - | - | pkg/y/y_test.go | - | - | packages/b/src/new.test.ts | true,false" ] && ok "J3 scope: a test edit or new test in a package (JS workspace or Go directory) the change does not touch is dropped; the task naming the path or package, a test in the changed package, a test-only change, a Go tests-only directory and Python stay; =0 opts out ($XPR)" || bad "J3 scope gave: $XPR"
+# F2 LOKI_E10_J3_KEEP (default on): J3 never resets a test when that leaves the change with no test, when the test is owned by the repository root, or when the kept
+# proof script names it (C2 pw43305: tests/playwright-test/esm.spec.ts, root-owned, was the run's only test and was dropped). The neighbouring-package coverage test
+# beside a test of the change's own still drops (the planted-defect shape the plan names). The J3 cells above run with F2 off, so they keep testing the J3 rule itself.
+F2R="$(cd "$ROOT/loki-ts" && XP="$XP" bun -e '
+const sc = await import("./src/e10ext/scope.ts"), d = process.env.XP;
+const tracked = ["packages/a/src/a.ts", "packages/b/src/b.ts", "pkg/x/x.go", "pkg/y/y.go", "py/m.py", "packages/a/src/a.test.ts", "packages/b/src/b.test.ts", "pkg/y/y_test.go", "tests/t_test.go", "py/test_m.py", "package.json", "packages/a/package.json", "packages/b/package.json", "tests/root.spec.ts", "scripts/tool.ts"];
+const M = (...fs) => fs.map((f) => ({ st: "M", f })), x = (staged, proof = "", env = {}) => sc.crossPackageTestEdits(d, staged, "fix the parser bug", tracked, proof, env).join("+") || "-";
+console.log([
+  x(M("packages/a/src/a.ts", "packages/b/src/b.test.ts")),
+  x(M("packages/a/src/a.ts", "packages/a/src/a.test.ts", "packages/b/src/b.test.ts")),
+  x(M("pkg/x/x.go", "pkg/x/x_test.go", "pkg/y/y_test.go")),
+  x(M("packages/a/src/a.ts", "packages/a/src/a.test.ts", "tests/root.spec.ts")),
+  x(M("packages/a/src/a.ts", "packages/a/src/a.test.ts", "tests/root.spec.ts"), "", { LOKI_E10_J3_KEEP: "0" }),
+  x(M("packages/a/src/a.ts", "packages/a/src/a.test.ts", "packages/b/src/b.test.ts"), "cd \"$LOKI_REPO\" && bun test packages/b/src/b.test.ts"),
+  x(M("packages/a/src/a.ts", "packages/a/src/a.test.ts", "packages/b/src/b.test.ts"), "bun test packages/b/src/other.test.ts"),
+  x(M("packages/a/src/a.ts", "packages/b/src/b.test.ts"), "", { LOKI_E10_J3_KEEP: "0" }),
+  [sc.j3KeepEnabled({}), sc.j3KeepEnabled({ LOKI_E10_J3_KEEP: "0" })].join(),
+].join(" | "));' 2>&1)"
+[ "$F2R" = "- | packages/b/src/b.test.ts | pkg/y/y_test.go | - | tests/root.spec.ts | - | packages/b/src/b.test.ts | packages/b/src/b.test.ts | true,false" ] && ok "F2 J3 keep: the change's only test, a root-owned test and a test the proof script names are kept; a neighbouring-package test beside the change's own test still drops (JS and Go), a proof naming another file does not save it; =0 restores the drop ($F2R)" || bad "F2 J3 keep gave: $F2R"
 # TK LOKI_E10_TEST_REACH: layouts unlike the tuning set. A test that imports the changed code is never dropped by J3: a JS tests workspace importing the changed package by
 # name, a relative import into the changed file, a Go package importing the changed package path. Python src-layout and a Rust tests/ dir are never J3 candidates.
 TK="$T/reach"; rm -rf "$TK"; mkdir -p "$TK/packages/a/src" "$TK/packages/e2e/src" "$TK/packages/b/src" "$TK/pkg/x" "$TK/pkg/y" "$TK/src/pkg" "$TK/tests" "$TK/rs/src" "$TK/rs/tests"
@@ -490,7 +529,7 @@ printf 'from pkg.mod import f\n' > "$TK/tests/test_mod.py"; printf 'use rs::x;\n
 TKR="$(cd "$ROOT/loki-ts" && TK="$TK" bun -e '
 const sc = await import("./src/e10ext/scope.ts"), d = process.env.TK;
 const tracked = ["packages/a/src/a.ts", "packages/e2e/src/util.ts", "packages/b/src/b.ts", "pkg/x/x.go", "pkg/y/y.go", "src/pkg/mod.py", "rs/src/lib.rs", "package.json", "packages/a/package.json", "packages/e2e/package.json", "packages/b/package.json", "go.mod"];
-const S = (src, test) => [{ st: "M", f: src }, { st: "A", f: test }], x = (staged) => sc.crossPackageTestEdits(d, staged, "fix the parser bug", tracked).join("+") || "-";
+const S = (src, test) => [{ st: "M", f: src }, { st: "A", f: test }], x = (staged) => sc.crossPackageTestEdits(d, staged, "fix the parser bug", tracked, "", { ...process.env, LOKI_E10_J3_KEEP: "0" }).join("+") || "-";
 const off = (f) => { process.env.LOKI_E10_TEST_REACH = "0"; try { return f(); } finally { delete process.env.LOKI_E10_TEST_REACH; } };
 console.log([
   x(S("packages/a/src/a.ts", "packages/e2e/src/a.test.ts")),
@@ -521,13 +560,14 @@ printf 'import { deep } from "./deep";\ntest("c", () => {});\n' > "$RH/tests/pag
 RHR="$(cd "$ROOT/loki-ts" && RH="$RH" bun -e '
 const sc = await import("./src/e10ext/scope.ts"), d = process.env.RH;
 const tracked = ["package.json", "packages/core/package.json", "packages/core/src/page.ts", "scripts/tool.ts", "tests/config/utils.ts", "tests/page/fixture.ts", "tests/page/deep.ts", "tests/page/deeper.ts", "tests/page/a.spec.ts", "tests/page/b.spec.ts", "tests/page/c.spec.ts"];
-const x = (test) => sc.crossPackageTestEdits(d, [{ st: "M", f: "packages/core/src/page.ts" }, { st: "M", f: test }], "aria snapshots time out on svg documents", tracked).join("+") || "-";
+const x = (test) => sc.crossPackageTestEdits(d, [{ st: "M", f: "packages/core/src/page.ts" }, { st: "M", f: test }], "aria snapshots time out on svg documents", tracked, "", { ...process.env, LOKI_E10_J3_KEEP: "0" }).join("+") || "-";
 const off = (f) => { process.env.LOKI_E10_TEST_REACH_HELPERS = "0"; try { return f(); } finally { delete process.env.LOKI_E10_TEST_REACH_HELPERS; } };
 console.log([x("tests/page/a.spec.ts"), x("tests/page/b.spec.ts"), x("tests/page/c.spec.ts"), off(() => x("tests/page/a.spec.ts"))].join(" | "));' 2>&1)"
 [ "$RHR" = "- | tests/page/b.spec.ts | tests/page/c.spec.ts | tests/page/a.spec.ts" ] && ok "RW-02 J3 keeps an edited test whose own helper imports the changed package (one hop); a test with no such helper and a two-hop reach are still dropped; =0 restores the drop ($RHR)" || bad "RW-02 J3 helper reach gave: $RHR"
 # ---- end RW-02 ----
 SJ3="$ROOT/loki-ts/src/engine10/stages/seal.ts"
 grep -q 'const xpkg = scopeTestDropEnabled() ? crossPackageTestEdits(ctx.repoDir, staged.filter' "$SJ3" && grep -q 'const dropped = new Set(\[...drop.map(({ f }) => f), ...xpkg\])' "$SJ3" && grep -q 'const notes = \[...xpkg.map(crossPackageTestNote),' "$SJ3" && ok "J3 wiring: the commit stage resets the cross-package test edits before commit, keeps them out of the formatter pass and names each one" || bad "J3 wiring: the commit stage does not reset and name the cross-package test edits"
+grep -q 'out.split("\\0").filter(Boolean), (() => { try { return readFileSync(join(ctx.runDir, PROOF_SCRIPT), "utf8"); } catch { return ""; } })()) : \[\]; // F2' "$SJ3" && ok "F2 wiring: the commit stage passes the kept proof script (runDir loki-proof.sh) to J3" || bad "F2 wiring: J3 is not given the kept proof script"
 
 run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_TEST_EDIT=delete LOKI_EXOGENOUS_PROOF=0 # proof opt-out: the deleted assertion alone must cap, not the agent-only-proof rule
 git -C "$REPO" show HEAD:calc.test.ts 2>/dev/null | grep -q 'calc.add(2, 3)' && bad "delete: the deleted assertion came back" || ok "delete: the session's deletion of an assertion is kept, not restored"
@@ -649,12 +689,16 @@ run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=consultfix LOKI_E10_OPUS_CON
 run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=wrong E2E_STUB_FIX=consultfix LOKI_E10_OPUS_CONSULT=1
 [ "$(consults)" = 1 ] && [ "$(ctrig)" = "stop" ] && ok "consult cap 1: the stop consult spends the run's one consult; the later red verify gets none" || { bad "consult cap 1: $(consults) consults, triggers '$(ctrig)'"; dump; }
 
-run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_E10_OPUS_CONSULT=0 # the stall rule alone; with the consult on, round 2 gets the red-verify consult first (legs above)
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_E10_OPUS_CONSULT=0 LOKI_E10_DEFAULT_BUDGETS=1 # the stall rule alone under budgets; with the consult on, round 2 gets the red-verify consult first (legs above)
 n="$(fix_sessions)"
 [ "$n" = "1" ] && ok "no progress: one fix round, then fixing stops" || { bad "no progress: $n fix sessions (want 1)"; dump; }
 [ "$(ev 'sum(1 for e in E if e["type"]=="fix.round")')" = "1" ] && ok "no progress: one fix.round event" || bad "no progress: fix.round events: $(ev 'sum(1 for e in E if e["type"]=="fix.round")')"
 [ "$(ev 'sum(1 for e in E if e["type"]=="stage.started" and e["stage"]=="verify")')" = "2" ] && ok "no progress: verify ran twice" || bad "no progress: verify ran $(ev 'sum(1 for e in E if e["type"]=="stage.started" and e["stage"]=="verify")') times (want 2)"
 [ "$(outcome)" = "STALLED" ] && ok "no progress: run ends STALLED" || bad "no progress: outcome is '$(outcome)', not STALLED"
+# NO-DEFAULT-BUDGET: with no budget the round count is not the bound; two rounds in a row without progress end the loop (plant NB4: drop stillRounds++ and this run never stops fixing).
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_E10_OPUS_CONSULT=0
+[ "$(fix_sessions)" = 2 ] && [ "$(ev 'sum(1 for e in E if e["type"]=="stage.started" and e["stage"]=="verify")')" = 3 ] && [ "$(outcome)" = "STALLED" ] \
+    && ok "no progress, no budget: two fix rounds without progress, then fixing stops; STALLED" || { bad "no progress, no budget: $(fix_sessions) fix sessions, outcome '$(outcome)'"; dump; }
 
 run_engine "$TASK" E2E_STUB_MODE=wallphantom E2E_STUB_FIX=wallconflict E2E_STUB_WALL_SLEEP=3 LOKI_SESSION_MODEL=haiku E2E_STUB_ARGV_LOG="$T/argv.log"
 order="$(ev 'min([e["seq"] for e in E if e["type"]=="stage.started" and e["stage"]=="implement"] or [10**9]) < min([e["seq"] for e in E if e["type"] in ("stage.completed","stage.failed") and e["stage"]=="wall"] or [-1])')"
@@ -694,21 +738,24 @@ committed_multiply() { local c; c="$(git -C "$REPO" show HEAD:calc.ts 2>/dev/nul
 run_engine "$TASK" E2E_STUB_NOFINISH=once
 [ "$(kits)" = 1 ] && [ "$(s1bev)" = 1 ] && [ "$(fin)" = "1|finish line|None" ] && [ "$(iexit)" = done ] && [ "$(unfin)" = 0 ] && committed_multiply \
     && ok "S1b once: a session whose final text has no finish line is resumed once (one s1b.resumed event), finishes, exits done; multiply() committed ($(outcome))" || { bad "S1b once: resumes $(kits), events $(s1bev), finish '$(fin)', exit $(iexit), cap lines $(unfin), outcome $(outcome)"; dump; }
-run_engine "$TASK" E2E_STUB_NOFINISH=never
+run_engine "$TASK" E2E_STUB_NOFINISH=never LOKI_E10_DEFAULT_BUDGETS=1 # the count cap is a budget (NO-DEFAULT-BUDGET)
 [ "$(kits)" = 4 ] && [ "$(s1bev)" = 4 ] && [ "$(fin)" = "4|count cap|None" ] && [ "$(iexit)" = incomplete ] && [ "$(unfin)" = 1 ] && [ "$(outcome)" = PARTIAL ] && committed_multiply \
     && ok "S1b never: four resumes that each change the tree but never finish stop at the count cap; exit incomplete, PARTIAL with one NOT PROVEN line, the work committed" || { bad "S1b never: resumes $(kits), finish '$(fin)', exit $(iexit), cap lines $(unfin), outcome $(outcome)"; dump; }
 has "S1b never: the NOT PROVEN line names why and what the reply said was outstanding" "$(rnp)" "implement ended without a finish line (count cap after 4 resumes): Progress made. Still outstanding: the docs for multiply."
-run_engine "$TASK" E2E_STUB_NOFINISH=still
+run_engine "$TASK" E2E_STUB_NOFINISH=never # NO-DEFAULT-BUDGET: no count; resumes that change the tree but name the same outstanding work are no progress
+[ "$(kits)" = 2 ] && [ "$(fin)" = "2|no progress|None" ] && [ "$(iexit)" = incomplete ] && [ "$(outcome)" = PARTIAL ] && committed_multiply \
+    && ok "S1b never, no budget: each resume changes the tree but names only work the first reply named (the docs for multiply) and no count, so 2 resumes end the loop as no progress (continueMoved); PARTIAL, the work committed" || { bad "S1b never, no budget: resumes $(kits), finish '$(fin)', exit $(iexit), outcome $(outcome)"; dump; }
+run_engine "$TASK" E2E_STUB_NOFINISH=still LOKI_E10_DEFAULT_BUDGETS=1
 [ "$(kits)" = 2 ] && [ "$(fin)" = "2|tree unchanged|None" ] && [ "$(iexit)" = incomplete ] && [ "$(outcome)" = PARTIAL ] && committed_multiply \
     && ok "S1b still: resumes that change nothing end the loop at the second in a row (2 of the 4 allowed); exit incomplete, PARTIAL, the work committed" || { bad "S1b still: resumes $(kits), finish '$(fin)', exit $(iexit), outcome $(outcome)"; dump; }
-run_engine "$TASK" E2E_STUB_NOFINISH=unfinished # candidate 1: the named ending LOKI_UNFINISHED is not a finish line (finishLineOf reads only the three)
+run_engine "$TASK" E2E_STUB_NOFINISH=unfinished LOKI_E10_DEFAULT_BUDGETS=1 # candidate 1: the named ending LOKI_UNFINISHED is not a finish line (finishLineOf reads only the three)
 [ "$(kits)" = 2 ] && [ "$(fin)" = "2|tree unchanged|None" ] && [ "$(iexit)" = incomplete ] && [ "$(outcome)" = PARTIAL ] && committed_multiply \
     && has "S1b LOKI_UNFINISHED: a reply ending LOKI_UNFINISHED is resumed; unchanged twice in a row, it exits incomplete, PARTIAL (never VERIFIED), with its own what-is-left text on the receipt" "$(rnp)" "LOKI_UNFINISHED: the docs for multiply are not written" \
     || { bad "S1b LOKI_UNFINISHED: resumes $(kits), finish '$(fin)', exit $(iexit), outcome $(outcome)"; dump; }
 run_engine "$TASK" E2E_STUB_NOFINISH=never LOKI_E10_CONTINUE_MAX=0
 [ "$(kits)" = 0 ] && [ "$(fin)" = "0|continue off|None" ] && [ "$(iexit)" = incomplete ] && [ "$(outcome)" = PARTIAL ] \
     && ok "S1b LOKI_E10_CONTINUE_MAX=0: no resume, and the unfinished session still exits incomplete (PARTIAL)" || { bad "S1b resume off: resumes $(kits), finish '$(fin)', exit $(iexit), outcome $(outcome)"; dump; }
-run_engine "$TASK" E2E_STUB_NOFINISH=never LOKI_E10_SELF_REVIEW=always
+run_engine "$TASK" E2E_STUB_NOFINISH=never LOKI_E10_SELF_REVIEW=always LOKI_E10_DEFAULT_BUDGETS=1
 rv_unfinished="$(grep -cE '^implement [^ ]*-rv ' "$ITERS" || true)"; out_unfinished="$(outcome)"
 run_engine "$TASK" E2E_STUB_MODE=done LOKI_E10_SELF_REVIEW=always
 rv_done="$(grep -cE '^implement [^ ]*-rv ' "$ITERS" || true)"
@@ -924,13 +971,13 @@ res("patch receipt: green, error and every other status map to green, error and 
   const absent = cr.claimedChangeAbsent(d, base, claims);
   res("coverage claim: SITE lines parse (changed claims only, backticks allowed)", claims.length === 3, JSON.stringify(claims));
   res("coverage claim: a changed line passes, a byte-identical line is claimed_change_absent, a file new on the base passes", absent.join() === "src/parse.js:2", absent.join());
-  const mt = [{}, { LOKI_E10_COVERAGE_MAX_TURNS: "4" }, { LOKI_E10_COVERAGE_MAX_TURNS: "0" }, { LOKI_E10_COVERAGE_MAX_TURNS: "off" }, { LOKI_E10_COVERAGE_MAX_TURNS: "x" }].map((e) => String(cr.coverageMaxTurns(e))).join(",");
-  res("coverage cap: the coverage turn caps at 10 turns by default; a positive integer sets it, =0/off lifts it, garbage keeps 10", mt === "10,4,undefined,undefined,10", mt);
+  const NB = { LOKI_E10_DEFAULT_BUDGETS: "1" }, mt = [NB, { ...NB, LOKI_E10_COVERAGE_MAX_TURNS: "4" }, { ...NB, LOKI_E10_COVERAGE_MAX_TURNS: "0" }, { ...NB, LOKI_E10_COVERAGE_MAX_TURNS: "off" }, { ...NB, LOKI_E10_COVERAGE_MAX_TURNS: "x" }, {}, { LOKI_E10_COVERAGE_MAX_TURNS: "4" }].map((e) => String(cr.coverageMaxTurns(e))).join(",");
+  res("coverage cap: with budgets the coverage turn caps at 10 turns by default; a positive integer sets it, =0/off lifts it, garbage keeps 10; with no budget there is no cap unless set (NO-DEFAULT-BUDGET)", mt === "10,4,undefined,undefined,10,0,4", mt);
   const seen = [], ok1 = { exit: 0, markers: { done: true, specConflict: null, alreadyDone: null }, durationS: 1, killed: false, summary: "SITE src/parse.js:2: changed\nLOKI_DONE" };
   const sctx = { provider: "stub", repoDir: d, baseSha: base, sessions: { run: async (o) => { seen.push(`${o.iterationId}:${o.maxTurns}`); return ok1; } } };
-  const prevMt = process.env.LOKI_E10_COVERAGE_MAX_TURNS, prevCc = process.env.LOKI_E10_CLAIM_CHECK; delete process.env.LOKI_E10_COVERAGE_MAX_TURNS; process.env.LOKI_E10_CLAIM_CHECK = "1";
+  const prevMt = process.env.LOKI_E10_COVERAGE_MAX_TURNS, prevCc = process.env.LOKI_E10_CLAIM_CHECK; delete process.env.LOKI_E10_COVERAGE_MAX_TURNS; process.env.LOKI_E10_CLAIM_CHECK = "1"; process.env.LOKI_E10_DEFAULT_BUDGETS = "1";
   await cr.resumeForCoverage(sctx, { stage: "implement", brief: "b", tier: "development", iterationId: "it", limitS: 600, signal: new AbortController().signal }, ok1);
-  if (prevMt === undefined) delete process.env.LOKI_E10_COVERAGE_MAX_TURNS; else process.env.LOKI_E10_COVERAGE_MAX_TURNS = prevMt; if (prevCc === undefined) delete process.env.LOKI_E10_CLAIM_CHECK; else process.env.LOKI_E10_CLAIM_CHECK = prevCc;
+  if (prevMt === undefined) delete process.env.LOKI_E10_COVERAGE_MAX_TURNS; else process.env.LOKI_E10_COVERAGE_MAX_TURNS = prevMt; if (prevCc === undefined) delete process.env.LOKI_E10_CLAIM_CHECK; else process.env.LOKI_E10_CLAIM_CHECK = prevCc; delete process.env.LOKI_E10_DEFAULT_BUDGETS;
   res("coverage cap: the coverage turn and its claim re-ask both run under the cap", seen.join() === "it-c:10,it-c2:10", seen.join());
   const cc = (e) => cr.claimCheckEnabled(e) ? 1 : 0, ccs = [{}, { LOKI_E10_CLAIM_CHECK: "1" }, { LOKI_E10_CLAIM_CHECK: "0" }, { LOKI_E10_LEAN_CALLS: "0" }, { LOKI_E10_LEAN_CALLS: "0", LOKI_E10_CLAIM_CHECK: "0" }, { LOKI_E10_LEAN_CALLS: "", LOKI_E10_CLAIM_CHECK: " " }].map(cc).join("");
   res("coverage claim: off by default under LOKI_E10_LEAN_CALLS (the re-ask edited nothing on the bench); =1 keeps it, =0 keeps it off, LOKI_E10_LEAN_CALLS=0 restores the old default on", ccs === "010100", ccs);
@@ -997,7 +1044,9 @@ import { classifyRunnerOutput } from "$ROOT/loki-ts/src/runner/runner_errors.ts"
 import { buildFixResumeBrief, runFixSession } from "$ROOT/loki-ts/src/runner/session_resume.ts";
 import { rememberSessionEffort, sessionEffortFor } from "$ROOT/loki-ts/src/engine10/session.ts";
 import { quickSplit } from "$ROOT/loki-ts/src/e10ext/select.ts";
-import { verdictOf } from "$ROOT/loki-ts/src/engine10/stages/seal.ts";
+import { verdictOf, alreadyDoneClaimed, alreadyDoneShown, alreadyDoneNotShownNote, alreadyLinesMet, alreadyLinesNote, alreadyRealLines } from "$ROOT/loki-ts/src/engine10/stages/seal.ts";
+import { ruleStatus, realStep, rerunProof } from "$ROOT/loki-ts/src/engine10/proof_rerun.ts";
+import { FRESH_INSTALL_ASK } from "$ROOT/loki-ts/src/util/intent_card.ts";
 import { buildImplementBrief } from "$ROOT/loki-ts/src/engine10/stages/implement.ts";
 import { consumeSdkStream, isSuiteRun } from "$ROOT/loki-ts/src/runner/sdk_stream_parser.ts";
 const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
@@ -1041,6 +1090,49 @@ const sp = quickSplit([t("wall.test.ts"), t("a.test.ts"), t("b.test.ts"), t("c.t
 res("L025 quick selection: blocking, Wall and impacted-since tests first, the rest after", sp.first.map((x) => x.path).join() === "wall.test.ts,b.test.ts,c.test.ts" && sp.rest.map((x) => x.path).join() === "a.test.ts");
 const pass = [{ name: "bun:a.test.ts", cmd: "bun test a.test.ts", result: "pass", duration_s: 0 }] as never;
 res("L025 a run whose last verify was quick-only never seals VERIFIED", verdictOf({ implement: { exit: "done" } }, pass, false, true, false, true) !== "VERIFIED" && verdictOf({ implement: { exit: "done" } }, pass, false, false, false, true) === "VERIFIED");
+// ALREADY-DONE-SHOWN replay: the stored stage outputs of FireLater#24 on 11.162.0 (implement already_done, verify already_satisfied with 0 checks, nothing
+// committed), which sealed PARTIAL "no tests to run". With Loki's own passing re-run of the kept proof script it seals ALREADY_SATISFIED; with no re-run, a
+// failing one, one that proved nothing or a refused one it stays PARTIAL with the specific line; a failed commit or a verify that did not agree is no claim.
+const fl24 = JSON.parse(readFileSync("$ROOT/tests/min/fixtures/replay/firelater24-already-done.json", "utf8")), so = { intake: fl24.intake, implement: fl24.implement, verify: fl24.verify, commit: fl24.commit } as never;
+// ADS-LINES (Fable review of 11.167.0): the re-run must also meet every required acceptance line by the same rule seal uses for an issue run; 10 lines and
+// 1 proved step, or no acceptance lines at all, stay PARTIAL.
+const lines = (n: number) => Array.from({ length: n }, (_, i) => "acceptance line " + (i + 1)), proved = (ks: number[]) => Object.fromEntries(ks.map((k) => [String(k), { proved: 1, failed: 0, real: 1 }]));
+const run = (ks: number[], o: Record<string, unknown> = {}) => ({ exit: 0, proved: ks.length, failed: 0, lines: proved(ks), ...o }) as never;
+const asv = (r: never, asks: string[] = lines(3)) => verdictOf(so, [], true, false, false, alreadyDoneShown(so, r) && alreadyLinesMet(r ? alreadyRealLines(ruleStatus(asks, r, null), r) : []));
+res("ADS replay FireLater#24: a passing Loki re-run on the unchanged tree that meets every acceptance line seals ALREADY_SATISFIED (the run itself sealed " + fl24.sealed_verdict + ")", alreadyDoneClaimed(so) && asv(run([1, 2, 3])) === "ALREADY_SATISFIED");
+res("ADS replay FireLater#24: no re-run, a failing one, one that exited non-zero after some passes, one that proved nothing, or a refused one stays PARTIAL", ([null, run([1, 2], { exit: 1, failed: 3, lines: { ...proved([1, 2]), "3": { proved: 0, failed: 3 } } }), run([1, 2, 3], { exit: 2 }), run([]), run([], { refused: "network", exit: null })] as never[]).every((r) => asv(r) === "PARTIAL"));
+res("ADS-LINES plants 1 and 2: 10 acceptance lines and 1 proved step (also the shape of a proof whose only step runs no repository code) stay PARTIAL, and the note says 1 of 10", asv(run([1]), lines(10)) === "PARTIAL" && alreadyLinesNote(ruleStatus(lines(10), run([1]), null)).includes("met 1 of 10 acceptance line(s); first unmet: acceptance line 2"));
+res("ADS-LINES: a passing re-run with no acceptance lines stays PARTIAL and says so; a line with a failed check is unmet", asv(run([1, 2, 3]), []) === "PARTIAL" && alreadyLinesNote([]).includes("has no acceptance lines") && asv(run([1, 2, 3], { lines: { ...proved([1, 2, 3]), "2": { proved: 1, failed: 1 } } })) === "PARTIAL");
+res("ADS note: the held run says why", alreadyDoneNotShownNote(null).includes("no proof script was kept") && alreadyDoneNotShownNote({ exit: 1, proved: 20, failed: 3 }).includes("exit 1, 20 proved, 3 failed") && alreadyDoneNotShownNote({ refused: "x", exit: null, proved: 0, failed: 0 }).includes("not run: x"));
+// ADS-REAL (Fable): a met line also needs a passing step that ran something of the repository's. Unit cases, then Fable's planted defect for real: the kit's own
+// loki_cmd on a throwaway repo, 3 acceptance lines each "proved" by a step of true, must read PARTIAL; the same 3 lines proved by node and a repository path read
+// ALREADY_SATISFIED.
+const { mkdtempSync, writeFileSync: wfr, mkdirSync: mkr, realpathSync } = await import("node:fs"), rr = mkdtempSync("$T/adsreal-"); mkr(rr + "/repo/docs", { recursive: true }); wfr(rr + "/repo/docs/SEARCH.md", "x"); mkr(rr + "/repo/scripts"); wfr(rr + "/repo/scripts/check.sh", "#!/bin/sh\nexit 0\n", { mode: 0o755 }); wfr(rr + "/repo/package.json", "{}");
+res("ADS-REAL realStep (command position): a request the app answered, a runner, a repo path run or read by a file reader count; true, echo, a missing path, a runner or path only as an argument, a comment and the old output without a command do not", [
+  realStep("search works | status 200 | {}"), realStep("t | exit 0 | cmd: npm test  | ok"), realStep("t | exit 0 | cmd: bash -c cd backend && npx --no-install vitest run x  | ok"), realStep("t | exit 0 | cmd: test -f docs/SEARCH.md  | ", rr + "/repo"), realStep("t | exit 0 | cmd: grep -q x docs/SEARCH.md  | ", rr + "/repo"), realStep("t | exit 0 | cmd: ./scripts/check.sh  | ", rr + "/repo"), realStep("t | exit 0 | cmd: FOO=1 env node -e 1  | "), realStep("t | exit 0 | cmd: echo x %7C node -e 1  | "), realStep("t | exit 0 | cmd: timeout 120 npm test  | "), realStep("t | exit 0 | cmd: gtimeout -k 5 2m npx vitest run  | "), realStep("t | exit 0 | cmd: test -f " + realpathSync(rr).replace(/^[/]private[/]/, "/") + "/repo/docs/SEARCH.md  | ", realpathSync(rr) + "/repo"), realStep("t | exit 0 | cmd: test -f " + realpathSync(rr) + "/repo/docs/SEARCH.md  | ", realpathSync(rr).replace(/^[/]private[/]/, "/") + "/repo"),
+  !realStep("t | exit 0 | cmd: true  | "), !realStep("t | exit 0 | cmd: echo ok  | ok"), !realStep("t | exit 0 | cmd: test -f docs/NOPE.md  | ", rr + "/repo"), !realStep("t | exit 0 | ok"), !realStep("t | exit 0 | cmd: true npm  | "), !realStep("t | exit 0 | cmd: echo package.json  | ", rr + "/repo"), !realStep("t | exit 0 | cmd: bash -c true # node  | "), !realStep("a / status 200 / b | exit 0 | cmd: true  | ")].every(Boolean));
+mkr(rr + "/run-true"); mkr(rr + "/run-real");
+const kitSrc = "source \"" + String.fromCharCode(36) + "LOKI_SCRATCH/loki-check.sh\"\n", proofOf = (steps: string[]) => "#!/bin/bash\n" + kitSrc + steps.map((c, i) => "loki_cmd " + (i + 1) + " \"line " + (i + 1) + "\" " + c).join("\n") + "\n";
+wfr(rr + "/run-true/loki-proof.sh", proofOf(["true", "true", "true"]), { mode: 0o700 });
+wfr(rr + "/run-real/loki-proof.sh", proofOf(["node -e 1", "test -f docs/SEARCH.md", "node -e 1"]), { mode: 0o700 });
+const rt = await rerunProof(rr + "/repo", rr + "/run-true"), rl = await rerunProof(rr + "/repo", rr + "/run-real"), three = lines(3);
+res("ADS-REAL planted defect (Fable): 3 lines each proved by a step of true pass the re-run (" + (rt ? rt.proved : "none") + " proved) but read PARTIAL; proved by node and a repo path they read ALREADY_SATISFIED", !!rt && rt.exit === 0 && rt.proved === 3 && asv(rt as never, three) === "PARTIAL" && !!rl && rl.proved === 3 && asv(rl as never, three) === "ALREADY_SATISFIED");
+// Fable's planted defects for the command-position rule, each through the kit on a 1-line issue: true npm; echo package.json; bash -c 'true # node'; a
+// description "a | status 200 | b" with true: all PARTIAL. grep on an existing repo doc and an existing ./scripts/check.sh: ALREADY_SATISFIED.
+const one = async (name: string, step: string) => { mkr(rr + "/run-" + name); wfr(rr + "/run-" + name + "/loki-proof.sh", "#!/bin/bash\n" + kitSrc + step + "\n", { mode: 0o700 }); const r = await rerunProof(rr + "/repo", rr + "/run-" + name); return r && r.proved === 1 ? asv(r as never, ["the one line"]) : "proof did not pass: " + JSON.stringify(r && { exit: r.exit, proved: r.proved, failed: r.failed }); };
+const q = String.fromCharCode(39), plants = [await one("npm", "loki_cmd 1 \"x\" true npm"), await one("echo", "loki_cmd 1 \"x\" echo package.json"), await one("comment", "loki_cmd 1 \"x\" bash -c " + q + "true # node" + q), await one("desc", "loki_cmd 1 \"a | status 200 | b\" true")];
+const rootR = realpathSync(rr + "/repo"), rootL = rootR.replace(/^[/]private[/]/, "/"); // the repo root, resolved and in its symlinked spelling (the same on Linux)
+plants.push(await one("rootr", "loki_cmd 1 \"x\" test -d " + rootR), await one("rootl", "loki_cmd 1 \"x\" test -d " + rootL));
+const honest = [await one("grep", "loki_cmd 1 \"doc\" grep -q x docs/SEARCH.md"), await one("script", "loki_cmd 1 \"script\" ./scripts/check.sh"), await one("pkgr", "loki_cmd 1 \"pkg\" test -f " + rootR + "/package.json"), await one("pkgl", "loki_cmd 1 \"pkg\" test -f " + rootL + "/package.json")];
+res("ADS-REAL planted defects (Fable, command position): true npm, echo package.json, a node comment, a forged status in the description and test -d on the repo root itself (both spellings) read PARTIAL (" + plants.join(",") + "); grep on a repo doc, a repo script and test -f on root/package.json (both spellings) read ALREADY_SATISFIED (" + honest.join(",") + ")", plants.every((v) => v === "PARTIAL") && honest.every((v) => v === "ALREADY_SATISFIED"));
+// The fresh-install line Loki adds counts when the same re-run has a request the app answered (FireLater#24's line 10 reads the tenant and tables the app made);
+// with no answered request anywhere it is unmet. Every other line stays strict.
+const fresh = ["line one", "line two", FRESH_INSTALL_ASK], fl = (http: boolean) => ({ exit: 0, proved: 3, failed: 0, lines: { "1": { proved: 1, failed: 0, real: 1, http: http ? 1 : 0 }, "2": { proved: 1, failed: 0, real: 1, http: 0 }, "3": { proved: 1, failed: 0, real: 0, http: 0 } } }) as never;
+const strict2 = ({ exit: 0, proved: 3, failed: 0, lines: { "1": { proved: 1, failed: 0, real: 1, http: 1 }, "2": { proved: 1, failed: 0, real: 0, http: 0 }, "3": { proved: 1, failed: 0, real: 1, http: 0 } } }) as never;
+res("ADS-REAL fresh-install line: met when the re-run has an answered request elsewhere, unmet (plant) when it has none; an ordinary line with no real step stays unmet even with a request elsewhere", asv(fl(true), fresh) === "ALREADY_SATISFIED" && asv(fl(false), fresh) === "PARTIAL" && asv(strict2, fresh) === "PARTIAL");
+res("ADS claim: a failed commit or a verify that did not agree is not an already-done claim", !alreadyDoneClaimed({ ...fl24, commit: { failed: true } } as never) && !alreadyDoneClaimed({ ...fl24, verify: { already_satisfied: false } } as never) && alreadyDoneClaimed({ intake: { already_satisfied: true }, implement: { exit: "done" }, verify: { already_satisfied: true }, commit: {} } as never));
+const sealSrc = readFileSync("$ROOT/loki-ts/src/engine10/stages/seal.ts", "utf8");
+res("ADS wiring: seal re-runs the proof on the unchanged tree, counts it as proof, reuses it for the issue lines and names a held run", sealSrc.includes('const alreadyRun = alreadyDoneClaimed(o) && (!diffOk || diff.stdout === "") ? await rerunProof(ctx.repoDir, ctx.runDir, signal) : null, alreadyLines = alreadyRun ? alreadyRealLines(ruleStatus(issueAsks, alreadyRun, null), alreadyRun) : [], alreadyOk = alreadyDoneShown(o, alreadyRun) && alreadyLinesMet(alreadyLines);') && sealSrc.includes("proof = alreadyOk || (!strictProof") && sealSrc.includes("const proofRun = alreadyRun ?? (") && sealSrc.includes("alreadyDoneShown(o, alreadyRun) ? alreadyLinesNote(alreadyLines) : alreadyDoneNotShownNote(alreadyRun)"));
 
 res("L026 brief: no invitation to run the full suite", !FIXED_RULES.includes("including the package's full suite") && FIXED_RULES.includes("not the package's full suite") && FIXED_RULES.includes("medium or high"));
 const nb = buildImplementBrief("task", null, []);
@@ -1080,10 +1172,12 @@ res("L026 parser: result-cost records full_suite_runs per session (2 of 3 Bash c
   const fctx = { provider: "claude", repoDir: "$T/l026", runDir: "$T/l026/run", runId: "e10-x", emit: (t: string) => evs.push(t), sessions: { run: async (o: { iterationId: string; brief: string }) => { runs.push(o.brief); tree++; return { exit: 0, killed: false, durationS: 1, markers: { done: true, alreadyDone: null, specConflict: null, finishLine: null }, summary: "still going: docs outstanding" }; } } } as never;
   const unfinished = { exit: 0, killed: false, durationS: 1, markers: { done: true, alreadyDone: null, specConflict: null, finishLine: null }, summary: "Summary.\n**Result:** LOKI_BLOCKED: docs outstanding" } as never;
   const opts = (usd: number | null, env: Record<string, string>) => ({ fingerprint: () => String(tree), spentUsd: () => usd, compactions: () => null, signal: new AbortController().signal, env });
-  const d1 = await cr.resumeToFinish(fctx, { iterationId: "it", brief: "FULL BRIEF" } as never, unfinished, opts(5.0, {}));
+  const d1 = await cr.resumeToFinish(fctx, { iterationId: "it", brief: "FULL BRIEF" } as never, unfinished, opts(5.0, { LOKI_E10_DEFAULT_BUDGETS: "1" })); // the default dollar line and count are budgets: on only with budgets (NO-DEFAULT-BUDGET)
   const d2 = await cr.resumeToFinish(fctx, { iterationId: "it", brief: "FULL BRIEF" } as never, unfinished, opts(0.2, { LOKI_E10_CONTINUE_MAX: "2" }));
   const d3 = await cr.resumeToFinish(fctx, { iterationId: "it", brief: "FULL BRIEF" } as never, unfinished, opts(0.2, { LOKI_E10_CONTINUE_MAX_USD: "0.1" }));
   res("S1b bounds: spend at or past LOKI_E10_CONTINUE_MAX_USD (default 5.00) stops before any resume; LOKI_E10_CONTINUE_MAX=2 stops after 2; neither is a finish", d1.record.ended === "dollar line" && d1.iterationIds.length === 0 && d2.record.ended === "count cap" && d2.iterationIds.length === 2 && d2.session.markers.finishLine === null && d3.record.ended === "dollar line" && evs.length === 2);
+  { const d4 = await cr.resumeToFinish(fctx, { iterationId: "it", brief: "FULL BRIEF" } as never, unfinished, opts(50, {}));
+    res("S1b NO-DEFAULT-BUDGET: with no budget there is no count and no dollar line; resumes that name only the work the first reply named (docs) and no count are no progress, so 2 end the loop", d4.record.ended === "no progress" && d4.iterationIds.length === 2 && d4.session.markers.finishLine === null); }
   res("S1b brief (no session id to resume, so the full brief goes first): it says the summary request is over and was not the task, quotes the outstanding lines, and ends with FINISH_LINE word for word", runs[0]!.includes("\\n\\nAny earlier request to stop and write a text-only summary is over; it was not the task.") && runs[0]!.includes("LOKI_BLOCKED: docs outstanding") && runs[0]!.endsWith((await import("$ROOT/loki-ts/src/engine10/types.ts")).FINISH_LINE) && runs[1]!.includes("still going: docs outstanding"));
   res("S1b scope: claude only; a result whose final text was not read (finishLine absent, a patch-green result) is never resumed", cr.lacksFinishLine("claude", unfinished) && !cr.lacksFinishLine("opencode", unfinished) && !cr.lacksFinishLine("claude", { markers: { done: true, alreadyDone: null, specConflict: null } } as never));
 }
@@ -1096,7 +1190,7 @@ res("E5 effort: Haiku is medium in every round and for a code-owned repeat, neve
 res("E5 effort: Haiku with only environment-shaped groups is low", fixEffort(1, true, {}, { model: E5H, envOnly: true }) === "low");
 res("E5 effort: Sonnet keeps high then xhigh, no model keeps the old policy, policy off is undefined", fixEffort(1, true, {}, { model: E5S }) === "high" && fixEffort(2, true, {}, { model: E5S }) === "xhigh" && fixEffort(2, true, {}) === "xhigh" && fixEffort(1, true, { LOKI_E10_EFFORT_POLICY: "off" }, { model: E5H }) === undefined);
 res("E5 env-shaped: a runner that never started is environment-shaped; a failing assertion, a mixed set and an empty set are not", environmentShaped([{ signature: "vitest:a", sample: "Error: No test files found" }]) && !environmentShaped([{ signature: "vitest:a", sample: "Error: Cannot find module './helperz' imported from /r/src/a.ts" }]) && !environmentShaped([{ signature: "pytest:t", sample: "ImportError: cannot import name parse_v2\nInterrupted: 1 error during collection" }]) && !environmentShaped([{ signature: "jest:t", sample: "Test suite failed to run\nSyntaxError: Unexpected token" }]) && !environmentShaped([{ signature: "vitest:a", sample: "expected 1 to be 2" }]) && !environmentShaped([{ signature: "vitest:a", sample: "No test files found" }, { signature: "vitest:b", sample: "expected 1 to be 2" }]) && !environmentShaped([]));
-res("E5 caps: Haiku fix has turns, tokens and the no-edit turn; Haiku implement has turns and tokens only", sessionCaps("fix", E5H, {})?.noEditByTurn === 8 && sessionCaps("fix", E5H, {})?.turns === 36 && sessionCaps("implement", E5H, {})?.turns === 45 && sessionCaps("implement", E5H, {})?.noEditByTurn === undefined);
+res("E5 caps (with budgets): Haiku fix has turns, tokens and the no-edit turn; Haiku implement has turns and tokens only", sessionCaps("fix", E5H, { LOKI_E10_DEFAULT_BUDGETS: "1" })?.noEditByTurn === 8 && sessionCaps("fix", E5H, { LOKI_E10_DEFAULT_BUDGETS: "1" })?.turns === 36 && sessionCaps("implement", E5H, { LOKI_E10_DEFAULT_BUDGETS: "1" })?.turns === 45 && sessionCaps("implement", E5H, { LOKI_E10_DEFAULT_BUDGETS: "1" })?.noEditByTurn === undefined);
 res("E5 caps: Sonnet, other stages, the policy off and LOKI_E10_SESSION_CAPS=off get none; an env value replaces a cap", sessionCaps("fix", E5S, {}) === undefined && sessionCaps("verify", E5H, {}) === undefined && sessionCaps("fix", E5H, { LOKI_E10_EFFORT_POLICY: "off" }) === undefined && sessionCaps("fix", E5H, { LOKI_E10_SESSION_CAPS: "off" }) === undefined && sessionCaps("fix", E5H, { LOKI_E10_SESSION_TURNS: "50" })?.turns === 50);
 { const { openDecisionNotes: odn } = await import("$ROOT/loki-ts/src/engine10/stages/seal.ts"); // FALSEVER-OPEN-DECISION (v11.137 bench: cli-2459, cli-2478, lh-1474 were VERIFIED and failed hidden)
   const nr = (receipt: string[]) => ({ implement: { no_regression: { receipt } } });
@@ -1382,7 +1476,7 @@ suites="$(ev 'sum(1 for e in E if e["type"]=="test.result" and str(e["data"].get
 sig="$(ev '[g["signature"] for e in E if e["type"]=="fix.round" for g in e["data"]["groups"] if g["signature"].startswith("full suite")][0]')"
 case "$sig" in "full suite: bun "?*) ok "full suite signature carries its first failing line: $sig" ;; *) bad "full suite signature is only the check name: '$sig'" ;; esac
 
-run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_RISK_TIER=medium LOKI_E10_OPUS_CONSULT=0 # the stall rule alone, as the no-progress leg
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_RISK_TIER=medium LOKI_E10_OPUS_CONSULT=0 LOKI_E10_DEFAULT_BUDGETS=1 # the stall rule alone under budgets, as the no-progress leg
 last="$(ev '[e["data"] for e in E if e["type"]=="stage.completed" and e["stage"]=="verify"][-1]')"
 has "quick-only end: the last verify is quick" "$last" "'verify_scope': 'quick'"
 has "quick-only end: verify lists the missing complete verify as NOT PROVEN" "$last" "quick re-verify only"
@@ -2325,7 +2419,7 @@ if [ ! -x "$FL_VT_NM/.bin/vitest" ]; then mkdir -p "$T/vt-fl"; printf '{"name":"
 if [ -x "$FL_VT_NM/.bin/vitest" ]; then
     VT_NM="$FL_VT_NM"; export VT_NM
     FL_ALL='[id]/page.test.ts;charts/issue-trends-chart.test.ts;issues/page.test.ts;layout/Sidebar.test.ts;login/page.test.ts'
-    FL_OFF="LOKI_E10_NAMED_EXACT=0 LOKI_E10_OWN_BY_PATH=0 LOKI_E10_TOUCHED_BASE_RED=0 LOKI_E10_COLLATERAL_BASELINE=0 LOKI_E10_ID_PKG_RELATIVE=0 LOKI_E10_PROOF_PROJECT_API=0"
+    FL_OFF="LOKI_E10_NAMED_EXACT=0 LOKI_E10_OWN_BY_PATH=0 LOKI_E10_TOUCHED_BASE_RED=0 LOKI_E10_COLLATERAL_BASELINE=0 LOKI_E10_ID_PKG_RELATIVE=0 LOKI_E10_PROOF_PROJECT_API=0 LOKI_E10_DEFAULT_BUDGETS=1" # the FireLater#24 run had budgets (one stall round)
     # shellcheck disable=SC2086
     fl_run $FL_OFF; FL_BEFORE="$(fl_sig)"
     case "$FL_BEFORE" in STALLED*"|fix=1|quick"|FAILED*"|quick") ok "fl24 monorepo before (every acc-154 knob off): reproduces FireLater#24: base-red page, chart and edited tests block, a fix round chases them, the verify stays quick ($FL_BEFORE)" ;; *) bad "fl24 monorepo before: $FL_BEFORE"; dump ;; esac
@@ -2754,7 +2848,7 @@ console.log([[0, 1, 2].map((i) => at.attemptModel(i, "sess", e)).join(","), at.a
   at.attemptsReviewModel({}), at.attemptsReviewModel({ LOKI_E10_SELECT_REVIEW_MODEL: "opus" }), at.attemptsReviewModel({ LOKI_E10_ATTEMPTS_REVIEW_MODEL: "opus" }), at.attemptsReviewModel({ LOKI_E10_SELECT_REVIEW_MODEL: "sonnet", LOKI_E10_ATTEMPTS_REVIEW_MODEL: "opus" }),
   at.attemptsReceiptLines(r, 2, ["claude-haiku-5-5", "claude-sonnet-5-5"])[1], at.attemptsReceiptLines(r, 2)[1]].join(" | "));' 2>&1)"
 [ "$CAS" = "claude-haiku-5-5,claude-sonnet-5-5,claude-sonnet-5-5 | sess | 0 | claude-sonnet-5-5 | claude-opus-5-5 | claude-opus-5-5 | claude-sonnet-5-5 | attempt 2 (x1) on claude-sonnet-5-5: verify green, 0 NOT PROVEN, 4 changed lines | attempt 2 (x1): verify green, 0 NOT PROVEN, 4 changed lines" ] && ok "cascade: LOKI_E10_ATTEMPT_MODELS gives attempt i its entry (the last reused past the list, aliases resolved), unset keeps the session model; the tie reviewer defaults to Sonnet, LOKI_E10_SELECT_REVIEW_MODEL=opus picks Opus and wins over the older name; the receipt names the model only with the list set" || bad "cascade gave: $CAS"
-grep -q 'firstAttemptModel = attemptsK(ctx.model) > 0 ? attemptModels()\[0\] : undefined' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -q 'model: downgrade.to } : firstAttemptModel ? { model: firstAttemptModel }' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -q '(attemptModel(i, deps.model) ? { model: attemptModel(i, deps.model) } : {})' "$ROOT/loki-ts/src/features/attempts.ts" && ok "cascade wiring: the first attempt's implement session runs on entry 1 when attempts are on, each extra attempt on its own entry" || bad "cascade wiring missing in implement.ts or attempts.ts"
+grep -qF 'firstAttemptModel = attemptsK(devPin ?? ctx.model) > 0 && (!devPin || attemptsNamed) ? attemptModels()[0] : undefined' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -qF 'model: downgrade.to } : firstAttemptModel ? { model: firstAttemptModel,' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && grep -q '(attemptModel(i, deps.model) ? { model: attemptModel(i, deps.model) } : {})' "$ROOT/loki-ts/src/features/attempts.ts" && ok "cascade wiring: the first attempt's implement session runs on entry 1 when attempts are on, each extra attempt on its own entry" || bad "cascade wiring missing in implement.ts or attempts.ts"
 while IFS= read -r line; do
     case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
 done <<< "$out"
@@ -4325,9 +4419,10 @@ rmSync(noPytest, { recursive: true, force: true }); rmSync(withPytest, { recursi
 // ---- time: verify's limit is what is left before commit, seal and the PR, bounded above; a suite's timeout is what is left of the stage
 res("BUDGET the opencode record (cap 900 s, 355 s gone): verify's limit is 335 s, not 155 s", mc.verifyLimitFor(120, 840, 355, {}) === 335);
 res("BUDGET with intake at 5 s on the same cap verify gets 645 s", mc.verifyLimitFor(120, 840, 45, {}) === 645);
-res("BUDGET on a 3600 s cap verify is bounded at 900 s (LOKI_E10_VERIFY_MAX_S)", mc.verifyLimitFor(120, 3360, 560, {}) === 900 && mc.verifyLimitFor(120, 3360, 560, { LOKI_E10_VERIFY_MAX_S: "1500" }) === 1500);
+res("BUDGET on a 3600 s cap verify gets the time left (no 900 s maximum of Loki's own, NO-DEFAULT-BUDGET); LOKI_E10_VERIFY_MAX_S bounds it; the control knob restores 900 s", mc.verifyLimitFor(120, 3360, 560, {}) === 3360 - 560 - 150 && mc.verifyLimitFor(120, 3360, 560, { LOKI_E10_VERIFY_MAX_S: "1500" }) === 1500 && mc.verifyLimitFor(120, 3360, 560, { LOKI_E10_DEFAULT_BUDGETS: "1" }) === 900);
 res("BUDGET the stage floor still holds when little is left", mc.verifyLimitFor(120, 840, 800, {}) === 120);
-res("BUDGET a suite's timeout is the time left of the stage, at most 300 s; none left means it is not started", vf.suiteTimeoutFor(1_000_000, 0, {}) === 300_000 && vf.suiteTimeoutFor(100_000, 40_000, {}) === 55_000 && vf.suiteTimeoutFor(100_000, 97_000, {}) === 0 && vf.suiteTimeoutFor(undefined, 0, {}) === 300_000 && vf.suiteTimeoutFor(undefined, 0, { LOKI_E10_SUITE_TIMEOUT_S: "3" }) === 3000);
+const NB1 = { LOKI_E10_DEFAULT_BUDGETS: "1" }; // NO-DEFAULT-BUDGET: the 300 s maximum is a budget
+res("BUDGET a suite's timeout is the time left of the stage, at most 300 s with budgets; none left means it is not started", vf.suiteTimeoutFor(1_000_000, 0, NB1) === 300_000 && vf.suiteTimeoutFor(100_000, 40_000, NB1) === 55_000 && vf.suiteTimeoutFor(100_000, 97_000, NB1) === 0 && vf.suiteTimeoutFor(undefined, 0, NB1) === 300_000 && vf.suiteTimeoutFor(undefined, 0, { LOKI_E10_SUITE_TIMEOUT_S: "3" }) === 3000);
 TS
 out="$(cd "$ROOT/loki-ts" && bun "$T/rw01.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
 grep -q '^EXIT 0$' <<< "$out" || bad "rw01 unit script crashed or exited non-zero: $(printf '%s\n' "$out" | tail -3)"

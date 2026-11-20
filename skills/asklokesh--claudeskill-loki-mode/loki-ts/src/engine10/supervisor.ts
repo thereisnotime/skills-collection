@@ -3,8 +3,8 @@ import { cleanupScratchRecord, cleanupStaleScratches, readExitCleanup } from "..
 import { routeStartLine } from "../runner/router/route_block.ts";
 import { execFileSync, spawnSync } from "node:child_process"; import { currentBranch, restoreBranch } from "../e10ext/stop_restore.ts";
 import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
-import { redactEventData } from "../util/redact.ts"; import { deadlineCapS, localBranchNote, resolveRunCapS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
-import { terminalWidth } from "../util/term_width.ts";
+import { diffAgainstBase } from "../util/safe_git.ts"; import { redactEventData } from "../util/redact.ts"; import { deadlineCapS, localBranchNote, parseDurationS, resolveRunCapS, TIME_FLAGS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
+import { terminalWidth } from "../util/term_width.ts"; import { ROLE_FLAG_ENV } from "../util/claude_model.ts";
 import { diffStat, runHead, formatRunSummary, handoffSection, readRiskSummary, writeHandoff, withNextLine, withFoldLine, withRiskLine, nextOf, resultOf, summaryObject, useColor } from "../util/run_summary.ts"; // OC-OUTPUT, RISKTIER
 import { commitUnsealedWork, deepAfterPr, deliverAsDraft, guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
 import { kidOf, loadSigningKey, secretPushLine, secretPushRefusal } from "./stages/seal.ts";
@@ -31,7 +31,7 @@ import { cleanTreeId, failedCheckNames, recordFingerprints } from "../util/failu
 import { modelDowngrades } from "../runner/model_downgrades.ts";
 import { runIdentity } from "../util/run_identity.ts";
 import type { PrContext } from "./stages/pr.ts";
-import { type EventEnvelope, type PushEnv, type StageName, type Verdict, backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, envCapS, proveByRunningOn, pushArgv, STAGE_BUDGETS, WORK_ROAD_ENV } from "./types.ts";
+import { type EventEnvelope, type PushEnv, type StageName, type Verdict, backstopS, BACKSTOP_GRACE_S, budgetsOn, deepCapS, DEFAULT_CAP_S, envCapS, hangSilenceS, proveByRunningOn, pushArgv, STAGE_BUDGETS, WORK_ROAD_ENV } from "./types.ts";
 import { baseLine, finishRunBranch, prBasePlan } from "../util/base_guard.ts";
 import { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, runIntent, summaryCache, summaryTokens, unmergedLokiWorkNote, type PolicyGate } from "../util/run_outputs.ts";
 
@@ -86,6 +86,7 @@ const VERDICTS = new Set<string>(["VERIFIED", "PARTIAL", "ALREADY_SATISFIED", "S
 const ALIVE_BEAT_MS = 15_000;
 const SESSION_EXITS = new Set(["done", "already_done", "spec_conflict", "killed", "error"]);
 export const BACKSTOP_NOT_PROVEN = "worker killed by the supervisor backstop (cap minus grace)";
+export const HANG_NOT_PROVEN = "worker stopped by the supervisor: no event and no running process for the hang window (LOKI_E10_HANG_SILENCE_S)", HANG_SEALED_NOTE = "the worker made no progress (no event and no running process for the hang window) and was stopped; the current tree was sealed by a seal pass";
 export const BACKSTOP_SEALED_NOTE = "time ran out: the worker was stopped at its time limit and the current tree was sealed by a seal pass";
 export const backstopSealOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_BACKSTOP_SEAL"] ?? "").trim());
 export const BACKSTOP_SEAL_MAX_MS = 45_000, BACKSTOP_SEAL_MIN_MS = 10_000, BACKSTOP_SEAL_MARGIN_S = 25; // the deadline margin is 30 s (util/run_cap.ts DEADLINE_MARGIN_S): stay 5 s inside it
@@ -187,6 +188,7 @@ export class SupervisorLog { // single writer with a running sha256 of the bytes
 }
 /** P12-07l: the worker cap env. A deep worker reads the same cap env as fast, never a stale user value; a sized (fast) run also pins or clears the fixed-cap marker. */
 export function applyCapEnv(env: NodeJS.ProcessEnv, capS: number, sized: { fixedS?: number } | null): void {
+  if (!Number.isFinite(capS)) { delete env.LOKI_E10_CAP_S; delete env.LOKI_E10_CAP_FIXED_S; return; } // NO-DEFAULT-BUDGET: no time limit reaches the worker as an unset cap, never "Infinity"
   env.LOKI_E10_CAP_S = String(capS);
   if (sized) { if (sized.fixedS) env.LOKI_E10_CAP_FIXED_S = String(sized.fixedS); else delete env.LOKI_E10_CAP_FIXED_S; }
 }
@@ -213,21 +215,22 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   if (opts.started?.["road"] === "work") workerEnv[WORK_ROAD_ENV] = "1"; else delete workerEnv[WORK_ROAD_ENV]; // RW-02 ONE ROAD: every worker of a run, a resumed one included (its started data is the first run.started), reads the road the run was started on
   // T3: the worker has no terminal; only the supervisor can ask the LOKI_CONFIRM question.
   workerEnv.LOKI_INTENT_TTY = env.LOKI_CONFIRM === "1" && process.stdin.isTTY === true && process.stdout.isTTY === true ? "1" : "0";
-  const capS = opts.capS ?? envCapS(env.LOKI_E10_CAP_S) ?? DEFAULT_CAP_S;
+  const capS = opts.capS ?? envCapS(env.LOKI_E10_CAP_S) ?? (budgetsOn(env) ? DEFAULT_CAP_S : Infinity); // NO-DEFAULT-BUDGET: no user limit, no cap
   const ceilingS = Math.max(capS, opts.capCeilingS ?? capS);
-  const backstopMs = backstopS(ceilingS, opts.graceS ?? BACKSTOP_GRACE_S) * 1000; // hard SIGKILL safety net for a stage blocking past the worker's own soft cap
-  const escalateMs = Math.max(0, Math.min(2000, ceilingS * 1000 - backstopMs)); // SIGTERM->SIGKILL clamped so a trapping worker cannot outlive the cap
+  const backstopMs = backstopS(ceilingS, opts.graceS ?? BACKSTOP_GRACE_S) * 1000; // hard SIGKILL safety net for a stage blocking past the worker's own soft cap (Infinity: never armed)
+  const escalateMs = Number.isFinite(ceilingS) ? Math.max(0, Math.min(2000, ceilingS * 1000 - backstopMs)) : 2000; // SIGTERM->SIGKILL clamped so a trapping worker cannot outlive the cap
+  let lastEventMs = Date.now(); const hang = Number.isFinite(ceilingS) ? undefined : { silenceS: hangSilenceS(env), lastEventMs: () => lastEventMs }; // NO-DEFAULT-BUDGET: with no backstop, a worker silent this long with no process of its own is hung
   let spawnArgv: string[] = opts.workerArgv; try { spawnArgv = ulimitArgv(opts.workerArgv, workerEnv); } catch { /* spawnWorker refuses the same input */ } log.append("capability.recorded", null, { stages: workerStages().map((st) => stageCapability(st, envWithPwd(workerEnv, opts.repoDir), spawnArgv)) }); // GAME10-05a: worker stages are read from the env and argv spawnWorker is given; pr is recorded by recordSpawnEnv at its own spawn
   let sealed: Record<string, unknown> | null = null; const origBranch = opts.restoreBranch !== undefined ? opts.restoreBranch : currentBranch(opts.repoDir), sessionGroups = new Set<number>(); // session children are detached (own group), so the worker's group kill misses them
   const onWorkerLine = (line: string): void => {
-    const e = log.ingest(line); if (e) { stuck.event(String(e.stage ?? "unknown"), Date.now()); quiet.event(e.stage ?? null, e.type, Date.now()); }
+    const e = log.ingest(line); if (e) { lastEventMs = Date.now(); stuck.event(String(e.stage ?? "unknown"), Date.now()); quiet.event(e.stage ?? null, e.type, Date.now()); }
     if (e?.type === "session.started" && typeof e.data.pgid === "number") sessionGroups.add(e.data.pgid); if (e?.type === "receipt.sealed") { sealed = e.data; log.checkpoint(e.data["receipt_sha256"]); }
     if (e?.type === "variant" && e.data.intent_confirm === true && workerEnv.LOKI_INTENT_TTY === "1") {
       void askIntent(String(e.data.card ?? ""), join(opts.repoDir, ".loki", "runs", opts.runId));
     }
   };
   let workerStopped = false;
-  let worker = await spawnWorker(opts.workerArgv, workerEnv, opts.repoDir, backstopMs, escalateMs, onWorkerLine, (stopped) => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); workerStopped = stopped; if (stopped && !(backstopSealOn(env) && !sealed)) restoreBranch(opts.repoDir, origBranch); }).finally(() => clearInterval(beat)); // BACKSTOP-SEAL: a kill with no receipt keeps the tree on the run branch for the seal pass
+  let worker = await spawnWorker(opts.workerArgv, workerEnv, opts.repoDir, backstopMs, escalateMs, onWorkerLine, hang, (stopped) => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); workerStopped = stopped; if (stopped && !(backstopSealOn(env) && !sealed)) restoreBranch(opts.repoDir, origBranch); }).finally(() => clearInterval(beat)); // BACKSTOP-SEAL: a kill with no receipt keeps the tree on the run branch for the seal pass
   { const rdir = join(opts.repoDir, ".loki", "runs", opts.runId), own = cleanupScratchRecord(rdir), sc = own ?? readExitCleanup(rdir); if (sc && (sc.stopped.length || sc.left.length)) log.append("scratch.cleanup", null, { when: own ? "after the worker exited" : "at the worker's exit", stopped: sc.stopped, left: sc.left, removed: sc.removed, ...(sc.kept ? { kept: sc.kept } : {}) }); } // Q1 SCRATCH-OWNED: a worker stopped by a signal or the backstop never ran its own cleanup
   // BACKSTOP-SEAL (dev4 gitoxide on 11.141.5: the worker's own soft cap never fired, the backstop killed it at 1141 s and no receipt existed): a worker killed by the
   // backstop before it sealed gets one seal pass. A fresh worker resumes from the durable log with only commit and seal (LOKI_E10_SEAL_ONLY), seals the current tree as
@@ -239,7 +242,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
       sealPass = true; process.stderr.write(`engine10: the backstop stopped the worker before it sealed; sealing the current tree (up to ${Math.round(leftMs / 1000)} s)\n`);
       try { const runBr = `loki/${opts.runId}`; if (currentBranch(opts.repoDir) !== runBr) safeGit(opts.repoDir, ["checkout", runBr], { stdio: "ignore" }); } catch { /* the seal pass seals whatever tree is checked out */ }
       log.sealLog();
-      const sealed2 = await spawnWorker(opts.workerArgv, { ...workerEnv, LOKI_E10_RESUME: "1", LOKI_E10_SEAL_ONLY: "1" }, opts.repoDir, leftMs, escalateMs, onWorkerLine, () => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); });
+      const sealed2 = await spawnWorker(opts.workerArgv, { ...workerEnv, LOKI_E10_RESUME: "1", LOKI_E10_SEAL_ONLY: "1" }, opts.repoDir, leftMs, escalateMs, onWorkerLine, undefined, () => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); });
       if (sealed) worker = { ...sealed2, killed: true };
     }
   }
@@ -249,7 +252,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const v = sealedData?.verdict;
   const receiptVerdict = workerExit === 0 && typeof v === "string" && VERDICTS.has(v), verdict: Verdict = receiptVerdict ? (v as Verdict) : "FAILED"; // FC-21b (3): a sealed receipt is the one source of truth for the outcome
   const notProven = Array.isArray(sealedData?.not_proven) ? (sealedData.not_proven as unknown[]).map(String) : [];
-  if (worker.killed) notProven.push(sealPass && sealed ? BACKSTOP_SEALED_NOTE : BACKSTOP_NOT_PROVEN); const ev0 = readEvents(log.path), usage = worker.cancelled ? null : usageLimitOfRun(ev0); // USAGE-LIMIT: a session hit a provider usage limit; the run closes as a resumable stop, never sealed FAILED
+  if (worker.killed) notProven.push(worker.hung ? (sealPass && sealed ? HANG_SEALED_NOTE : HANG_NOT_PROVEN) : sealPass && sealed ? BACKSTOP_SEALED_NOTE : BACKSTOP_NOT_PROVEN);/* NO-DEFAULT-BUDGET: a hung worker is named as hung */ const ev0 = readEvents(log.path), usage = worker.cancelled ? null : usageLimitOfRun(ev0); // USAGE-LIMIT: a session hit a provider usage limit; the run closes as a resumable stop, never sealed FAILED
   const cancelled: string | null = worker.cancelled ?? (ev0.some((e) => e.type === "cancel_effective") ? "request" : usage ? "usage limit" : null); /* P12-10b: a loki cancel honoured at a stage boundary completes as cancelled too */ if (cancelled) notProven.push(usage && cancelled === "usage limit" ? `not sealed: run paused by a provider usage limit at stage ${usage.stage}` : `run cancelled by ${cancelled}`); // the Reason line (output.ts usagePauseLine) is the one line naming the limit and its reset // SIGINT/SIGTERM: usage so far is kept, no PR or backstop commit
   let prUrl: string | null = null;
   const intact = log.verify(); // unconditional re-check before the PR
@@ -260,9 +263,11 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
     const stages = fold(readEvents(log.path)).stages; // A-104c: a failed commit stage already chose what to exclude (Wall files, lockfiles, pre-run dirt); a blanket `add -A` would undo it
     const baseE = stages["intake"], base = validBase(baseE?.type === "stage.completed" ? baseE.data.base_sha : null); // D50-F4b: a worker-written base is never an option or ref
     if (verdict === "FAILED" && stages["commit"]?.type !== "stage.failed") { const why = guardedBackstop(intact, opts.repoDir, workerEnv, opts.runId, base, baseE?.type === "stage.completed" ? baseE.data.preexisting_dirty : undefined, baseE?.type === "stage.completed" ? baseE.data.install_created : undefined, baseE?.type === "stage.completed" ? baseE.data.preexisting_untracked_blobs : undefined, baseE?.type === "stage.completed" && typeof baseE.data.task === "string" ? baseE.data.task : undefined); if (why) notProven.push(why); } // no completed intake = no run branch: repoDir is still the user's own branch, never `add -A` there
-    if (base === null && verdict !== "FAILED") hasDiff = true; else try { // no recorded base: nothing to compare, keep the pre-P1 behaviour; otherwise // net diff against base (a revert commit can leave HEAD past base with nothing to publish); any failure counts as a diff
-      safeGit(opts.repoDir, ["diff", "--quiet", String(base), "HEAD", "--", ".", ":(exclude).loki"], { env: workerEnv, stdio: "ignore" });
-    } catch { hasDiff = base !== null; }
+    if (base === null && verdict !== "FAILED") hasDiff = true; else if (base !== null) { // no recorded base: nothing to compare, keep the pre-P1 behaviour; otherwise the net diff against base (a revert commit can leave HEAD past base with nothing to publish)
+      const ch = diffAgainstBase(opts.repoDir, base, "HEAD", workerEnv); // EMPTY-PUSH: tri-state; a hardened call that fails falls back to plain git before anything counts as unknown
+      hasDiff = ch !== false; // unknown still counts as a diff (work is never kept back silently); pr.ts runPr re-checks the branch itself and never pushes one equal to base
+      if (ch === null) process.stderr.write(`engine10: run ${opts.runId}: could not compare HEAD with the base ${base.slice(0, 12)}; treating it as changed\n`);
+    }
   }
   // FAILED-PR: a FAILED run with a sealed receipt and committed work opens a labelled DRAFT PR ("[FAILED: <check>]", the failing checks first), so committed work is never kept silently local.
   // SECRET-PUSH: the one exception is a security scan secret match (stages/seal.ts secretPushRefusal): that change must not leave the machine before a review, whatever the verdict.
@@ -346,6 +351,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     else if (a === "--json") json = true;
     else if (a === "--verbose") verbose = true;
     else if (a === "--quiet") quiet = true; // OC-OUTPUT: unified summary only
+    else if (TIME_FLAGS[a.split("=")[0]!]) { const name = a.split("=")[0]!, v = a.includes("=") ? a.slice(a.indexOf("=") + 1) : args[++i], s = parseDurationS(v); if (s === null) { process.stderr.write(`engine10: ${name} needs a duration (seconds, or 90m / 2h), got '${v ?? ""}'\n`); noteRefusal("unsupported_flag"); return 2; } process.env[TIME_FLAGS[name]!] = String(s); } // NO-DEFAULT-BUDGET: the user's opt-in time limits
     else if (a === "--max-cost") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --max-cost needs a value\n"); noteRefusal("unsupported_flag"); return 2; } maxCost = v; i++; } // TEN-STABILITY-63: a missing or flag-shaped value exits 2 instead of becoming ""
     else if (a.startsWith("--max-cost=")) maxCost = a.slice(11); // TEN-STABILITY-38: exact flag only, so --max-costly is an unknown flag
     else if (a === "--provider") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --provider needs a value\n"); noteRefusal("unsupported_flag"); return 2; } provider = v; providerNamed = true; i++; } // TEN-UX-33: a missing or flag-shaped value never silently keeps the env provider or eats the next flag
@@ -357,8 +363,13 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     else if (a === "--label") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --label needs a value\n"); noteRefusal("unsupported_flag"); return 2; } label = v; i++; } // MANY: `loki start owner/repo --label L` runs every open issue carrying the label
     else if (a.startsWith("--label=")) label = a.slice(8);
     else if (a === "--seal-existing") { const v = args[i + 1]; if (v === undefined || v === "" || v.startsWith("-")) { process.stderr.write("engine10: --seal-existing needs a patch file\n"); noteRefusal("unsupported_flag"); return 2; } sealPatch = resolve(v); noPr = true; i++; } // CW-12: the changes already exist as this patch; implement applies it instead of running a session, and no PR is ever opened
+    else if (!eoo && ROLE_FLAG_ENV.has(a.includes("=") ? a.slice(0, a.indexOf("=")) : a)) { // ROLE-MODELS: --plan-model M ... --models plan=M,...; validated with the rest below
+      const name = a.includes("=") ? a.slice(0, a.indexOf("=")) : a, v = a.includes("=") ? a.slice(a.indexOf("=") + 1) : args[++i];
+      if (v === undefined || v === "" || (!a.includes("=") && v.startsWith("-"))) { process.stderr.write(`engine10: ${name} needs a value\n`); noteRefusal("unsupported_flag"); return 2; }
+      process.env[ROLE_FLAG_ENV.get(name)!] = v;
+    }
     else if (a === "--" && !eoo) eoo = true; // TEN-STABILITY-37: `--` ends options, the rest is task text
-    else if (!eoo && /^--?[A-Za-z][\w-]*(=\S*)?$/.test(a)) { process.stderr.write(`engine10: unknown flag ${a}\nusage: loki "<task>" [--no-pr] [--deep] [--verified] [--json] [--verbose] [--quiet] [--max-cost N] [--provider P] [--spec F] [--seal-existing PATCH] [--resume] [--fresh] [--base-current] [-- <task>]\n`); noteRefusal("unsupported_flag"); return 2; } // flag-shaped only: a PRD body starting with "- item" or "---" has whitespace and stays task text
+    else if (!eoo && /^--?[A-Za-z][\w-]*(=\S*)?$/.test(a)) { process.stderr.write(`engine10: unknown flag ${a}\nusage: loki "<task>" [--no-pr] [--deep] [--verified] [--json] [--verbose] [--quiet] [--max-cost N] [--max-time DUR] [--verify-max-time DUR] [--provider P] [--spec F] [--seal-existing PATCH] [--resume] [--fresh] [--base-current] [--plan-model M --dev-model M --test-model M --review-model M --advisor-model M --helper-model M --escalate-model M | --models plan=M,...] [-- <task>]\n`); noteRefusal("unsupported_flag"); return 2; } // flag-shaped only: a PRD body starting with "- item" or "---" has whitespace and stays task text
     else words.push(a);
   }
   let task = words.join(" ").trim(); if (resume) return (await import("../util/run_outputs.ts")).resumeFlag(words[0], noPr);
@@ -405,10 +416,12 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     if (ch.pin) process.env.LOKI_SESSION_MODEL = ch.pin;
     process.env.LOKI_SESSION_MODEL_SOURCE = ch.source; modelWhy = ch.why;
   }
+  let roleLine = ""; try { const cm = await import("../util/claude_model.ts"); cm.roleSettings(process.env); const ce = cm.roleValueError(process.env, provider) ?? cm.roleConflictError(process.env, provider); if (ce) throw new Error(ce); roleLine = [cm.roleStartLine(process.env, provider), provider === "claude" ? cm.fableRawApiNote(process.env) : ""].filter(Boolean).join("\n"); } catch (err) { process.stderr.write(`engine10: ${err instanceof Error ? err.message : String(err)}\n`); return 2; } // ROLE-MODELS: a bad role value is refused before any call, never dropped
   const runId = `e10-${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}-${Math.random().toString(16).slice(2, 6)}`;
   const runDir = join(repoDir, ".loki", "runs", runId);
   const cap = resolveCap(maxCost, repoDir); if ("error" in cap) { process.stderr.write(`engine10: ${cap.error}\n`); return 2; }
   const trackerRef = parseTrackerRef(task), isIssue = ISSUE_RE.test(task) || trackerRef !== null, model = resolveModel(provider), env: NodeJS.ProcessEnv = { ...process.env, ...(!quiet && !verbose && !json ? { LOKI_E10_READINESS_FOLD: "1" } : {}) };
+  env.LOKI_E10_RUN_PROVIDER = provider; // ROLE-MODELS: the worker's tool-less calls and role resolution read the run's provider (--provider sets only a local here)
   if (quiet || verbose || json) delete env.LOKI_E10_READINESS_FOLD; // an inherited fold flag would hide the Readiness line outside default mode
   if (trackerRef && !process.env.LOKI_WRITEBACK_ISSUE) { process.env.LOKI_WRITEBACK_ISSUE = env.LOKI_WRITEBACK_ISSUE = trackerRef.key; process.env.LOKI_WRITEBACK_KIND = env.LOKI_WRITEBACK_KIND = trackerRef.source; } // writeback keys off the intake ref (direct `loki jira:KEY` path)
   { const rp = await (await import("../util/pr_lessons.ts")).replayKnownVerdict(repoDir, task, { fresh, json, skip: isIssue || spec !== null || sealPatch !== null || deep, provider, model }); if (rp !== null) return rp; } // L007: an identical rerun with a known verdict replays at zero cost, before any run state; --fresh runs the full pipeline
@@ -451,7 +464,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   if (prPlan?.pr_base) process.env.LOKI_PR_BASE = env.LOKI_PR_BASE = prPlan.pr_base; // the push opens the pull request into the user's branch (stages/pr.ts stackBase)
   // The header is at most three short lines: target and base; the model and how to change it; the cap (when one is set), the estimate and, under --verified, the verified-mode bounds. The rest (no-cap note, downgrades) is behind --verbose. Only a run with LOKI_ROUTER on gets a fourth line: its route and the downgrades that route makes.
   const downLine = downgrades.length ? `downgrade: ${downgrades.map((d) => `${d.stage} ${d.model} (${d.reason})`).join(", ")}` : "";
-  const headLines = [`${START_LINE}, ${prPlan?.header ?? baseLine(repoDir)}`, modelWhy ? `model ${model} (${modelWhy})` : "", [cap.usd > 0 ? capNote(cap.usd, cap.source) : "", costEst ? startText(JSON.parse(costEst), cap.usd) : "", verifiedOn(env) ? verifiedHeader(env) : ""].filter(Boolean).join("; "), routeStart ? [routeStart, downLine].filter(Boolean).join("; ") : "",
+  const headLines = [`${START_LINE}, ${prPlan?.header ?? baseLine(repoDir)}`, modelWhy ? `model ${model} (${modelWhy})` : "", roleLine, [cap.usd > 0 ? capNote(cap.usd, cap.source) : "", costEst ? startText(JSON.parse(costEst), cap.usd) : "", verifiedOn(env) ? verifiedHeader(env) : ""].filter(Boolean).join("; "), routeStart ? [routeStart, downLine].filter(Boolean).join("; ") : "",
     verbose ? [cap.usd > 0 ? "" : capNote(cap.usd, cap.source), routeStart ? "" : downLine].filter(Boolean).join("; ") : ""].filter(Boolean);
   if (!json) process.stdout.write(`${headLines.join("\n")}\n`); if (verbose && !json && cap.source === "subscription") process.stdout.write(`${SUBSCRIPTION_NOTE}\n`); // D48: the start lines name the engine; provider, model and run id are in the receipt
   if (prPlan?.line) (json ? process.stderr : process.stdout).write(`${prPlan.line}\n`); // said once, in plain words, before any session
@@ -486,7 +499,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   }
   let reqMap: { requirements: { id: string; text: string; status: string }[] } | null | undefined; // REQTRACE: computed once, before the PR stage, from intake/spec plus verify results; undefined = not yet computed
   const reqOnce = async (evs: ReturnType<typeof readEvents>): Promise<NonNullable<typeof reqMap> | null> => { if (reqMap === undefined) { const rq = await import("../features/contract.ts"); reqMap = rq.writeFromEngine10(repoDir, join(repoDir, ".loki"), runDir, isIssue ? null : task, evs); } return reqMap; }; // also removes a prior run's stale map when this run has no requirements
-  const sized = deep ? null : resolveRunCapS(repoDir, cap.usd <= 0, env), dlS = deep ? deadlineCapS(env) : undefined, capS = sized?.capS ?? (dlS === undefined ? DEEP_CAP_S : Math.min(DEEP_CAP_S, dlS)); // RUN-DEADLINE: a deep run honors the outer deadline too
+  const sized = deep ? null : resolveRunCapS(repoDir, cap.usd <= 0, env), dlS = deep ? deadlineCapS(env) : undefined, capS = sized?.capS ?? (dlS === undefined ? deepCapS(env) : Math.min(deepCapS(env), dlS)); /* NO-DEFAULT-BUDGET: --deep has no 2700 s cap unless budgets are on */ // RUN-DEADLINE: a deep run honors the outer deadline too
   applyCapEnv(env, capS, sized); // FC-21b: starts at DEFAULT_CAP_S; the worker resizes once after plan from plan-scope.json unless the cap is fixed
   const statusStep = noPr || !ISSUE_RE.test(task) ? undefined : (await import("../util/run_outputs.ts")).issueStatusProjector({ pushSh: (await import("./stages/pr.ts")).DEFAULT_PUSH_SH, env, origin: readOriginUrl(repoDir), repoDir, runDir, runId, issueRef: task, eventsPath }), stopPlan = statusStep ? tail(eventsPath, (e) => { if (e.type === "stage.completed" && e.stage === "plan") void statusStep(); }, { intervalMs: 500 }) : () => {};
   let refusedAs: PreflightBlocker = "other"; // AN-08

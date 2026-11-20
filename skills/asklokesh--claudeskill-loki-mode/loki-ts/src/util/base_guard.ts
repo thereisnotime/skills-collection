@@ -309,6 +309,25 @@ const RUNNER_CACHE_DIRS = [".vite", ".vite-temp", ".vitest", ".vitest-cache", ".
 // fl24 (FireLater#24, v11.139.0): an ignored file a typecheck, linter or Finder rewrites as its own output, never something a test imports. The implement
 // session's `tsc --noEmit` rewrote frontend/tsconfig.tsbuildinfo, so every base rerun ran without node_modules, parsed no ids, and 22 page tests red on base blocked.
 const TOOL_OUTPUT_FILE = /(?:^|\/)(?:[^/]*\.tsbuildinfo|\.eslintcache|\.stylelintcache|\.DS_Store|next-env\.d\.ts)$/; // next-env.d.ts: Next rewrites this ignored file on every dev or build start; a proof script that started `next dev` changed it and the base rerun lost its node_modules (FireLater#24)
+/** TOOL-OUTPUT-IN-DEPS (LOKI_E10_TOOL_OUTPUT_IN_DEPS, default on; =0/off/false/no opts out). True for a dot-named directory that holds nothing but tool
+ *  output files (TOOL_OUTPUT_FILE), at most 64 entries deep and wide together. A project can point its typecheck's build info inside node_modules
+ *  (opencode's packages/core: "tsBuildInfoFile": "node_modules/.ts-dist/source.tsbuildinfo"), so Loki's own `tsc --noEmit` lint creates that directory
+ *  after intake. No test imports it and a dot name is never a package name, yet it read as "the environment changed since intake": the base tree got no
+ *  dependencies for that package and its suite was "not measured on base" in every closed-set-2 run of oc63960. Anything else in the directory (an emitted
+ *  .d.ts, a script) makes it an ordinary entry again. */
+export const toolOutputInDepsOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_TOOL_OUTPUT_IN_DEPS"] ?? "").trim());
+export function toolOutputDir(dir: string): boolean {
+  if (!toolOutputInDepsOn() || !basename(dir).startsWith(".")) return false;
+  let n = 0;
+  const only = (d: string): boolean => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (++n > 64) return false;
+      if (e.isDirectory()) { if (!only(join(d, e.name))) return false; } else if (!e.isFile() || !TOOL_OUTPUT_FILE.test(e.name)) return false;
+    }
+    return true;
+  };
+  try { return lstatSync(dir).isDirectory() && only(dir) && n > 0; } catch { return false; }
+}
 /** The packages a dependency dir holds (names, "@scope/name" for scoped ones; a venv's site-packages entries as "py/<name>"), runner caches left out; null
  *  past the bound. A deleted or renamed package changes this list and nothing a files-only walk can see (the parent directory's ctime also moves when a
  *  runner adds its cache entry, so directories alone cannot tell the two apart). */
@@ -316,7 +335,7 @@ export function depsListing(root: string): string[] | null {
   const out: string[] = [], skip = (n: string): boolean => RUNNER_CACHE_DIRS.includes(n) || n === "__pycache__";
   const list = (dir: string, prefix: string): void => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (skip(e.name)) continue;
+      if (skip(e.name) || (e.isDirectory() && toolOutputDir(join(dir, e.name)))) continue; // TOOL-OUTPUT-IN-DEPS
       if (e.name.startsWith("@") && (e.isDirectory() || e.isSymbolicLink())) { try { list(join(dir, e.name), `${prefix}${e.name}/`); continue; } catch { /* a link to nowhere is listed as itself */ } }
       out.push(prefix + e.name);
       if (out.length > 50000) throw new RangeError("bound");
@@ -332,6 +351,20 @@ export function depsListing(root: string): string[] | null {
     }
   } catch { return null; }
   return out.sort();
+}
+/** EXOGENOUS-RED: the first installed package intake listed under `pkgDir`'s node_modules or .venv that is gone now ("<dir>: <name>"), or null. A package
+ *  that was there at intake and is missing after the run is the run's doing: a test that fails for it is blamed on the change, though no base run can show
+ *  it (the base tree gets no dependencies once the environment changed). An added package says nothing here: an install step adds them. */
+export function depsGoneSince(repoDir: string, pkgDir: string, deps?: Record<string, string[] | null>): string | null {
+  if (!deps) return null;
+  for (const d of ["node_modules", ".venv"]) {
+    const rel = relative(repoDir, join(pkgDir, d)), was = deps[rel]; if (!was?.length) continue;
+    let now: string[] | null = null; try { now = existsSync(join(pkgDir, d)) ? depsListing(join(pkgDir, d)) : []; } catch { now = null; }
+    if (!now) continue;
+    const have = new Set(now), gone = was.find((n) => !have.has(n));
+    if (gone !== undefined) return `${rel}: ${gone}`;
+  }
+  return null;
 }
 /** True (withhold) unless the environment is as intake left it at `sinceMs`: every ignored entry intake listed still exists, and no entry under
  *  `pkgDir`'s node_modules or .venv, and no ignored file intake listed, had its status changed since (ctime, which a process cannot set back;
@@ -359,11 +392,11 @@ export function envChangedSince(repoDir: string, pkgDir: string, sinceMs: number
     writeFileSync(stamp, "");
     utimesSync(stamp, sinceMs / 1000, sinceMs / 1000);
     const prune = RUNNER_CACHE_DIRS.flatMap((n, i) => [...(i ? ["-o"] : []), "-name", n]);
-    const out = execFileSync("find", ["-P", ...new Set(roots), "(", ...prune, ")", "-prune", "-o", "(", "-type", "f", "-o", "-type", "l", ")", "-cnewer", stamp, "-print", "-quit"] /* files and links only: a runner adding a cache entry changes its parent directory's ctime, which is not a dependency change */, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 120000 });
-    if (out.trim() !== "") return true;
+    const out = execFileSync("find", ["-P", ...new Set(roots), "(", ...prune, ")", "-prune", "-o", "(", "-type", "f", "-o", "-type", "l", ")", "-cnewer", stamp, "-print"] /* files and links only: a runner adding a cache entry changes its parent directory's ctime, which is not a dependency change */, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 120000 });
+    if (out.split("\n").some((f) => f !== "" && !(TOOL_OUTPUT_FILE.test(f) && toolOutputDir(dirname(f))))) return true; // TOOL-OUTPUT-IN-DEPS: a tool's own output in a directory that holds nothing else
     // directories: a changed directory is a dependency change unless it is a dependency root or site-packages (the listing above covers them) or holds a runner cache
     const dirs = execFileSync("find", ["-P", ...new Set(roots), "(", ...prune, ")", "-prune", "-o", "-type", "d", "-cnewer", stamp, "-print"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 120000, maxBuffer: 64 * 1024 * 1024 }).split("\n").filter(Boolean);
-    return dirs.some((d) => !(roots.includes(d) || /(?:^|\/)site-packages$/.test(d) || RUNNER_CACHE_DIRS.concat("__pycache__").some((c) => existsSync(join(d, c)))));
+    return dirs.some((d) => !(roots.includes(d) || /(?:^|\/)site-packages$/.test(d) || RUNNER_CACHE_DIRS.concat("__pycache__").some((c) => existsSync(join(d, c))) || toolOutputDir(d)));
   } catch { return true; } finally { if (stampDir) rmSync(stampDir, { recursive: true, force: true }); }
 }
 
@@ -388,6 +421,18 @@ export async function zeroOnBase(
  *  of a suite that needs its dependencies can run at all. The returned function answers false (nothing linked, the base run stays without
  *  dependencies: fail closed) when the head's deps can see head sources (depsSeeHead) or, with a lazy `gate`, when envChangedSince finds the
  *  environment changed since intake. One guard walk per package dir. Shared by zeroOnBase and verify's base-red subtraction. */
+/** BASE-LINK-SCOPE (LOKI_E10_BASE_LINK_SCOPE, default on, =0 opts out; FireLater#18 on 11.164.0): a changed dependency manifest stops the head's dependency dirs
+ *  being linked into the base worktree only for the packages it can affect: the package whose root holds it, every package above it (a root manifest or lockfile
+ *  blocks everything) and every package inside its directory (a workspace root). A manifest in a sibling package does not. The failure: backend/package.json
+ *  changed, so the frontend's vitest files also ran on a bare base, gave no ids, could not be compared, and 22 page tests red on base were fed to the fix rounds
+ *  as the change's own until a fix round called them a spec conflict. `cwdRel` is the check's working directory relative to the repository ("." for the root). */
+export const baseLinkScopeOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_BASE_LINK_SCOPE"] ?? "").trim());
+export function manifestBlocksBaseLink(changed: readonly string[], cwdRel: string, isManifest: (f: string) => boolean, env: NodeJS.ProcessEnv = process.env): boolean {
+  const ms = changed.filter(isManifest); if (ms.length === 0) return false;
+  const cwd = cwdRel.replace(/^\.\/?/, "").replace(/\/+$/, "");
+  if (!baseLinkScopeOn(env) || cwd === "" || cwd.startsWith("..")) return true; // off, the root package, or a directory outside the repo: any changed manifest blocks
+  return ms.some((m) => { const d = m.includes("/") ? m.slice(0, m.lastIndexOf("/")) : ""; return d === "" || d === cwd || cwd.startsWith(`${d}/`) || d.startsWith(`${cwd}/`); });
+}
 export function baseDepsLinker(baseDir: string, repoDir: string, gate: Pick<ZeroGate, "sinceMs" | "ignored" | "deps"> = {}): (cwd: string) => boolean {
   const seen = new Map<string, boolean>();
   return (cwd) => {
@@ -435,6 +480,24 @@ export function baseDepsView(baseDir: string, repoDir: string, gate: Pick<ZeroGa
     return true;
   };
   return (cwd) => { const src = join(repoDir, relative(baseDir, cwd)); if (!seen.has(src)) { let ok = false; try { ok = build(src, cwd); } catch { ok = false; } seen.set(src, ok); } return seen.get(src)!; };
+}
+
+/** BASE-TREE-MEMBERS (LOKI_E10_BASE_TREE_MEMBERS, default on; =0/off/false/no opts out). A suite in a workspace imports its sibling packages from source, and
+ *  a sibling resolves its own dependencies from its own node_modules. Linking only the suite's package and the root left every sibling in the base worktree
+ *  without one: on opencode the cli suite ran 123 tests with 84 failures in the base tree ("Cannot find package 'effect' from packages/util/src/...") against
+ *  408 with 8 in the checkout, so 7 of the 8 tests red on base read "not red on base". Every tracked directory with a package.json that has a node_modules in
+ *  the checkout gets its dependencies in the base worktree through the same `link` (baseDepsLinker, else baseDepsView): the base tree then resolves what the
+ *  checkout resolves. `manifests` are the tracked package.json paths (repo-relative). Returns how many member directories there were and the ones `link`
+ *  refused (fail closed: nothing is linked for those, and the caller discloses them). */
+export const baseTreeMembersOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_BASE_TREE_MEMBERS"] ?? "").trim());
+export const BASE_TREE_MEMBER_MAX = 400;
+export function linkWorkspaceMembers(baseDir: string, repoDir: string, link: (cwd: string) => boolean, manifests: readonly string[]): { members: number; refused: string[] } {
+  if (!baseTreeMembersOn()) return { members: 0, refused: [] };
+  const dirs = [...new Set(manifests.filter((f) => f === "package.json" || f.endsWith("/package.json")).map((f) => dirname(f)))]
+    .filter((d) => d !== "." && !d.split("/").includes("node_modules") && existsSync(join(repoDir, d, "node_modules")) && existsSync(join(baseDir, d)))
+    .sort().slice(0, BASE_TREE_MEMBER_MAX);
+  const refused = dirs.filter((d) => { try { return !link(join(baseDir, d)); } catch { return true; } });
+  return { members: dirs.length, refused };
 }
 
 /** True when one finished run of a test command executed zero tests (the shared mapping of 0 tests to not_run; a cut or missing run never counts). */

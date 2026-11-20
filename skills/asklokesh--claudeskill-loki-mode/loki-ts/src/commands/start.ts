@@ -5,17 +5,17 @@
 // every other start is routed straight to engine10 by route.sh. --workspace and --deploy are
 // handed to the bash front end (autonomy/loki) unchanged.
 
+import { parseDurationS, TIME_FLAGS } from "../util/run_cap.ts";
 import { SAFE_BUN_FLAGS } from "../runner/worker_proc.ts";
 import { accessSync, constants as fsConstants, existsSync as pathExists, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { basename, join, resolve } from "node:path";
-import { DEFAULT_MAX_COST_USD } from "../e10ext/budget_cap.ts"; // LM-002: help states the real default
 import type { ProviderName, SessionTier } from "../runner/types.ts";
 import { resolveRunProvider } from "../runner/state.ts";
 import { tokenFreeEnv, safeGitRun } from "../util/safe_git.ts";
 import { REPO_ROOT } from "../util/paths.ts";
-import { GENERIC_TIERS, VALID_TIERS } from "../util/claude_model.ts";
+import { GENERIC_TIERS, ROLE_FLAG_ENV, roleConflictError, roleSettings, roleStartLine, roleValueError, VALID_TIERS } from "../util/claude_model.ts";
 import { applyCostProfile, COST_PROFILES, routerKeptNote } from "../util/cost_profile.ts";
 import { lokiYamlTexts, yamlKey } from "../util/yaml_key.ts";
 import { suggestWord } from "../cli/registry.ts";
@@ -32,8 +32,11 @@ function argVal(args: readonly string[], flag: string): string | undefined {
   return undefined;
 }
 
+// ROLE-MODELS: one model per role (util/claude_model.ts roleSettings), exported for engine10; validated below, a bad value exits 2.
+const ROLE_FLAGS = ROLE_FLAG_ENV;
 // RUNNER value-flags: consume the next token, map to a ParsedStartOpts field.
 const VALUE_FLAGS = new Set([
+  ...ROLE_FLAGS.keys(),
   "--max-iterations",
   "--max-retries",
   "--budget-limit",
@@ -46,11 +49,13 @@ const VALUE_FLAGS = new Set([
   "--prd", // explicit spec path (overrides positional)
   "--brief", // one-liner spec text
   "--cost", // TEN-COST-01: cost profile (lean|off); also LOKI_COST_PROFILE
+  "--max-time", // NO-DEFAULT-BUDGET: the user's outer time limit (LOKI_RUN_DEADLINE_S)
+  "--verify-max-time", // NO-DEFAULT-BUDGET: the user's verify time limit (LOKI_E10_VERIFY_MAX_S)
 ]);
 
 // TEN-STABILITY-33: free-text value flags. A missing, empty or dash-leading value is an error (use --flag=-x for a dash-leading value).
 // TEN-UX-48: --provider, --session-model, --cost and --spec take a required value too.
-const TEXT_VALUE_FLAGS = new Set(["--prd", "--brief", "--completion-promise", "--provider", "--session-model", "--cost", "--spec"]);
+const TEXT_VALUE_FLAGS = new Set(["--prd", "--brief", "--completion-promise", "--provider", "--session-model", "--cost", "--spec", ...ROLE_FLAGS.keys()]);
 
 // RUNNER boolean env-mapping flags: no value token; set an env var the runner
 // already reads (or, for --skip-memory, now reads -- see build_prompt/runner).
@@ -77,6 +82,7 @@ const NOOP_BOOL_FLAGS = new Set(["--yes", "-y", "--no-plan", "--no-mirofish", "-
 // --prd / --brief pick the spec. Every other runner flag is refused with exit 2, never dropped.
 // Without --attempts the 11.3.0 surface above applies unchanged.
 const ATTEMPTS_VALUE_FLAGS = new Set([
+  ...ROLE_FLAGS.keys(), // ROLE-MODELS: engine10 honors them, so attempts and --spec runs accept them
   "--budget-limit",
   "--budget",
   "--provider",
@@ -85,6 +91,8 @@ const ATTEMPTS_VALUE_FLAGS = new Set([
   "--brief",
   "--cost",
   "--attempts", // N independent attempts in separate worktrees (1-5)
+  "--max-time",
+  "--verify-max-time",
 ]);
 const ATTEMPTS_NOOP_BOOL_FLAGS = new Set(["--yes", "-y", "--no-plan", "--no-mirofish", "--no-dashboard", "--no-pr"]);
 
@@ -139,12 +147,14 @@ export interface ParsedStartOpts {
 }
 
 export const START_USAGE =
-  "usage: loki start <spec> [--max-iterations N] [--max-retries N] [--budget-limit USD]\n" +
+  "usage: loki start <spec> [--max-iterations N] [--max-retries N] [--budget-limit USD] [--max-time DUR] [--verify-max-time DUR]\n" +
   "                        [--provider claude|opencode] [--session-model small|medium|high|opus|sonnet|haiku]\n" +
   "                        [--completion-promise TEXT] [--base-wait S] [--max-wait S]\n" +
   "                        [--prd FILE | --brief TEXT] [--simple|--complex] [--allow-haiku]\n" +
   "                        [--regen-prd] [--skip-memory] [--cost lean|off] [--haiku]\n" +
   "                        [--spec FILE | --spec-first] [--dry-run]\n" +
+  "                        [--plan-model M] [--dev-model M] [--test-model M] [--review-model M] [--advisor-model M]\n" +
+  "                        [--helper-model M] [--escalate-model M] [--models plan=M,dev=M,...]\n" +
   "                        [--workspace NAME | --deploy [--health-url URL [--health-match STR]] [--auto-rollback]\n" +
   "                                  [--destination preview|staging|production] [--canary] [--env-file FILE] [--domain HOST] [--github]]\n" +
   "  <spec> = a PRD path, or a one-line brief. (Issue refs / --github / --parallel /\n" +
@@ -153,12 +163,23 @@ export const START_USAGE =
   "  --cost lean|off   opt-in cost profile (also LOKI_COST_PROFILE=lean): sets LOKI_ROUTER=auto, LOKI_E10_TRIM=1, LOKI_E10_SMALL_NO_RUNNER=1 and LOKI_E10_SMALL_MAX_CHARS=1200 unless already set; recorded in .loki/cost-profile.json\n" +
   "  --haiku          opt in to Haiku for implement and fix (LOKI_ROUTER=auto, the lean levers, plus LOKI_COST_FIRST=1). A failed check climbs to Sonnet. Without it the model is the provider default, same as a raw session\n" +
   "  Proof            loki start sets LOKI_MUTATION_STRICT=1 and LOKI_E10_TRIM=1 unless you set them. A behavior change is VERIFIED only when a Wall test fails on the old code. Tool logs are trimmed before the next turn. Opt out with either var set to 0\n" +
+  "  --plan-model M ... --models plan=M,dev=M,test=M,review=M,advisor=M,helper=M,escalate=M\n" +
+  "                pick the model per role (M = haiku|sonnet|opus|fable or a model id; an opencode id on opencode). Roles: plan (the plan session),\n" +
+  "                dev (implement, fix, extra attempts), test (Wall tests, exec spec, prove), review (cross-review, acceptance check, attempt pick,\n" +
+  "                referee), advisor (consult and the router advisor), helper (intake checks), escalate (a fix round after a repeated failure).\n" +
+  "                Also LOKI_ROLE_<ROLE> or LOKI_MODELS. A set role is exact: never capped, downgraded or climbed; a dev pin escalates only to\n" +
+  "                --escalate-model. Unset roles keep Loki's choice. Older per-call variables (LOKI_E10_WALL_TIER, LOKI_E10_CONSULT_MODEL, ...) still win\n" +
+  "                --advisor-model picks the advisor's model only; it does not turn the advisor on. Turn it on with LOKI_E10_OPUS_CONSULT=1 (the consult)\n" +
+  "                or LOKI_ADVISOR=1 (the advisor tool alone; LOKI_ROUTER=1 or auto also attaches it)\n" +
   "  --fresh       skip the offer to resume an interrupted or cancelled run (also LOKI_NO_RESUME=1); without it, loki start offers to resume or start fresh itself\n" +
   "  --base-current  build on the branch you are on and open the pull request into that branch (also LOKI_BASE_CURRENT=1); without it, a run started on a branch that is not in the pull request's target starts from the target, so the pull request holds only this change\n" +
   "  --dry-run     validate every flag, run the preflight and print the provider, model and cost cap this run would use, then exit 0 without spending a token\n" +
   "  --spec-first  write the acceptance criteria to .loki/specs/<slug>.md and stop, so you can edit them\n" +
   "  --spec FILE   run Loki 10 against an edited spec as the authoritative intent (a spec that does not parse exits 2 with the line)\n" +
-  `  --budget-limit USD  per-run spend cap (default $${DEFAULT_MAX_COST_USD}; Loki 10 applies it with an API key and none on a subscription; see docs/cost-controls.md)\n` +
+  "  --budget-limit USD  per-run spend cap (default: none, with an API key or on a subscription; see docs/cost-controls.md)\n" +
+  "  --max-time DUR      outer time limit the run finishes inside, sealing what is done (LOKI_RUN_DEADLINE_S): seconds, or 90m / 2h.\n" +
+  "  --verify-max-time DUR  time limit for one verify stage (LOKI_E10_VERIFY_MAX_S): seconds, or 90m / 2h. Default: none.\n" +
+  "                      Default: none. With no limit the run stops when it is done or makes no progress, with a draft PR of what is done.\n" +
   "       loki start <spec> --attempts N [--no-pr] [--provider P] [--budget USD] [--session-model T]\n" +
   "  --attempts N  run N (1-5) independent Loki 10 engine attempts in separate git worktrees; the one with\n" +
   "                the most executed passing checks is applied and every loser is recorded on the attempts\n" +
@@ -245,6 +266,11 @@ export function parseStartArgs(
         continue;
       }
       if ((specMode ? SPEC_NOOP_BOOL_FLAGS : attemptsMode ? ATTEMPTS_NOOP_BOOL_FLAGS : NOOP_BOOL_FLAGS).has(name)) continue;
+      if (TIME_FLAGS[name]) { // NO-DEFAULT-BUDGET: no time limit is set by default; these set the user's own
+        const v = a.includes("=") ? a.slice(a.indexOf("=") + 1) : args[i + 1], sec = parseDurationS(v);
+        if (sec === null) { err(`start: ${name} needs a duration (seconds, or 90m / 2h), got '${v ?? ""}'\n`); return 2; }
+        applyEnv(TIME_FLAGS[name]!, String(sec)); if (!a.includes("=")) i++; continue;
+      }
       if (TEXT_VALUE_FLAGS.has(name)) {
         const inline = a.includes("=");
         const v = inline ? a.slice(a.indexOf("=") + 1) : args[i + 1];
@@ -306,6 +332,11 @@ export function parseStartArgs(
   // Export the pin the way run.sh does (translated, e.g. high -> planning), so
   // the provider's opus pin and every child process read the same value.
   if (tierRaw) applyEnv("LOKI_SESSION_MODEL", tierRaw);
+  // ROLE-MODELS: --plan-model, --dev-model, --test-model, --review-model, --advisor-model, --helper-model, --escalate-model and --models.
+  const roleEnv: Record<string, string> = {};
+  for (const [flag, key] of ROLE_FLAGS) { const v = argVal(args, flag); if (v !== undefined) roleEnv[key] = v; }
+  try { roleSettings({ ...process.env, ...roleEnv }); } catch (e) { err(`start: ${(e as Error).message}\n`); return 2; }
+  for (const [k, v] of Object.entries(roleEnv)) applyEnv(k, v);
 
   // TEN-COST-01: opt-in cost profile; fills only unset levers, records them, names them on one line.
   // TEN-COST-27: loki.yaml cost.profile is the team default; --cost and LOKI_COST_PROFILE win. An invalid yaml value warns and falls back.
@@ -631,6 +662,7 @@ export async function dryRunStart(o: ParsedStartOpts, repoDir: string, env: Node
     out("preflight: this folder is not a git repository; loki start would set one up if the folder is empty\n");
   }
   out(`dry-run: provider ${provider}, model ${o.sessionModel ?? "default tier routing"}, ${capNote(cap.usd, cap.source).replace("(--max-cost)", "(--budget-limit)")}, spec ${JSON.stringify(o.prdPath || o.specPath || "")}\n`);
+  { const ce = roleValueError(env as NodeJS.ProcessEnv, provider) ?? roleConflictError(env as NodeJS.ProcessEnv, provider); if (ce) { err(`start: ${ce}\n`); return 2; } const rl = roleStartLine(env as NodeJS.ProcessEnv, provider); if (rl) out(`${rl}\n`); } // ROLE-MODELS: refused as the real start refuses (the provider is resolved here, the saved choice included); the same per-role line // ROLE-MODELS: the same per-role line the real start prints
   out("dry-run: flags valid, preflight passed, nothing was run and no tokens were spent\n");
   return 0;
 }

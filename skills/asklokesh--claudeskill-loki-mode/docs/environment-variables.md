@@ -23,7 +23,15 @@ with nowhere to look them up.
 |---|---|---|
 | `LOKI_PRD_FILE` | none | Path to a spec file, as an alternative to the positional argument. |
 | `LOKI_MAX_ITERATIONS` | `1000` | Hard cap on iterations. Reaching it is a deterministic terminal failure, not a success. Also in `config schema`. |
-| `LOKI_BUDGET_LIMIT` | `100.00` | Spend cap in USD on the previous loop (the Loki 10 engine uses `--max-cost`, `budgets.per_run` or a default of $100 only when `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set; none on a subscription). Also enforced by kill on opencode in the Loki 10 engine. Breaching it **pauses** the run (writes `.loki/PAUSE` and saves state); it never kills work or discards a deliverable. Remove `.loki/PAUSE` to resume, or raise the cap. Set to `""` for no cap. A warning is logged at 80%. |
+| `LOKI_BUDGET_LIMIT` | `100.00` on the previous loop; none on the Loki 10 engine | Spend cap in USD. The previous loop (`autonomy/run.sh`) defaults to $100. The Loki 10 engine sets no dollar cap by default, with an API key or on a subscription; `--max-cost`, this variable or `budgets.per_run` sets one, and an unusable value fails closed. |
+| `LOKI_RUN_DEADLINE_S` | unset (no limit) | Loki 10 engine: an outer wall-clock limit the run finishes inside, sealing what is done with a draft PR. `loki start --max-time 90m` sets it. |
+| `LOKI_E10_DEFAULT_BUDGETS` | unset (off) | `1` restores the Loki 10 engine's old default budgets (900 s run cap sized up to 3600 s, stage limits, 2 fix rounds, 3 proof re-runs, 4 continues and $5 continue line, turn caps, the 20-file dependents cap). Without it, and with no user time limit, a run has no budget and ends when it is done or makes no progress. |
+| `LOKI_E10_VERIFY_MAX_S` | unset (no maximum) | Time limit in seconds for one verify stage; `loki start --verify-max-time 20m` sets it. Without it verify is bounded only by a run time limit you set. |
+| `LOKI_E10_NO_PROGRESS_ROUNDS` | `2` | With no budget: fix rounds, proof re-runs and continues end after this many rounds in a row without progress (fewer failing checks or unmet acceptance lines than the best round so far, a check that now ran, a plan file that now exists, or new outstanding work named). |
+| `LOKI_E10_STALL_KILL_S` | `1800` with no time limit, else off | A session with no new output and no tree change for this many seconds is ended. |
+| `LOKI_E10_LOOP_KILL_S` | `3600` | With no time limit: a session that keeps printing but changes nothing in the tree for this long is ended. |
+| `LOKI_E10_CMD_SILENCE_S` | `1800` | A test or check command with no time limit is stopped after this long with no output, reported as not run. |
+| `LOKI_E10_HANG_SILENCE_S` | `1800` | With no time limit: the supervisor stops a worker that sent no event and runs no process for this long, and seals what is done. |
 | `LOKI_MAX_DURATION` | unset (no cap) | Wall-clock cap in seconds. Stops cleanly at the next iteration boundary with a `max_duration_reached` terminal status. `loki start --max-duration` also accepts `90m` / `2h`. |
 | `LOKI_AUTO_CONFIRM` | unset | `true`/`false` to control prompts. Takes precedence over `CI`. |
 | `LOKI_CONFIG_DUMP` | `0` | `1` prints the resolved configuration and exits **without starting a run or spending anything**. |
@@ -64,6 +72,8 @@ interact and why hitting one is a failure rather than a success.
 | `LOKI_MODEL_API_KEY` | unset | Token for a `custom/<id>` route (optional). OpenRouter reads `OPENROUTER_API_KEY`. |
 | `LOKI_OPENCODE_MODEL` | unset | `provider/model` id passed to opencode (for example `openrouter/deepseek/deepseek-v3.2`). Also `LOKI_OPENCODE_FLAGS` and `LOKI_OPENCODE_CLI`. |
 | `LOKI_EDIT_MODEL` | unset | Model for `loki edit`. |
+| `LOKI_ROLE_PLAN`, `LOKI_ROLE_DEV`, `LOKI_ROLE_TEST`, `LOKI_ROLE_REVIEW`, `LOKI_ROLE_ADVISOR`, `LOKI_ROLE_HELPER`, `LOKI_ROLE_ESCALATE` | unset | The model for one role of a Loki 10 run (`--plan-model`, `--dev-model`, ... on `loki start`). See "A model per role" below. |
+| `LOKI_MODELS` | unset | All roles on one line, `plan=opus,dev=haiku,test=haiku,review=sonnet,advisor=opus` (`--models`). A `LOKI_ROLE_<ROLE>` variable wins over its entry here. |
 | `LOKI_ENGINE` | unset | `legacy` forces the previous loop; the `--engine` flag wins over it. |
 | `LOKI_SUMMARY_JSON` | unset | `1` prints the end-of-run summary as one JSON line on the previous loop. |
 | `LOKI_TIER` | `oss` | **Not a model setting.** The open-core licensing seam. Leave it unset. |
@@ -72,6 +82,47 @@ interact and why hitting one is a failure rather than a success.
 | `verify.test_command` (loki.yaml, not an env var) | unset | The repo's committed test command for a Maven, Gradle, .NET or plain-javac repo, e.g. `verify:` then `  test_command: ./mvnw -B -pl app test`. Verify runs it instead of the detected `mvn`, `gradle` or `dotnet` invocation; its output must still carry the build tool's own test summary or the check is NOT PROVEN, never a pass. Changing loki.yaml in a run caps the verdict. Without it, Loki detects pom.xml, build.gradle(.kts), gradlew, mvnw, *.sln and *.csproj and uses the repo wrapper when present. |
 | `LOKI_REPO_BASELINE` | unset | `0` skips the intake repo profile and baseline test run. |
 | `LOKI_ALLOW_CLAUDE_SIDECALLS` | unset | `1` (exactly) lets PRD enrichment, done recognition, the council voters, the USAGE.md refresh and the quickstart intent check prompt the `claude` CLI under a non-claude provider; `loki doctor --airgap` then reports that as required egress to Anthropic. |
+
+### A model per role
+
+A Loki 10 run (`loki start`, `loki "<task>"`) can run each kind of work on its own model:
+
+```bash
+loki start ./prd.md --plan-model opus --dev-model haiku --test-model haiku --review-model sonnet
+loki start ./prd.md --models plan=opus,dev=haiku,test=haiku,review=sonnet,advisor=opus,escalate=sonnet
+```
+
+| Role | Flag | What runs on it |
+|---|---|---|
+| `plan` | `--plan-model` | the plan session |
+| `dev` | `--dev-model` | implement, its retries and extra attempts, fix rounds, the patch protocol, the tournament candidates |
+| `test` | `--test-model` | the Wall test author and re-author, the executable spec, the prove sessions |
+| `review` | `--review-model` | the cross-review, the issue acceptance check, the pick between attempts, the conflict referee, the tournament judge |
+| `advisor` | `--advisor-model` | the consult and the router advisor tool. It picks the model only and does not turn the advisor on: the consult is on with `LOKI_E10_OPUS_CONSULT=1`, the advisor tool with `LOKI_ADVISOR=1` (alone) or `LOKI_ROUTER=1` / `LOKI_ROUTER=auto` (with the router) |
+| `helper` | `--helper-model` | intake checks: the already-done confirmation, project-model discovery, the open-choice vote, the ranked-remedy check |
+| `escalate` | `--escalate-model` | a fix round after the same test failure repeats |
+
+A value is `haiku`, `sonnet`, `opus`, `fable` or a model id (on `--provider opencode`, an opencode id). A role you set is exact: it is never
+capped to `--model`, never downgraded, never climbed by the router, and the Wall keeps it instead of re-authoring on another model. With `--dev-model`
+set, a repeated failure escalates only when `--escalate-model` names the model. A role you do not set keeps Loki's own choice, so a run with no role
+behaves exactly as before. Precedence for each call: an older per-call variable (`LOKI_E10_WALL_TIER`, `LOKI_E10_ATTEMPT_MODELS`, `LOKI_E10_CONSULT_MODEL`,
+`LOKI_E10_SELECT_REVIEW_MODEL`, `LOKI_E10_ISSUE_ACCEPTANCE_MODEL`, `LOKI_E10_EXEC_SPEC_MODEL`, `LOKI_E10_TOURNAMENT_MODEL`, `LOKI_E10_PRECEDENT_MODEL`,
+`LOKI_E10_RANKED_REMEDY_MODEL`), then the role, then `--model` / `--session-model`, then Loki's default. When a role is set the start line names the
+model per role (`models: plan opus, dev haiku, ...`; `auto` means Loki picks per call) and the receipt records the models each role started under
+`models_by_role`. On the claude provider a value is `haiku`, `sonnet`, `opus`, `fable` or a model id from the catalog (`providers/model_catalog.json`, or
+`LOKI_MODEL_CATALOG`), passed to the provider exactly as written; any other value (a typo such as `sonet`, another vendor's id) exits 2 with the
+nearest known id. On opencode a value is passed through and opencode checks it. A bad value, a route id (`openrouter/...`: choose a route for the
+whole run with `--model`), a role above `LOKI_MAX_TIER`, or any Claude role while `LOKI_MODEL_ROUTE` is set (the route serves every call; unset the
+role or the route) exits 2 before any session, naming the role. On opencode, a call that only runs on the Anthropic API
+(the consult, the votes, the acceptance check, the attempt pick, the tournament, the executable spec) is skipped when its role names a
+non-Claude model, and the receipt's `tool_calls_skipped` names each skipped call with the reason (as it does for `LOKI_E10_PATCH`, which runs on
+claude only). The legacy engine refuses the role flags.
+
+Fable (`fable`, `claude-fable-5-2`) runs as Fable on `loki start`, through `--model fable`, `--session-model fable` or a role; earlier releases ran
+Opus for a `fable` pin, and the legacy bash engine still does. Fable answers on the Claude CLI and the Agent SDK sessions. With `ANTHROPIC_API_KEY` set,
+the tool-less calls go to `/v1/messages`, where Fable is not yet verified: the start line and the receipt (`fable_raw_api`) say so, and a refused or
+failed Fable call prints the API's reason and is never re-run on another model. `claude-fable-5-2` is priced by the fable row of the pricing table
+(the Fable 5.1 rate); its own rate is not verified.
 
 ### Picking a model without naming one
 

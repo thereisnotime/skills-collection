@@ -212,8 +212,9 @@ When the user says something like "set up Claude Code profiles" or "I want to us
      - `ENABLE_TOOL_SEARCH: "false"`
      - `DISABLE_GROWTHBOOK: "1"`
      - `DISABLE_TELEMETRY: "1"`
-     - `DISABLE_AUTOUPDATER: "1"`
+     - *(Optional)* `DISABLE_AUTOUPDATER: "1"` — only needed for offline or version-pinned setups. Native auto-update fetches only from public `downloads.claude.ai/claude-code-releases` without using Anthropic account login, so leaving it unset lets third-party profiles keep the shared `claude` binary up to date automatically.
    - Optionally pin `CLAUDE_CODE_EFFORT_LEVEL` (e.g. `"max"`) when this provider's model benefits from a forced thinking effort different from the default profile's. It belongs in this provider file — never in the profile's `settings.json` env, where the converger deletes it (see "Per-profile thinking effort" under How It Works).
+   - Keep `~/.claude/settings/<provider>.json` host-portable: put only host-independent routing, isolation flags, effort pins, and tool-name `permissions` here. Do **not** copy host-specific absolute-path `hooks` (such as `/Users/<user>/scripts/...`) into provider settings files — hooks are converged per machine from that machine's default `~/.claude/settings.json` by `sync-profile-settings.py`, and hardcoded host paths break when the profile file is synced to Linux or another username.
 
 5. **Initialize profile directories**
    - Run `claude-profiles-init`
@@ -504,11 +505,11 @@ Fix: Ensure the profile's `settings.json` sets:
   "env": {
     "ENABLE_TOOL_SEARCH": "false",
     "DISABLE_GROWTHBOOK": "1",
-    "DISABLE_TELEMETRY": "1",
-    "DISABLE_AUTOUPDATER": "1"
+    "DISABLE_TELEMETRY": "1"
   }
 }
 ```
+(Add `"DISABLE_AUTOUPDATER": "1"` only when you intentionally want to pin the CLI version or stay offline; native auto-update uses the public release bucket without Anthropic account credentials.)
 
 ### Subagent calls fall back to a different model
 

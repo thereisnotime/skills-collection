@@ -17,6 +17,46 @@ export const STAGE_BUDGETS: Readonly<Record<StageName, { targetS: number | null;
 };
 export const DEFAULT_CAP_S = 900;
 export const DEEP_CAP_S = 2700;
+/** NO-DEFAULT-BUDGET: a --deep run's cap: 2700 s only with LOKI_E10_DEFAULT_BUDGETS=1; otherwise none unless the user sets a time limit. */
+export const deepCapS = (env: NodeJS.ProcessEnv = process.env): number => (defaultBudgetsOn(env) ? DEEP_CAP_S : Infinity);
+/** NO-DEFAULT-BUDGET (founder 2026-11-18, "if a user has to, then he will, make it optional"): Loki sets no time, round, turn or test-count budget by default.
+ *  A run ends when it is done or makes no progress (NO_PROGRESS_ROUNDS, SILENCE_KILL_S, LOOP_KILL_S, HANG_SILENCE_S below). A user time limit (LOKI_E10_CAP_S,
+ *  loki.yaml budgets.run_cap_s, LOKI_RUN_DEADLINE_S or `loki start --max-time`) restores every budget exactly as before, and so does LOKI_E10_DEFAULT_BUDGETS=1
+ *  (the control arm). Inside the worker "no limit" is capS = Infinity; a timer is never armed with it (util/run_cap.ts armTimer: Bun fires a delay over 2^31-1 ms at once). */
+export const defaultBudgetsOn = (env: NodeJS.ProcessEnv = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_DEFAULT_BUDGETS"] ?? "").trim());
+/** True when this process runs with budgets: the control knob, or LOKI_E10_CAP_S set at all (the supervisor sets it from every user time limit, and only then).
+ *  A set but unusable value fails closed: budgets stay on and the cap falls back to DEFAULT_CAP_S with a warning, as before. */
+export const budgetsOn = (env: NodeJS.ProcessEnv = process.env): boolean => defaultBudgetsOn(env) || (env["LOKI_E10_CAP_S"] ?? "").trim() !== "";
+/** A run cap that means "no time limit". */
+export const unlimited = (capS: number | undefined): boolean => capS !== undefined && !Number.isFinite(capS);
+const posEnv = (raw: string | undefined, dflt: number): number => { const n = Number((raw ?? "").trim()); return (raw ?? "").trim() !== "" && Number.isFinite(n) && n > 0 ? n : dflt; };
+/** No-progress stop: a loop (fix rounds, proof re-runs, S1b continues) ends after this many rounds in a row without progress (LOKI_E10_NO_PROGRESS_ROUNDS). */
+export const NO_PROGRESS_ROUNDS = 2;
+export const noProgressRounds = (env: NodeJS.ProcessEnv = process.env): number => Math.floor(posEnv(env["LOKI_E10_NO_PROGRESS_ROUNDS"], NO_PROGRESS_ROUNDS));
+/** A session (or a test command) with no new output and no tree change for this long is stuck and is ended (LOKI_E10_STALL_KILL_S keeps its meaning). */
+export const SILENCE_KILL_S = 1800;
+/** A session that streams output but changes neither the tree nor its outcome for this long is looping and is ended (LOKI_E10_LOOP_KILL_S). */
+export const LOOP_KILL_S = 3600;
+export const loopKillS = (env: NodeJS.ProcessEnv = process.env): number => posEnv(env["LOKI_E10_LOOP_KILL_S"], LOOP_KILL_S);
+/** A test or check command with no time limit is stopped after this long with no output byte (LOKI_E10_CMD_SILENCE_S). */
+export const cmdSilenceS = (env: NodeJS.ProcessEnv = process.env): number => posEnv(env["LOKI_E10_CMD_SILENCE_S"], SILENCE_KILL_S);
+/** The supervisor ends a worker that sent no event for this long while running no process of its own (LOKI_E10_HANG_SILENCE_S). */
+export const HANG_SILENCE_S = 1800;
+export const hangSilenceS = (env: NodeJS.ProcessEnv = process.env): number => posEnv(env["LOKI_E10_HANG_SILENCE_S"], HANG_SILENCE_S);
+/** A stage or helper budget: the user's value when set, else `dflt` with budgets on, else no limit (Infinity). */
+export const budgetS = (raw: string | undefined, dflt: number, env: NodeJS.ProcessEnv = process.env): number => { const n = Number((raw ?? "").trim()); return (raw ?? "").trim() !== "" && Number.isFinite(n) && n > 0 ? n : budgetsOn(env) ? dflt : Infinity; };
+/** The largest delay a timer takes: Bun and Node fire any longer delay (and Infinity) after 1 ms (measured on Bun 1.3.13). */
+export const MAX_TIMER_MS = 2 ** 31 - 1;
+/** setTimeout for a delay that can be "no limit": a non-finite or negative-infinite delay arms nothing, a delay past MAX_TIMER_MS is re-armed in steps.
+ *  clear() is safe to call any number of times. unref: the timer never holds the process open. */
+export function armTimer(fn: () => void, ms: number, o: { unref?: boolean } = {}): { clear: () => void } {
+  let t: ReturnType<typeof setTimeout> | null = null, done = false;
+  if (!Number.isFinite(ms) && ms > 0) return { clear: () => {} };
+  const due = Date.now() + Math.max(0, Number.isFinite(ms) ? ms : 0);
+  const arm = (): void => { const left = due - Date.now(); t = setTimeout(() => { if (done) return; if (due - Date.now() > 0 && left > MAX_TIMER_MS) arm(); else { done = true; fn(); } }, Math.min(Math.max(0, left), MAX_TIMER_MS)); if (o.unref) (t as { unref?: () => void }).unref?.(); };
+  arm();
+  return { clear: () => { done = true; if (t) clearTimeout(t); } };
+}
 const warnedCap = new Set<string>();
 /** Warn once per source+value on stderr that a set cap is unusable and the default applies. Never loosens the cap. */
 export function warnBadCap(source: string, raw: string): void {
@@ -38,7 +78,7 @@ export const MAX_FIX_ROUNDS = 2;
 export const VERIFY_STOPPED_NOTE = { limit: "verify stopped at its time limit before all checks ran", cap: "verify stopped at the run time cap before all checks ran" } as const;
 export const EVENT_TYPES = [
   "run.started", "run.resumed", "stage.started", "stage.completed", "stage.failed", "stage.skipped",
-  "heartbeat", "session.started", "session.ended", "session.stalled", "cost", "budget", "wall.sealed", "wall.reauthor", "wall.arbitrated",
+  "heartbeat", "session.started", "session.ended", "session.stalled", "session.looping", "cost", "budget", "wall.sealed", "wall.reauthor", "wall.arbitrated",
   "tests.restored", "test.result", "test.scoped_out", "test.skipped_on_base", "fix.round", "already.satisfied", "spec.conflict",
   "session.group_reaped",
   "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
@@ -78,6 +118,9 @@ export interface SessionMarkers {
 /** ROUTER-1 R1-08/R1-09: optional per-session cost telemetry copied onto the cost event when the cost record carries it. */
 export const ROUTER_COST_FIELDS = ["requests_total", "requests_over_100k", "advisor_calls", "advisor_input_tokens", "advisor_output_tokens"] as const;
 export interface SessionRunOptions {
+  role?: import("../util/claude_model.ts").Role; // ROLE-MODELS: the role this call belongs to when the stage alone does not say it (stageRole); "escalate" for a repeated-failure fix round
+  pinSource?: "specific"; roleModel?: string; // ROLE-MODELS: set by the session runner only: the role pin this call runs on
+ // ROLE-MODELS: opts.model came from an older per-call variable (LOKI_E10_WALL_TIER, LOKI_E10_ATTEMPT_MODELS, ...), which wins over the role
   pathAppend?: string[]; // candidate 1 env card: directories appended (never prepended) to this session's PATH; implement and its resumes only, and the prove stage's prover, scripts and repair resumes
   sessionEnv?: Record<string, string>; // Q1 RUN-SCRATCH: LOKI_SCRATCH, LOKI_SCRATCH_SINCE and TMPDIR for the implement session and its resumes only // candidate 1 env card: directories appended (never prepended) to this session's PATH; implement and its resumes only
   stage: StageName;
@@ -165,6 +208,9 @@ export interface ReceiptCheck {
   result: "pass" | "fail" | "not_run";
   owner?: "harness"; // additive: a non-pass check the harness (not the code) owns
   duration_s: number; provenance?: import("../util/check_result.ts").CheckProvenance; n?: number; count?: string /* FC-FULL-SUITE-EXIT-CODED-SCRIPT */; pre_red?: true; repo_skipped?: true; /* FC-REPO-SKIPPED-TEST-DOWNGRADES: not_run, zero tests on base and head, file untouched; additive */ // FC-PR-BODY-PUBLIC-HYGIENE pre_red: a fail that also fails on base, additive; TEN-GATES-02 provenance, TEN-GATES-03-F1 n (executed test count): additive; absent on older receipts, which still verify byte-stable
+  /** SCAN-WHY: a failed security scan's secret hits ("<file>:<line>", never the matched text; [] when only a secure-scan HIGH finding failed it) and its reason. */
+  secret_matches?: string[];
+  reason?: string;
 }
 /** .loki/runs/<id>/receipt.json. receipt_sha256 = sha256 of canonical JSON without `verification`. */
 /** SECRET-PUSH: why the run's branch is not pushed: the check, where it matched ("<file>:<line>", never the matched text) and the command to push after review. */
@@ -182,9 +228,10 @@ export interface Receipt {
   checks: ReceiptCheck[];
   wall_oracle?: { cost_usd: number | null; duration_s: number | null }; cascade?: { fired: boolean; from?: string | null; to?: string | null }; // CASCADE-V0 receipt facts
   model_source?: "explicit" | "default" | "provider"; // acc-156: who chose `model` (a flag or env, Loki's DEFAULT_SESSION_MODEL, or the Claude CLI's own default)
+  models_by_role?: Partial<Record<import("../util/claude_model.ts").Role, string[]>>; tool_calls_skipped?: { call: string; reason: string }[]; fable_raw_api?: string; // ROLE-MODELS: present only when a role is set: the model each role started, in call order
   implement?: { exit: "external"; patch_sha256: string }; // CW-12 B3: present only when no Loki session wrote the code; the receipt names no implementing model
   push_refused?: PushRefusal; // SECRET-PUSH: the security scan matched a secret in an added line, so the run's work must not leave the machine unreviewed
-  not_proven: string[]; not_applicable?: string[]; // FC-SEAL-NA-AS-UNPROVEN: informational notes (package without tests, no app to boot, not selected by risk tier); never part of any verdict
+  not_proven: string[]; not_applicable?: string[]; held_by?: { kind: string; detail: string }[]; // F0: seal's reasons, present only below VERIFIED; // FC-SEAL-NA-AS-UNPROVEN: informational notes (package without tests, no app to boot, not selected by risk tier); never part of any verdict
   unit_spec?: { sha256: string }; // #317b: present only for a unit run; the sha256 of its canonical spec (id, items, acceptance, writeSet, base)
   spec?: { path: string; sha256: string }; triage?: { class: "implement" | "spec" | "human"; reason: string }; intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[]; // P12-02 (omitted when none); SPEC-FIRST-INTENT: present only when a user spec file drove the run
   seeded_corpus?: import("../util/run_outputs.ts").SeededCorpus; /* TEN-GATES-15 */ supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies

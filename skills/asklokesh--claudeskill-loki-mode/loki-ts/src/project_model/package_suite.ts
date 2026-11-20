@@ -2,15 +2,16 @@
 // Each package that declares a test command runs it in its own directory. Returns false when the model is
 // absent or single-root, so the caller keeps its legacy per-runner path unchanged.
 // FC-BASELINE-PER-PACKAGE: fullSuiteSpecs is the one list of full-suite commands; verify runs it and the intake baseline records it.
+import { cmdSilenceS } from "../engine10/types.ts";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 import { harnessLoadReason } from "../runner/load_owner.ts";
 import { suiteEmptyOnBase } from "../runner/repo_profile.ts";
-import { classifyCheck, corroboratePass, failureExcerpt, failureShape, firstError, fullSuiteCmd, goRunner, exitCodedId, isExitCodedScript, NO_TESTS_REASON, plainTestEnv, stripAnsi } from "../util/check_result.ts";
+import { classifyCheck, corroboratePass, failureExcerpt, failureShape, suiteFacts, firstError, fullSuiteCmd, goRunner, exitCodedId, isExitCodedScript, NO_TESTS_REASON, plainTestEnv, stripAnsi } from "../util/check_result.ts";
 import { run, shellWord } from "../util/shell.ts";
 import type { ProfileCommand } from "../runner/repo_profile.ts"; // type-only: no import cycle
 import { STACK_TOOLS, repoTestCommand, toolOk } from "../util/stack_tools.ts";
-import { errorsById, failIds, unhandledBlock } from "../engine10/failures.ts";
+import { errorsById, failIds, lineNamesChange, unhandledBlock } from "../engine10/failures.ts";
 import type { RunnerName } from "../engine10/types.ts";
 import type { ProjectApi } from "./api.ts";
 import { isMultiRoot, loadProjectApi } from "./resolve.ts";
@@ -151,7 +152,7 @@ export async function runPackageSuites(
     const r = await run(["bash", "-c", line], { cwd: join(repoDir, cwd), timeoutMs, env: suiteEnv(opts.path), ...(suiteTimeoutOn() ? { group: true, signal } : {}) }); // SUITE-TIMEOUT: the whole process tree stops at the limit, and at an abort (its own group is outside the worker's, so an abort must reach it here)
     const duration_s = (Date.now() - started) / 1000;
     if (signal.aborted) { checks.push({ name, cmd, result: "not_run", duration_s }); notProven.add(`not run: ${name} (aborted)`); continue; }
-    if (r.timedOut && suiteTimeoutOn()) { const why = `timed out after ${Math.round(timeoutMs / 1000)}s`; checks.push({ name, cmd, result: "not_run", duration_s, reason: why }); notProven.add(`not run: ${name} (${why})`); continue; } // SUITE-TIMEOUT: a suite killed at its limit says nothing about the change: not_run (caps below VERIFIED), never FAILED
+    if (r.timedOut && suiteTimeoutOn()) { const why = r.silent ? `stopped after ${cmdSilenceS()}s with no output` : `timed out after ${Math.round(timeoutMs / 1000)}s`; /* NO-DEFAULT-BUDGET: a silent suite is named as silent */ checks.push({ name, cmd, result: "not_run", duration_s, reason: why }); notProven.add(`not run: ${name} (${why})`); continue; } // SUITE-TIMEOUT: a suite killed at its limit says nothing about the change: not_run (caps below VERIFIED), never FAILED
     // FC-16 C1 / FC-02: the same parser and load-error ownership as the legacy per-runner path, per package.
     const out = stripAnsi(`${r.stdout}\n${r.stderr}`).replace(go ? /^make(?:\[\d+\])?: .*$/gm : /(?!)/, ""); // FC-FULLSUITE-ANSI-IDS; a make-wrapped Go suite (goMakeSuite) drops make's own lines so the go test -json stream reads whole
     const lr = r.exitCode === 0 || !opts.baseSha ? undefined : await harnessLoadReason({ repoDir, baseSha: opts.baseSha, ...(opts.skip ? { skip: opts.skip } : {}), out, cmd: "bash", args: ["-c", line], signal, cwd: join(repoDir, cwd), env: suiteEnv(opts.path) });
@@ -159,7 +160,7 @@ export async function runPackageSuites(
     const cls = await corroboratePass(classifyCheck({ kind: "test", ok: r.exitCode === 0, out, ...(go ? { runner: "go" as const } : goRunner(line)), exitCoded: !go && isExitCodedScript(line) }), out, go ?? line, undefined, { cwd: join(repoDir, cwd), env: suiteEnv(opts.path), signal }); // FC-FULL-SUITE-EXIT-CODED-SCRIPT
     if (cls.result === "not_run" && r.exitCode === 0 && (opts.targetPassed === true || (cwd !== "." && emptySubsuiteNaOn())) && opts.ensureBase) await opts.ensureBase(spec); // RW-01: the base record suiteEmptyOnBase reads is measured now
     if (cls.result === "not_run" && r.exitCode === 0 && (opts.targetPassed === true || (cwd !== "." && emptySubsuiteNaOn())) && suiteEmptyOnBase(repoDir, opts.baseSha, line, cmd, cls, out, cwd)) { notProven.add(`${NA_PREFIX}${name} (ran 0 tests on base and head; ${opts.targetPassed === true ? "the Wall or a task-named check passed with executed tests" : "a sub-module package with no tests on either side"})`); continue; } // EMPTY-SUBSUITE-NA: a package below the root that executes exactly 0 tests on base and head is not applicable without a target check // a full suite that discovers nothing is a disclosed note, not a gate, once a target check proved the change
-    checks.push({ name, cmd, result: cls.result, duration_s, ...(cls.count ? { count: cls.count } : {}), ...(cls.result === "fail" ? { exit: r.exitCode, ...(cls.count || failIds(out).length ? {} : { shape: failureShape(out) }), ids: cls.count ? [exitCodedId(line, out, repoDir) ?? []].flat() as string[] : failIds(out), errors: Object.fromEntries(errorsById(out)), ...(unhandledBlock(out).length ? { unhandled: unhandledBlock(out) } : {}), first_error: firstError(out), excerpt: failureExcerpt(out, repoDir) } : {}) });
+    checks.push({ name, cmd, result: cls.result, duration_s, ...(cls.count ? { count: cls.count } : {}), ...(cls.result === "fail" ? { exit: r.exitCode, ...(cls.count || failIds(out).length ? {} : { shape: failureShape(out) }), ids: cls.count ? [exitCodedId(line, out, repoDir) ?? []].flat() as string[] : failIds(out), errors: Object.fromEntries(errorsById(out)), ...(unhandledBlock(out).length ? { unhandled: unhandledBlock(out) } : {}), first_error: firstError(out), excerpt: failureExcerpt(out, repoDir), ...suiteFacts(out), names_changed: stripAnsi(out).split("\n").some(lineNamesChange(opts.changed ?? [])) } : {}) });
     if (cls.result === "not_run") notProven.add(`not run: ${name} (${cls.reason ?? NO_TESTS_REASON})`);
   }
   // FC-SEAL-NA-AS-UNPROVEN: a package with no test command is N/A only beside a suite that really ran; changed files it owns with no Wall proof (or an unknown diff) stay NOT PROVEN.

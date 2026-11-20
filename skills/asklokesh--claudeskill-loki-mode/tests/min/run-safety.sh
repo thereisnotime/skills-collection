@@ -126,6 +126,15 @@
 #       names-symbol) and the fl24 targeted unit (othererr) read excused. Or attribute's absent-rerun path drops sameWay: the targeted unit's othererr reads 2:0.
 #  24g. (fl24) verify.ts attribute call: drop the depsAsIntake condition (rebuild dist); real vitest delpkg is delivered PARTIAL (p9, broken by the deleted package, has no parsed id and is suite-only).
 #  24e. repo_profile.ts sameUnattributableRed: drop the failing_shape comparison (the base-red-shape unit's new-failure case reads pre), or runOnce stops recording failing_shape (it reads noshape).
+#  24f. repo_profile.ts exogenousState: drop the `baseOnly.length` return (the exogenous-red unit's opencode cell reads FAILED).
+#  24g. repo_profile.ts attributedToChange: `!!a && a.names_changed` (the exogenous-red unit's compared cells read PARTIAL).
+#  24i. repo_profile.ts exogenousState: drop the `the base run passed and the head run fails` return (the exogenous-red unit's green-base cells read PARTIAL).
+#  24j. repo_profile.ts exogenousState: `baseRanTooFew(` without `!testsChanged &&` (the exogenous-red unit's grown-suite cell reads not comparable).
+#  24k. repo_profile.ts exogenousState: drop the `headOnly.length` return (the exogenous-red unit's head-only load error cell reads PARTIAL).
+#  24l. repo_profile.ts exogenousState: drop the `the base run passed but ran` line (the exogenous-red unit's green-base 10 of 400 cell reads FAILED).
+#  24m. base_guard.ts depsGoneSince: `was.find((n) => have.has(n))` (the exogenous-red unit's gone-package cell names a package that is present).
+#  24h. base_guard.ts linkWorkspaceMembers: `const refused: string[] = [];` in place of the filter that links (the base-tree-members unit's sibling cell reads no-deps).
+#  24o. base_guard.ts toolOutputDir: `return true` for every dot-named directory (the tool-output-in-deps unit's emitted-declaration cell reads false).
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need bun
@@ -959,6 +968,57 @@ X3="full suite: w | full suite: w | full suite: w | full suite: w | none | vites
 [ "$A3" = "$X3" ] && ok "unit: a root package suite '(cd . && X)' matches the baseline's plain X (pre-existing excused, introduced ids still block, other cwd not excused); build output vite.config.d.ts and .nx/cache are not test configuration, a real vitest.config.ts is" \
     || bad "attribution unit gave: $A3 (want: $X3)"
 
+# BASE-TREE-MEMBERS (closed-set-2 oc63152 and oc63960: the opencode cli suite ran 123 tests with 84 failures in verify's base tree, "Cannot find package
+# 'effect' from packages/util/src/...", against 408 with 8 in the checkout, so tests red on base read "not red on base"). A suite imports sibling workspace
+# packages from source and a sibling needs its own node_modules. Every tracked package.json directory that has a node_modules in the checkout gets its
+# dependencies in the base tree through the same link (linker, else view). Scope: a member with no node_modules is not counted, a member whose dependencies
+# cannot be re-pointed is refused and named (nothing linked for it), and LOKI_E10_BASE_TREE_MEMBERS=0 links none.
+# Plant 24h: base_guard.ts linkWorkspaceMembers: `const refused: string[] = [];` in place of the filter that links (the sibling cell reads no-deps).
+WSM="$T/wsmembers"; mkdir -p "$WSM/node_modules/.store/dep" "$WSM/node_modules/@ws" "$WSM/packages/cli/node_modules" "$WSM/packages/util/node_modules" "$WSM/packages/util/src" "$WSM/packages/nodeps" "$WSM/packages/leak/node_modules/x"
+printf '{"name":"ws","private":true,"workspaces":["packages/*"]}\n' > "$WSM/package.json"; printf 'node_modules\n' > "$WSM/.gitignore"; printf 'module.exports = 1;\n' > "$WSM/node_modules/.store/dep/index.js"
+for m in cli util nodeps leak; do printf '{"name":"@ws/%s"}\n' "$m" > "$WSM/packages/$m/package.json"; done; printf 'export const u = 1;\n' > "$WSM/packages/util/src/u.ts"
+ln -s ../../packages/util "$WSM/node_modules/@ws/util"; ln -s ../../../node_modules/.store/dep "$WSM/packages/cli/node_modules/dep"; ln -s ../../../node_modules/.store/dep "$WSM/packages/util/node_modules/dep"
+ln -s ../../../../packages/util/src "$WSM/packages/leak/node_modules/x/inner"
+git -C "$WSM" init -q -b main && git -C "$WSM" add -- . && git -C "$WSM" -c user.name=t -c user.email=t@t commit -qm base
+AM="$(G="$WSM" ROOT="$ROOT" T="$T" bun --no-env-file --config=/dev/null -e '
+const g = await import(process.env.ROOT + "/loki-ts/src/util/base_guard.ts"), fs = await import("node:fs"), { join } = await import("node:path"), { execFileSync } = await import("node:child_process");
+const repo = process.env.G, git = (a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+const manifests = git(["ls-files", "-z", "--", "package.json", "*/package.json"]).split("\0").filter(Boolean), r = [];
+const tree = (n) => { const d = join(process.env.T, "wsbase" + n); git(["worktree", "add", "--detach", d, "HEAD"]); const l = g.baseDepsLinker(d, repo), v = g.baseDepsView(d, repo); return { d, link: (c) => l(c) || v(c) }; };
+const has = (d, m) => { try { return fs.realpathSync(join(d, "packages", m, "node_modules", "dep")).endsWith("/node_modules/.store/dep") ? "deps" : "wrong"; } catch { return "no-deps"; } };
+const a = tree(1); r.push(String(a.link(join(a.d, "packages/cli")) && a.link(a.d)), has(a.d, "util"));
+const m = g.linkWorkspaceMembers(a.d, repo, a.link, manifests); r.push(m.members + ":" + m.refused.join(","), has(a.d, "util"), has(a.d, "cli"), fs.existsSync(join(a.d, "packages/nodeps/node_modules")) ? "made" : "none", fs.existsSync(join(a.d, "packages/leak/node_modules")) ? "linked" : "not-linked");
+process.env.LOKI_E10_BASE_TREE_MEMBERS = "0"; const b = tree(2), off = g.linkWorkspaceMembers(b.d, repo, b.link, manifests); r.push(off.members + ":" + has(b.d, "util")); delete process.env.LOKI_E10_BASE_TREE_MEMBERS;
+for (const n of [1, 2]) git(["worktree", "remove", "--force", join(process.env.T, "wsbase" + n)]);
+console.log(r.join(" | "));
+' 2>&1)"
+XM="true | no-deps | 3:packages/leak | deps | deps | none | not-linked | 0:no-deps"
+[ "$AM" = "$XM" ] && ok "unit: every workspace member with a node_modules in the checkout gets its dependencies in the base tree, not only the suite's package and the root; a member with none is left alone, one whose dependencies cannot be re-pointed is refused and named, and LOKI_E10_BASE_TREE_MEMBERS=0 links none" \
+    || bad "base-tree-members unit gave: $AM (want: $XM)"
+VBM="$ROOT/loki-ts/src/engine10/stages/verify.ts"
+grep -q 'if (linked) { const m = bt.members(); if (m.refused.length) baseMemberNote = ' "$VBM" && grep -q 'mem = linkWorkspaceMembers(dir, ctx.repoDir, (cwd) => !scopeBlocked(cwd) && (l(cwd) || v(cwd)), manifests);' "$VBM" && grep -q 'if (baseMemberNote) attr.line = \[attr.line, baseMemberNote\]' "$VBM" && ok "base-tree-members wiring: verify links the members once per base tree before a base suite run and names any it could not link on the baseline line" || bad "base-tree-members wiring: verify does not link the workspace members before a base suite run"
+# TOOL-OUTPUT-IN-DEPS (closed-set-2 oc63960: "full suite: @opencode/core not measured on base" in every run). opencode's packages/core tsconfig sets
+# "tsBuildInfoFile": "node_modules/.ts-dist/source.tsbuildinfo", so Loki's own lint (`tsc --noEmit -p .`) creates node_modules/.ts-dist after intake; on a clone
+# of the stored base envChangedSince read true after that one command (listing 50 to 51 entries, added .ts-dist), and the base tree got no dependencies for the
+# package. A dot-named directory inside a dependency dir that holds nothing but tool output files is not a dependency change. Scope: anything else in it (an
+# emitted .d.ts), a changed file of a package, a deleted package and LOKI_E10_TOOL_OUTPUT_IN_DEPS=0 all still read as changed.
+# Plant 24o: base_guard.ts toolOutputDir: `return true` for every dot-named directory (the emitted-declaration cell reads false).
+TOD="$T/tooloutdeps"; mkdir -p "$TOD/node_modules/a" "$TOD/node_modules/b"; printf 'module.exports = 1;\n' > "$TOD/node_modules/a/index.js"; printf 'module.exports = 2;\n' > "$TOD/node_modules/b/index.js"
+AT="$(G="$TOD" ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const bg = await import(process.env.ROOT + "/loki-ts/src/util/base_guard.ts"), fs = await import("node:fs"), g = process.env.G, nm = g + "/node_modules";
+const deps = { node_modules: bg.depsListing(nm) }, since = Date.now(), wait = () => new Promise((x) => setTimeout(x, 1100)), ch = () => bg.envChangedSince(g, g, since, [], deps), r = [];
+await wait(); r.push(ch());
+fs.mkdirSync(nm + "/.ts-dist"); fs.writeFileSync(nm + "/.ts-dist/source.tsbuildinfo", "{}"); r.push(ch(), bg.depsListing(nm).join(","), bg.toolOutputDir(nm + "/.ts-dist"));
+process.env.LOKI_E10_TOOL_OUTPUT_IN_DEPS = "0"; r.push(ch()); delete process.env.LOKI_E10_TOOL_OUTPUT_IN_DEPS;
+fs.mkdirSync(nm + "/.ts-dist/source"); fs.writeFileSync(nm + "/.ts-dist/source/a.d.ts", "export {};"); r.push(ch(), bg.toolOutputDir(nm + "/.ts-dist")); fs.rmSync(nm + "/.ts-dist/source", { recursive: true }); r.push(ch());
+fs.mkdirSync(nm + "/.empty"); r.push(bg.toolOutputDir(nm + "/.empty"), bg.toolOutputDir(nm + "/a")); fs.rmSync(nm + "/.empty", { recursive: true });
+fs.writeFileSync(nm + "/a/index.js", "module.exports = 3;\n"); r.push(ch());
+const deps2 = { node_modules: bg.depsListing(nm) }, since2 = Date.now(); await wait(); fs.rmSync(nm + "/b", { recursive: true }); r.push(bg.envChangedSince(g, g, since2, [], deps2));
+console.log(r.join(" | "));' 2>&1)"
+XT='false | false | a,b | true | true | true | false | false | false | false | true | true'
+[ "$AT" = "$XT" ] && ok "unit: a dot-named directory in a dependency dir that holds only a typecheck's build info is not an environment change (the base tree keeps its dependencies); an emitted file beside it, a changed package file, a deleted package and LOKI_E10_TOOL_OUTPUT_IN_DEPS=0 still are" \
+    || bad "tool-output-in-deps unit gave: $AT (want: $XT)"
+
 # BASE-RED-SHAPE (verify-dev 2026-11-13: marshmallow, markdown, pino, valibot ended FAILED on a suite already red on base whose failing ids no parser
 # reads, "the base run is not attributable"). The same command failing in the identical kind on head (same exit code, no ids, the same output shape
 # up to timings) is pre-existing; a head that also breaks a new test, a changed exit code, parseable head ids, or LOKI_E10_BASE_RED_SHAPE=0 stays
@@ -982,6 +1042,62 @@ console.log(r.join(" | "));
 X5="shape:false | pre | introduced | introduced | introduced | introduced | noted | marker"
 [ "$A5" = "$X5" ] && ok "unit: a suite red on base with unparseable ids is excused only when head fails in the identical kind (same exit, same output shape up to timings); a newly broken test, another exit code, parseable head ids or LOKI_E10_BASE_RED_SHAPE=0 stay introduced, and the excuse is disclosed" \
     || bad "base-red-shape unit gave: $A5 (want: $X5)"
+
+# EXOGENOUS-RED (closed-set-2, 11.158.0 to 11.164.0: hm155462, oc63960 and pw43305 seeds pass the hidden test and were sealed FAILED on suites and test files the
+# change did not write, whose base run never started, was not comparable, or printed no readable id). A failing check the run did not write makes the run FAILED
+# only when it is attributed to the change: a comparable base run shows a failing id not red on base, or a kept failure line names a changed file. Otherwise it
+# holds PARTIAL and is never excused. One state per check (repo_profile.ts exogenousState): compared, cut, not started, unattributable, not comparable (the base
+# run cannot load a module head loads, passed without running a test, or, only when no test file changed, ran fewer than half of head's tests).
+# Scope: a suite green on base and red on head (with or without a readable id), and a base run that printed ids where head prints none, are compared and FAILED;
+# a per-file test with no readable id gets no record; a Wall, holdout, the run's own test, lint and a check with no record on a finished verify stay FAILED; LOKI_E10_EXOGENOUS_RED=0 reads no record;
+# LOKI_E10_BASE_UNATTRIBUTED=0 (11.163.0's opt-out) turns off the unattributable state alone.
+# Plants: 24f. repo_profile.ts exogenousState: drop the `baseOnly.length` return (the opencode cell reads FAILED).
+#         24g. repo_profile.ts attributedToChange: `!!a && a.names_changed` (the compared cells read PARTIAL).
+#         24i. repo_profile.ts exogenousState: drop the `return st("compared", Math.max(1, ids.length), "the base run passed` line (the green-base cells read PARTIAL).
+#         24j. repo_profile.ts exogenousState: `baseRanTooFew(` without `!testsChanged &&` (the grown-suite cell reads not comparable and PARTIAL).
+#         24k. repo_profile.ts exogenousState: drop the `headOnly.length` return (the head-only load error cell reads compared:0 and PARTIAL).
+#         24l. repo_profile.ts exogenousState: drop the `the base run passed but ran` line (the green-base cell that ran 10 of 400 reads FAILED).
+#         24m. base_guard.ts depsGoneSince: `was.find((n) => have.has(n))` (the gone-package cell reads node_modules: a).
+#         24n. verify.ts: `const gone = ` calls depsGoneSince when the records are built instead of reading goneAtStart (the wiring leg fails: a package a
+#              verify command removed would blame the change).
+A6="$(G="$G5" ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const rp = await import(process.env.ROOT + "/loki-ts/src/runner/repo_profile.ts"), se = await import(process.env.ROOT + "/loki-ts/src/engine10/stages/seal.ts"), cr = await import(process.env.ROOT + "/loki-ts/src/util/check_result.ts"), { writeFileSync } = await import("node:fs"), { execFileSync } = await import("node:child_process");
+const g = process.env.G, sha = execFileSync("git", ["-C", g, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(), name = "full suite: x", cmd = "npm test";
+const prof = (b, rev = sha) => writeFileSync(g + "/.loki/state/repo-profile.json", JSON.stringify({ version: 1, revision: rev, manifest_hash: "h", created_at: "t", commands: [], baseline: b }));
+const base = (o) => ({ ran: true, command: cmd, exit_code: 1, duration_s: 1, timed_out: false, failing_ids: ["a.test.ts::a"], attributable: true, ...o });
+const chk = (o = {}) => ({ name, cmd, result: "fail", ids: ["a.test.ts::a"], exit: 1, ...o }), st = (c = chk(), tc = false) => { const r = rp.exogenousState(g, sha, c, tc); return r.state + (r.state === "compared" ? ":" + r.fresh : ""); };
+const one = (n, prov = "exogenous") => [{ name: n, cmd: "x", result: "fail", duration_s: 1, provenance: prov }], v = (oo, cs) => se.verdictOf(oo, cs, false, true, false, true);
+const vs = (cc, tc = false) => v({ implement: { exit: "done" }, verify: { exogenous_attribution: { [name]: { ...rp.exogenousState(g, sha, cc, tc), names_changed: false } } } }, one(name));
+const E = "error: Cannot find package \x27effect\x27 from \x27/b/packages/util/src/npm.ts\x27", F = "error: Cannot find module \x27@fixture/plugin/server\x27 from \x27/c/t.ts\x27", Y = "error: Cannot find module \x27./broken\x27 from \x27/c/src/x.ts\x27";
+const r = [];
+prof(base({}), "othersha"); r.push(st()); prof(base({ ran: false, reason: "deferred: measured on base on demand, after implement" })); r.push(st()); prof(base({ timed_out: true })); r.push(st());
+prof(base({ failing_ids: [], attributable: false, reason: "failing test ids not parseable, failures cannot be attributed" })); r.push(st(chk({ ids: [] })));
+prof(base({ load_errors: [E] })); r.push(st(), rp.exogenousState(g, sha, chk()).evidence.includes("Cannot find package") ? "names-line" : "no-line", st(chk({ load_errors: [E] })), st(chk({ load_errors: [F] })));
+prof(base({ load_errors: [F] })); r.push(st(chk({ load_errors: [Y, F] })) + "=" + vs(chk({ load_errors: [Y, F] })), st(chk({ load_errors: [] })) + "=" + vs(chk({ load_errors: [] })));
+prof(base({ executed: 123 })); r.push(st(chk({ executed: 408 })), rp.exogenousState(g, sha, chk({ executed: 408 })).evidence);
+prof(base({ executed: 10 })); const grown = chk({ ids: ["a.test.ts::a", "old.test.ts::broken"], executed: 25 }); r.push(st(grown, true) + "=" + vs(grown, true), st(grown, false));
+prof(base({})); r.push(st(chk({ ids: ["a.test.ts::a", "b.test.ts::b"] })), st()); prof(base({ flaky_ids: ["b.test.ts::b"] })); r.push(st(chk({ ids: ["a.test.ts::a", "b.test.ts::b"] })));
+prof(base({ exit_code: 0, failing_ids: [], attributable: true, executed: 10 })); r.push([vs(chk({ ids: [] })), vs(chk({ ids: [], load_errors: [Y] })), vs(chk({ ids: [], executed: 400 })), vs(chk({ ids: [], executed: 400 }), true)].join("+"));
+prof(base({ exit_code: 0, failing_ids: [], attributable: true, zero_tests: true })); r.push(st(chk({ ids: [] }))); prof(base({ exit_code: 0, failing_ids: [], attributable: true, executed: 0 })); r.push(st(chk({ ids: [] })) + "=" + vs(chk({ ids: [] })));
+prof(base({})); const d = rp.exogenousState(g, sha, chk({ ids: [], exit: 2 })); r.push(st(chk({ ids: [], exit: 2 })) + "=" + vs(chk({ ids: [], exit: 2 })), d.exit + "/" + d.base_exit);
+const rec = (state, fresh = 0, names_changed = false) => ({ state, fresh, names_changed, evidence: "e" }), o = (a, n = name, extra = {}) => ({ implement: { exit: "done" }, verify: { ...(a ? { exogenous_attribution: { [n]: a } } : {}), ...extra } });
+r.push(v(o(rec("compared", 1)), one(name)), v(o(rec("compared", 0)), one(name)), v(o(rec("not started", 0, true)), one(name)));
+r.push(["not started", "cut", "unattributable", "not comparable"].map((s) => v(o(rec(s)), one(name))).join("+"), v(o(rec("not started"), "pytest:tests/a.py"), one("pytest:tests/a.py")));
+r.push(v(o(null), one(name)), v(o(null, name, { stopped_at: "limit" }), one(name)), v(o(rec("not started")), one(name, "agent_authored")), v(o(rec("not started"), "lint:tsc"), one("lint:tsc")), v(o(rec("not started")), [...one(name), ...one("lint:tsc")]));
+prof(base({ failing_ids: ["x.test.ts::x"], executed: 123, load_errors: [E] })); r.push(vs(chk({ ids: ["test/plugin-add.test.ts::p", "test/mini-timeout.test.ts::m"], executed: 408, load_errors: [F] })));
+process.env.LOKI_E10_BASE_UNATTRIBUTED = "0"; r.push(v(o(rec("unattributable")), one(name)) + "+" + v(o(rec("not started")), one(name))); delete process.env.LOKI_E10_BASE_UNATTRIBUTED;
+process.env.LOKI_E10_EXOGENOUS_RED = "0"; r.push(v(o(rec("not started")), one(name)), v(o(rec("not started"), name, { stopped_at: "cap" }), one(name))); delete process.env.LOKI_E10_EXOGENOUS_RED;
+const f = cr.suiteFacts("bun test v1\n\na.test.ts:\n(pass) one [1.00ms]\n(fail) two [2.00ms]\n" + E + "\n" + E + "\n" + F + "\n\n 2 pass\n 1 fail\nRan 3 tests across 2 files. [1.00s]\n");
+r.push(JSON.stringify([f.executed, (f.load_errors ?? []).map(cr.loadErrorModule)]), String(cr.firstLoadError("1 pass\n0 fail\n")));
+const bg = await import(process.env.ROOT + "/loki-ts/src/util/base_guard.ts"), { mkdirSync } = await import("node:fs"); mkdirSync(g + "/node_modules/a", { recursive: true }); mkdirSync(g + "/node_modules/b", { recursive: true });
+r.push([bg.depsGoneSince(g, g, { node_modules: ["a", "b", "c"] }), bg.depsGoneSince(g, g, { node_modules: ["a"] }), bg.depsGoneSince(g, g, undefined), bg.depsGoneSince(g, g + "/pkg", { "pkg/node_modules": ["x"] })].join("+"));
+console.log(r.join(" | "));
+' 2>&1)"
+X6='not started | not started | cut | unattributable | not comparable | names-line | compared:0 | not comparable | compared:1=FAILED | not comparable=PARTIAL | not comparable | base ran 123 of head'"'"'s 408 tests | compared:1=FAILED | not comparable | compared:1 | compared:0 | compared:0 | FAILED+FAILED+PARTIAL+FAILED | not comparable | not comparable=PARTIAL | compared:1=FAILED | 2/1 | FAILED | FAILED | FAILED | PARTIAL+PARTIAL+PARTIAL+PARTIAL | PARTIAL | FAILED | PARTIAL | FAILED | FAILED | FAILED | PARTIAL | FAILED+PARTIAL | FAILED | PARTIAL | [3,["effect","@fixture/plugin/server"]] | null | node_modules: c+++pkg/node_modules: x'
+[ "$A6" = "$X6" ] && ok "unit: a failing check the run did not write is FAILED when the base run passed, when head cannot load a module base loaded, when base printed ids and head none, when the base comparison did not excuse it (an id not red on base, or every id red on base with another error), when a package installed at intake is gone, or when a failure line names a changed file; a base run cut, not started, unreadable while red, or not comparable (a module head loads and base cannot, a pass with no test run, or fewer than half of head's tests while no test file changed, whether base was red or green) holds PARTIAL; the run's own test, lint, an unrecorded check and the knobs off stay as they were" \
+    || bad "exogenous-red unit gave: $A6 (want: $X6)"
+VBU="$ROOT/loki-ts/src/engine10/stages/verify.ts"
+grep -q '(Object.keys(exoAttr).length ? { exogenous_attribution: exoAttr } : {})' "$VBU" && grep -q 'c.result !== "fail" || !c.ids?.length || preRed.names.includes(c.name) || targetNames.has(c.name) || wallNames0.has(c.name) || isHold(c) || changed.includes(t.path) || exoAttr\[c.name\]) continue;' "$VBU" && grep -q ', ...unrunSuitesCarried(ctx.outputs().verify?.not_proven, checks)\]), ...exoHeld,' "$VBU" && grep -q 'failOuts.set(check, attempt.out)' "$VBU" && grep -q 'names_changed: named(failOuts.get(c) ?? excerpts.get(c) ?? "")' "$VBU" && ! grep -q 'prev\[c.name\]' "$VBU" && grep -q ': headOnly && cmp ? { state: "compared"' "$VBU" && [ "$(grep -c 'withGone(' "$VBU")" = 2 ] && [ "$(grep -c 'depsGoneSince(' "$VBU")" = 1 ] && [ "$(grep -n 'const goneAtStart = new Map' "$VBU" | cut -d: -f1)" -lt "$(grep -n 'await runTests(split.first);' "$VBU" | cut -d: -f1)" ] && grep -q 'const gone = (cwd: string): string | null => goneAtStart.get(' "$VBU" && ok "exogenous-red wiring: verify records one attribution per failing suite or untouched test file it did not excuse (never a Wall, holdout or task-named test, never a file with no failing id), reads the changed-file flag from the whole output, carries no record from an earlier verify, blames a head-only load error only against a live base rerun, blames a package that was gone since intake when verify started (read before its first command, never after), and lists each held check under NOT PROVEN" || bad "exogenous-red wiring: verify does not record exogenous_attribution as the rule needs"
 
 # Base run budget (v131 STALLED tq runs): a suite that takes ~250 s on the change got 60 s on base, timed out, and its pre-existing red was blamed on the change.
 # A base run now gets the same 300 s its own run gets (bounded by a third of the run cap); a cut base run is recorded on the receipt line as "base run
@@ -1043,8 +1159,8 @@ put(ent({ attributable: false, failing_ids: [], reason: "failing test ids not pa
 r.push("why-none-when-excused " + rp.whyFullSuiteNotExcused(g, sha, [{ name: "full suite: npm", cmd: "npm test", result: "fail", ids: A }], ["src/z.ts"], ["full suite: npm"]).length);
 console.log(r.join(" | "));
 ' 2>&1)"
-Y4="full suite: npm:false | full suite: npm:true | true | short-cut rerun 300000 | full-cut kept 0 | fresh 300000 | 300 | 300 | 40 | 1 | flaky 1,1,1 | changed-file flaky 1 | no-flaky-record 1 | massive 1,true,1 | flaky-new-error 1,1,true | flaky-stack-changed-file 1 | massive-new-error 1,1 | massive-stack-changed-file 1 | massive-duplicate-title 1 | small-red-no-line false | probe 2;done;b.test.ts > t2+c.test.ts > t3;a.test.ts > t1+b.test.ts > t2 | record 2,false,2,true | why true,true,true,true,true | why-cut true | why-unattributable true | why-none-when-excused 0"
-[ "$B4" = "$Y4" ] && ok "unit: a base suite that completes is excused (no cut line); a cut base run is introduced with a base-run-incomplete line, also when the shared budget ran out; a base run gets 300 s (a third of the run cap at most); a short-cut entry is measured again, a fully-cut one is kept; a red base suite gets a second pass whose one-pass-only ids are flaky and not blamed on the change (a new id, or one in a changed file, still is); a suite red at base (500+ ids) is excused per id with a suite-red-at-base line; the baseline is written to the run directory; a failing full-suite check that is not excused is named with the rule that kept it blocking" \
+Y4="full suite: npm:false | full suite: npm:true | true | short-cut rerun 300000 | full-cut kept 0 | fresh 300000 | Infinity | 300 | 40 | 1 | flaky 1,1,1 | changed-file flaky 1 | no-flaky-record 1 | massive 1,true,1 | flaky-new-error 1,1,true | flaky-stack-changed-file 1 | massive-new-error 1,1 | massive-stack-changed-file 1 | massive-duplicate-title 1 | small-red-no-line false | probe 2;done;b.test.ts > t2+c.test.ts > t3;a.test.ts > t1+b.test.ts > t2 | record 2,false,2,true | why true,true,true,true,true | why-cut true | why-unattributable true | why-none-when-excused 0"
+[ "$B4" = "$Y4" ] && ok "unit: a base suite that completes is excused (no cut line); a cut base run is introduced with a base-run-incomplete line, also when the shared budget ran out; a base run gets no limit of Loki's own with no run cap (NO-DEFAULT-BUDGET; the silence guard ends a silent one) and a third of a user's run cap at most; a short-cut entry is measured again, a fully-cut one is kept; a red base suite gets a second pass whose one-pass-only ids are flaky and not blamed on the change (a new id, or one in a changed file, still is); a suite red at base (500+ ids) is excused per id with a suite-red-at-base line; the baseline is written to the run directory; a failing full-suite check that is not excused is named with the rule that kept it blocking" \
     || bad "base budget unit gave: $B4 (want: $Y4)"
 
 # fl24 (FireLater#24 on v11.139.0), synthetic and modeled on its shape: a frontend suite red on base, a full-suite run whose ids are all red on base.
@@ -1081,6 +1197,26 @@ console.log(r.join(" | "));
 Y6="same 1:false | noise 1:true | value 1,1 | shape 1 | names-file 1 | names-symbol 1 | noise-alone 0 | blocked 1:true:true | basered 1,0,0,0,0,1 | onlyBaseRed true,false,true,false,false | claim true,true,false"
 [ "$B6" = "$Y6" ] && ok "unit: a base-red id whose error differs only by noise (a stack path, a :line:col) is excused with a NOT PROVEN line; a changed number or quoted value, another error shape or a failure naming a changed file or symbol still blocks; a suite held by an unexcused targeted check says so; a fix round's pre-existing stop needs every live failure red in a baseline" \
     || bad "fl24 attribution unit gave: $B6 (want: $Y6)"
+# FL18 (FireLater#18 on 11.164.0, sealed SPEC_CONFLICT): backend/package.json changed, so the global manifest gate kept every package's node_modules out of
+# the base worktree; the frontend's vitest files could not start on a bare base (npx: missing vitest), gave no ids, and 22 page tests red on base (73 of 1008
+# ids, same first error, measured with the frontend's own deps linked) were fed to the fix rounds as the change's own. BASE-LINK-SCOPE: a changed manifest
+# blocks the dep link only for its own package, the packages above it and the packages inside it; verify also records which checks the base rerun ran
+# (base_compared). Replayed on the stored #18 changed files (tests/min/fixtures/replay).
+# Plants: F18a base_guard.ts manifestBlocksBaseLink `return true || ms.some(...)` (the frontend cell blocks); F18b drop `cwd.startsWith(`${d}/`) ||` (the
+#         nested-cwd cell links); F18c verify.ts back to `changed.some((f) => MANIFESTS.test(f)) ? null` at either site (the wiring cell fails).
+F18="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const bg = await import(process.env.ROOT + "/loki-ts/src/util/base_guard.ts"), { MANIFESTS } = await import(process.env.ROOT + "/loki-ts/src/contrib/wall_snapshot.ts");
+const { readFileSync } = await import("node:fs"), fx = JSON.parse(readFileSync(process.env.ROOT + "/tests/min/fixtures/replay/firelater18-fix-conflict.json", "utf8"));
+const ch = fx.verify.changed_files, man = (f) => MANIFESTS.test(f), blk = (c, cwd, env = {}) => bg.manifestBlocksBaseLink(c, cwd, man, env);
+const r = [];
+r.push("link " + [blk(ch, "frontend"), blk(ch, "backend"), blk(ch, "."), blk([...ch, "frontend/package-lock.json"], "frontend"), blk(["package.json"], "frontend"), blk(["packages/a/package.json"], "packages"), blk(["frontend/package.json"], "frontend/src"), blk(ch, "frontend", { LOKI_E10_BASE_LINK_SCOPE: "0" }), blk(["frontend/src/x.ts"], ".")].join(","));
+const vsrc = readFileSync(process.env.ROOT + "/loki-ts/src/engine10/stages/verify.ts", "utf8");
+r.push("wiring " + [(vsrc.match(/manifestBlocksBaseLink\(changed, relative\(/g) ?? []).length, vsrc.includes("base_compared: [...new Set(preRed.compared)]"), vsrc.includes("changed.some((f) => MANIFESTS.test(f)) ? null")].join(","));
+console.log(r.join(" | "));
+' 2>&1)"
+YF18="link false,true,true,true,true,true,true,true,false | wiring 2,true,false"
+[ "$F18" = "$YF18" ] && ok "FL18 replay: on the stored #18 changed files a backend manifest no longer blocks the frontend's base run; root, own-package, lockfile, nested and workspace manifests still do; =0 restores the global gate; verify records base_compared" \
+    || bad "FL18 replay gave: $F18 (want: $YF18)"
 
 # FireLater#24 on 2026-11-17, synthetic and modeled on its verify record: untouched page tests (a bare title and a full id per failure) whose every failing
 # id is in the package suite's base failures, a root baseline with no ids, and a base rerun that parsed no id (the environment gate left it without its
@@ -1302,7 +1438,7 @@ PY
 RVROOT="$T/realvitest"
 rv_install() { # rv_install <version>: npm-install real vitest into its own dir; silent when it worked
     mkdir -p "$RVROOT/$1" && printf '{"private":true}\n' > "$RVROOT/$1/package.json"
-    (cd "$RVROOT/$1" && ${TO[@]+"${TO[@]}"} npm install "vitest@$1" --no-audit --no-fund --silent >/dev/null 2>&1) && [ -x "$RVROOT/$1/node_modules/.bin/vitest" ]
+    (cd "$RVROOT/$1" && ${TOM[@]+"${TOM[@]}"} npm install "vitest@$1" --no-audit --no-fund --silent >/dev/null 2>&1) && [ -x "$RVROOT/$1/node_modules/.bin/vitest" ] # TOM (300 s): an install is not a 60 s check
 }
 unit_rv() { # unit_rv <version> <case>
     local ver="$1" RVOUT RVRC RVS
@@ -1384,6 +1520,10 @@ unit_rv() { # unit_rv <version> <case>
 #   touched:   the change breaks core's own test: FAILED.
 #   newerr:    the change makes legacy's base-red test throw a new error under the same id: never excused, FAILED.
 #   limit:     verify is stopped at its limit while app's suite still runs and nothing that ran failed: PARTIAL (never FAILED, never VERIFIED), app named.
+#   limitearly: the limit (1 s) lands before any package suite starts, so the pre-red legacy test, not yet measured on base, draws a fix round and a quick
+#              re-verify follows: still PARTIAL, and the receipt still names app's suite (the quick verify used to drop it and keep only a bare "full suite"; the
+#              8 s limit case read that way once under load).
+#   carry:     (unit) a quick verify that runs a suite drops that suite's carried "not run" line and keeps the others (Fable's review of 53dabb6d8).
 #   limitred:  the same stop with core's own test red: FAILED, not delivered as passing.
 #   links, linksnewerr: clean and newerr in an installed workspace (node_modules/@ws/<member> is a symlink to the member, and app and legacy import core
 #              through it). The base run reads the base copy of core, never the changed one: legacy is excused in links, and in linksnewerr (the change makes
@@ -1397,6 +1537,11 @@ unit_rv() { # unit_rv <version> <case>
 #   RWd. repo_profile.ts attributeFullSuite: ids only (drop the same-error comparison); newerr excuses legacy.
 #   RWe. intake.ts: let the branch lookup throw again; detached ends with no receipt.
 #   RWf. verify.ts no-id block: `cand = []`; norunner is FAILED after a fix round.
+#   RWh. verify.ts unrunSuitesCarried: return [] (a quick re-verify carries no unrun suite); the carry unit reads `[] | []` on every run, and limitearly
+#        reads not_proven "full suite" without @ws/app when its quick re-verify path is taken (under heavy load the limit can land before suites are chosen).
+#   RWj. (harness) the SCS block prints `quick_verifies 0` and leaves "verify stopped" out of its not_proven filter: limitearly's guard fires (neither path).
+#   RWk. verify.ts: drop `...unrunSuitesCarried(...)` from the quick-verify not_proven line; the carry wiring check fails.
+#   RWi. verify.ts unrunSuitesCarried: ignore `ran` (keep every carried line); the carry unit keeps "@ws/app" though that suite ran.
 #   RWg. LOKI_E10_BASE_ON_DEMAND=0 in the run: clean runs all five suites and intake measures them (the opt-out is the old behaviour).
 scope_fixture() { # scope_fixture <dir> [slowcore | slowapp | norunner | links]
     local d="$1" v="${2:-}" p dep script core="../../core/src/core"
@@ -1452,13 +1597,14 @@ print("fix_rounds %d" % sum(1 for e in ev if e["type"] == "fix.round"))
 print("failed %s" % ",".join(sorted(c["name"] for c in rec.get("checks", []) if c["result"] == "fail" and not c.get("pre_red"))))
 print("not_applicable %s" % " ;; ".join(n for n in rec.get("not_applicable", []) if "full suite" in n))
 print("stopped %s" % ",".join(e["data"].get("reason", "") for e in ev if e["type"] == "stage.failed" and e["stage"] == "verify"))
+print("quick_verifies %d" % sum(1 for x in vs if x.get("verify_scope") == "quick"))
 if os.environ.get("RS_SHOW"):
     for i, x in enumerate(vs): print("dbg verify%d %s" % (i, json.dumps({k: x.get(k) for k in ("verify_scope", "pre_red_checks", "known_red_checks", "known_red_same_error", "baseline_line", "not_proven", "blocking_checks")} | {"checks": ["%s=%s" % (c["name"], c["result"]) for c in x.get("checks", [])]})))
 PY
 )"
 }
 scope_get() { printf '%s\n' "$SCS" | sed -n "s/^$1 //p"; }
-scope_want() { case " ${SCOPE_CASES:-clean detached ownerslow touched newerr limit norunner limitred links linksnewerr} " in *" $1 "*) return 0 ;; esac; return 1; } # SCOPE_CASES="clean limit" runs a subset (planting a defect)
+scope_want() { case " ${SCOPE_CASES:-clean detached ownerslow touched newerr limit limitearly carry norunner limitred links linksnewerr} " in *" $1 "*) return 0 ;; esac; return 1; } # SCOPE_CASES="clean limit" runs a subset (planting a defect)
 unit_scope() {
 if scope_want clean; then
 SR="$T/scope-clean"; scope_fixture "$SR"; scope_run "$SR" "$SCOPE_OK"
@@ -1497,6 +1643,27 @@ SR="$T/scope-limit"; scope_fixture "$SR" slowapp; scope_run "$SR" "$SCOPE_OK" LO
 [ -n "${RS_SHOW:-}" ] && printf 'limit rc=%s\n%s\n' "$SCRC" "$SCS"
 [ "$(scope_get verdict)" = PARTIAL ] && ok "scope limit: verify stopped at its limit with nothing red: PARTIAL, never FAILED and never VERIFIED" || bad "scope limit: verdict $(scope_get verdict), want PARTIAL (stopped: $(scope_get stopped))"
 case "$(scope_get not_proven)" in *"full suite: @ws/app"*) ok "scope limit: the suite that did not finish is named NOT PROVEN" ;; *) bad "scope limit: the unfinished suite is not named: $(scope_get not_proven)" ;; esac
+fi
+if scope_want limitearly; then
+SR="$T/scope-limitearly"; scope_fixture "$SR" slowapp; scope_run "$SR" "$SCOPE_OK" LOKI_E10_VERIFY_MAX_S=1
+[ -n "${RS_SHOW:-}" ] && printf 'limitearly rc=%s\n%s\n' "$SCRC" "$SCS"
+[ "$(scope_get verdict)" = PARTIAL ] && ok "scope limitearly: a verify limit that lands before any suite starts is PARTIAL, never FAILED and never VERIFIED" || bad "scope limitearly: verdict $(scope_get verdict), want PARTIAL"
+# Two early paths, decided by how far verify got before the 1 s limit (machine load moves it): the limit lands after verify chose its suites, a fix round and a
+# quick re-verify follow, and the carried suite names must survive; or it lands during the targeted tests, before any suite is chosen, and the receipt names the stop.
+if [ "$(scope_get quick_verifies)" -ge 1 ] 2>/dev/null; then
+    case "$(scope_get not_proven)" in *"not run: full suite: @ws/app (no time left before the verify limit)"*) ok "scope limitearly: the suite that never started is still named NOT PROVEN after the quick re-verify" ;; *) bad "scope limitearly: the unstarted suite is not named after the quick re-verify: $(scope_get not_proven)" ;; esac
+else
+    case "$(scope_get not_proven)" in *"verify stopped at its time limit before all checks ran"*) ok "scope limitearly: the limit landed before verify chose its suites (no quick re-verify): the receipt names the stop" ;; *) bad "scope limitearly: guard: neither a quick re-verify nor the stop note: $(scope_get not_proven)" ;; esac
+fi
+fi
+if scope_want carry; then
+CU="$(cd "$ROOT/loki-ts" && bun --no-env-file -e '
+const v = await import(process.argv[1] + "/loki-ts/src/engine10/stages/verify.ts");
+const prior = ["not run: full suite: @ws/app (no time left before the verify limit)", "not run: full suite: @ws/legacy (timed out after 2s)", "quick re-verify only: x"];
+console.log(JSON.stringify(v.unrunSuitesCarried(prior, [{ name: "full suite: @ws/app", result: "pass" }, { name: "full suite: @ws/legacy", result: "not_run" }])) + " | " + JSON.stringify(v.unrunSuitesCarried(prior, [{ name: "full suite: @ws/legacy", result: "fail" }])));' "$ROOT" 2>&1)"
+[ "$CU" = '["not run: full suite: @ws/legacy (timed out after 2s)"] | ["not run: full suite: @ws/app (no time left before the verify limit)"]' ] && ok "scope carry: a suite this verify ran to a pass or fail loses its carried not-run line; one still not run keeps it" || bad "scope carry: $CU"
+CW="$T/carry-wiring.ts"; sed 's#//.*##' "$ROOT/loki-ts/src/engine10/stages/verify.ts" > "$CW" # comments stripped, so a comment naming the call cannot satisfy the check
+grep -qF '[QUICK_ONLY_NOTE, ...unrunSuitesCarried(ctx.outputs().verify?.not_proven, checks)]' "$CW" && ok "scope carry: wiring: the quick-verify NOT PROVEN line spreads unrunSuitesCarried with this verify's checks" || bad "scope carry: wiring: the quick-verify line no longer carries unrun suites"
 fi
 if scope_want norunner; then
 SR="$T/scope-norunner"; scope_fixture "$SR" norunner; scope_run "$SR" "$SCOPE_OK"

@@ -1,5 +1,5 @@
 // E-07: SessionRunner. Runs one provider session in its own OS process group so the whole tree can be killed together at limitS (ENGINE.md 10). E-32: the child re-enters via cli.ts's `engine10 session` route.
-import { createWatchdog, stallKillS, stallThresholdS } from "../runner/watchdog.ts";
+import { createWatchdog, sessionKillsS, stallThresholdS } from "../runner/watchdog.ts";
 import { classifyExitCause, SAFE_BUN_FLAGS } from "../runner/worker_proc.ts"; export { classifyExitCause }; // exit-code table lives with MAX_TURNS_EXIT in worker_proc.ts
 import { neutralizeEngineMarkers, sdkAuthCause } from "../runner/retry_class.ts";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -9,13 +9,14 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeF
 import { dirname, join, resolve } from "node:path"; import { tmpdir } from "node:os"; import { randomUUID } from "node:crypto";
 import { archivePriorCosts, writeProviderCost, stageMedianGapMs } from "../providers/provider_cost.ts";
 import { modelRouteModel } from "../providers/model_routes.ts";
-import { PROVIDER_DEFAULT_MODEL } from "../util/claude_model.ts";
+import { noteRoleModel, PROVIDER_DEFAULT_MODEL, roleModel, stageRole } from "../util/claude_model.ts";
 import { recordSessionCost, resultCostPath, tokensUnmeasured, UNMETERED } from "./cost.ts";
 import { hooks } from "./hooks.ts";
 import { readSessionId } from "../runner/session_resume.ts";
 import { routerEnabled } from "../runner/router/flag.ts";
 import { exitKind, routedCostFields, routerMarkers, routerSessionPin } from "../runner/router/session_route.ts";
 import type { SessionMarkers, SessionResult, SessionRunner, SessionRunOptions } from "./types.ts";
+import { armTimer } from "./types.ts";
 import { clampBashTimeoutEnv, envWithPwd, pinBashShellEnv, killGroupWithGrace, reapLiveGroup } from "../runner/worker_proc.ts"; import { engine10StaticPrefix, sessionPinModel } from "../runner/providers.ts"; export { sessionPinModel }; import { capToSessionPin } from "../runner/model_rank.ts"; import { idleGapMs, prefixParts, prefixSha } from "../util/cost_breakdown.ts";
 import { allowFor, appendFence, conflictNamed, createdOf, markCreated, fenceEnabled, fenceTask, HARNESS_OUTPUTS_ENV, healRecord, mergeDenials, restoreFenced, snapshotFenced } from "../util/config_fence.ts"; // E1: config and lockfile write fence
 import { beginGuard, finishGuard, isGuarded, watchBudget } from "../providers/provider_guard.ts"; // PARITY-ENFORCE: non-Claude guardrails
@@ -52,6 +53,23 @@ export function resolveModel(provider: string): string {
   if (provider === "opencode") return (e.LOKI_OPENCODE_MODEL ?? "").trim() || "opencode default (unreported)"; // opencode takes -m from LOKI_OPENCODE_MODEL only
   if (provider !== "claude") return `${provider} (model not recorded)`;
   return e.LOKI_CLAUDE_MODEL_DEVELOPMENT || e.LOKI_MODEL_DEVELOPMENT || PROVIDER_DEFAULT_MODEL;
+}
+/** ROLE-MODELS: the call's options with its role's model applied. The role is opts.role, else the stage's (stageRole). A model an older per-call
+ *  variable chose (pinSource "specific") wins. roleModel on the result marks a role pin: childEnv then pins it past the session pin, the router
+ *  floor and the provider's tier mapping (LOKI_E10_ROLE_MODEL), and on opencode passes it as LOKI_OPENCODE_MODEL. Every started model is noted per role. */
+export function withRoleModel(opts: SessionRunOptions, provider: string): SessionRunOptions {
+  const role = opts.role ?? stageRole(opts.stage), m = opts.pinSource === "specific" ? undefined : roleModel(role, process.env, provider);
+  const out = m === undefined ? opts : { ...opts, model: m, roleModel: m };
+  return out;
+}
+/** ROLE-MODELS: the model a started session runs, for the receipt: its pin when it has one, else what its tier resolves to in childEnv (the override,
+ *  then the session pin, then the tier's own variable, then the default), so an unpinned fast-tier plan session is not named by the development tier. */
+export function startedModelOf(opts: SessionRunOptions, provider: string, e: NodeJS.ProcessEnv = process.env): string { // the runner's cfg.model is the run model, never sent to the child, so it is not read here
+  if (opts.model) return opts.model;
+  if (provider !== "claude") return resolveModel(provider);
+  const forced = e["LOKI_MODEL_OVERRIDE"] || sessionPinModel(e), T = String(opts.tier).toUpperCase();
+  if (forced) return forced;
+  return e[`LOKI_CLAUDE_MODEL_${T}`] || e[`LOKI_MODEL_${T}`] || (opts.tier === "fast" ? (e["LOKI_ALLOW_HAIKU"] === "true" ? "haiku" : "sonnet") : resolveModel(provider));
 }
 // ER-05 / g09-47: effort is part of the cached prefix key, so a resumed session keeps the effort it was created with unless the stage
 // escalates. Per-message effort (mid-conversation output_config) is not exposed by the SDK; revisit when it is, instead of adding a new path.
@@ -111,13 +129,16 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
   if (escalated) cfg.emit?.("effort_escalation_cache_reset", opts.stage, { session_id: opts.iterationId, resume_session_id: opts.resumeSessionId, ...escalated });
   const lim = childBudgetLimit(cfg.remaining?.() ?? null); if (lim !== null) env["LOKI_BUDGET_LIMIT"] = lim; if (effort) env["LOKI_E10_EFFORT"] = effort; // lim: the SDK maxBudgetUsd (claude_flags.ts) then caps this one call at what is left
   if (routerEnabled() && !ADVISOR_MARKED_STAGES.has(opts.stage)) env["LOKI_ADVISOR_SCOPE"] = "off"; else delete env["LOKI_ADVISOR_SCOPE"]; // CH-02: only with the router on, so router-off envs stay byte-identical
-  const pin = routerSessionPin(env, cfg.provider, cfg.advisor, opts); // ROUTER-1 (runner/router/session_route.ts): identical to opts.model with the router off or a user override set
+  delete env["LOKI_E10_ROLE_MODEL"]; // ROLE-MODELS: never inherited; only a role pin on this call sets it
+  if (opts.roleModel && cfg.provider === "opencode") env["LOKI_OPENCODE_MODEL"] = opts.roleModel; // opencode takes -m from LOKI_OPENCODE_MODEL only (provider_opencode.ts)
+  else if (opts.roleModel) env["LOKI_E10_ROLE_MODEL"] = opts.roleModel; // providers.ts claudeModelFor returns it first: exact, past the tier mapping, LOKI_MAX_TIER and the override
+  const pin = opts.roleModel ?? routerSessionPin(env, cfg.provider, cfg.advisor, opts); // ROLE-MODELS: a role pin skips the router floor (exact); ROUTER-1 (runner/router/session_route.ts): identical to opts.model with the router off or a user override set
   if (pin && pin !== PROVIDER_DEFAULT_MODEL) { // the label is a record, never a --model value
     const t = String(opts.tier).toUpperCase(); // E-45: pin wins over any inherited tier model
     env[`LOKI_CLAUDE_MODEL_${t}`] = pin;
     env[`LOKI_MODEL_${t}`] = pin;
   }
-  const caps = cfg.provider === "claude" && env["LOKI_E10_FULL_SESSION"] !== "1" ? hooks.effort?.caps?.(opts.stage, process.env["LOKI_MODEL_OVERRIDE"] || sessionPinModel(process.env) || (pin && pin !== PROVIDER_DEFAULT_MODEL ? pin : "") || opts.model || cfg.model || resolveModel(cfg.provider)) : undefined; // A whole-issue session (LOKI_E10_FULL_SESSION, set above) has no turn or token cap on any model: the 45-turn Haiku cap was sized from small bench tasks and cut every Haiku issue run off mid-work. E5: the model the call really runs on (override, session pin, router pin, then the run model); Haiku implement and fix sessions stop at a turn and token cap, and a fix with no product edit
+  const caps = cfg.provider === "claude" && env["LOKI_E10_FULL_SESSION"] !== "1" ? hooks.effort?.caps?.(opts.stage, opts.roleModel || process.env["LOKI_MODEL_OVERRIDE"] || sessionPinModel(process.env) || (pin && pin !== PROVIDER_DEFAULT_MODEL ? pin : "") || opts.model || cfg.model || resolveModel(cfg.provider)) : undefined; // A whole-issue session (LOKI_E10_FULL_SESSION, set above) has no turn or token cap on any model: the 45-turn Haiku cap was sized from small bench tasks and cut every Haiku issue run off mid-work. E5: the model the call really runs on (override, session pin, router pin, then the run model); Haiku implement and fix sessions stop at a turn and token cap, and a fix with no product edit
   if (caps) env["LOKI_E10_STOP_RULES"] = JSON.stringify(caps); else delete env["LOKI_E10_STOP_RULES"];
   return env;
 }
@@ -188,7 +209,8 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
   let allowOnce: string[] = []; // E1: config paths a spec conflict named, editable by the very next session only (the resume)
   return {
     run(opts: SessionRunOptions): Promise<SessionResult & { stderrTail: string }> {
-      if (cfg.provider === "opencode" && opts.model) opts = { ...opts, model: undefined }; else if (cfg.provider === "claude" && opts.model) opts = { ...opts, model: capToSessionPin(opts.model) }; // a stage pin (Wall's claude tier) cannot reach opencode; a LOKI_SESSION_MODEL run never starts a session above its pin (runner/model_rank.ts)
+      opts = withRoleModel(opts, cfg.provider); // ROLE-MODELS: a set role replaces the call's model exactly (never capped, never dropped on opencode); unset, nothing changes
+      if (opts.roleModel === undefined) { if (cfg.provider === "opencode" && opts.model) opts = { ...opts, model: undefined }; else if (cfg.provider === "claude" && opts.model) opts = { ...opts, model: capToSessionPin(opts.model) }; } // a stage pin (Wall's claude tier) cannot reach opencode; a LOKI_SESSION_MODEL run never starts a session above its pin (runner/model_rank.ts)
       const start = Date.now();
       // A signal aborted before run() never fires the listener below, so it never spawns.
       if (opts.signal.aborted || sessionsCancelled()) return Promise.resolve({ exit: null, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 0, killed: true, stderrTail: "" });
@@ -229,16 +251,17 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
         killCause = cause;
         killGroupWithGrace(pgid);
       };
-      cfg.emit?.("session.started", opts.stage, { session_id: sessionId, provider: cfg.provider, model: opts.model ?? cfg.model ?? null, pgid: pgid ?? null });
+      const startedRole = opts.role ?? stageRole(opts.stage); noteRoleModel(startedRole, startedModelOf(opts, cfg.provider)); // ROLE-MODELS: the receipt's models_by_role
+      cfg.emit?.("session.started", opts.stage, { session_id: sessionId, provider: cfg.provider, model: opts.model ?? cfg.model ?? null, pgid: pgid ?? null, ...(opts.roleModel ? { role: startedRole } : {}) });
       const onAbort = () => kill("aborted");
-      const limitTimer = setTimeout(() => kill("limit"), opts.limitS * 1000);
+      const limitTimer = armTimer(() => kill("limit"), opts.limitS * 1000); // NO-DEFAULT-BUDGET: limitS Infinity (no time limit) arms nothing
       const capUsd = parseCapUsd(process.env["LOKI_E10_MAX_COST_USD"]), effDir = cfg.lokiRoot ? join(cfg.lokiRoot, "metrics", "efficiency") : null, effBase = effDir !== null && capUsd !== null ? calculateCostFromRecords(readEfficiencyDir(effDir)) : 0; const stopBudgetWatch = isGuarded(cfg.provider) && capUsd !== null ? watchBudget(() => (cfg.remaining?.() ?? 1) <= 0 || (effDir !== null && calculateCostFromRecords(readEfficiencyDir(effDir)) - effBase >= capUsd), () => { cfg.emit?.("guard.budget_stop", opts.stage, { provider: cfg.provider }); kill("limit"); }) : () => {}; // PARITY-ENFORCE: live kill on the run cap (LOKI_E10_MAX_COST_USD), not the unset BUDGET_LIMIT
-      const watchdog = createWatchdog(Date.now), stallKill = stallKillS(); // FC-17: 0 (default) never kills
+      const watchdog = createWatchdog(Date.now), { stallS: stallKill, loopS: loopKill } = sessionKillsS(opts.limitS); // FC-17: 0 (default) never kills; NO-DEFAULT-BUDGET: a session with no time limit ends on silence (1800 s) or on output with no tree change (3600 s)
       const heartbeatTimer = setInterval(() => {
         const un = untrackedList(opts.cwd), diff = diffShortstat(opts.cwd, un), w = watchdog.tick(stdout.length + errBytes, diffSignature(opts.cwd, diff, un)); // one ls-files per tick, shared (TEN-SPEED-21)
         const live = readSessionId(opts.cwd ?? process.cwd(), opts.iterationId); // mirrors the provider session id into the append-only log so a SIGKILL cannot lose it; key absent until known
         cfg.emit?.("heartbeat", opts.stage, { waiting_on: opts.stage, elapsed_s: (Date.now() - start) / 1000, diff, progress: w.cls, ...(live ? { provider_session_id: live } : {}) });
-        if (w.stalledNow) cfg.emit?.("session.stalled", opts.stage, { session_id: sessionId, idle_s: w.idleS, threshold_s: stallThresholdS() }); if (stallKill > 0 && w.idleS >= stallKill) kill("stalled");
+        if (w.stalledNow) cfg.emit?.("session.stalled", opts.stage, { session_id: sessionId, idle_s: w.idleS, threshold_s: stallThresholdS() }); if (stallKill > 0 && w.idleS >= stallKill) kill("stalled"); else if (loopKill > 0 && w.diffIdleS >= loopKill) { cfg.emit?.("session.looping", opts.stage, { session_id: sessionId, no_tree_change_s: Math.round(w.diffIdleS), threshold_s: loopKill }); kill("stalled"); }
       }, cfg.heartbeatMs ?? HEARTBEAT_MS_DEFAULT);
       opts.signal.addEventListener("abort", onAbort, { once: true });
       const untrack = trackSession(() => kill("aborted"));
@@ -247,7 +270,7 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
         child.on("exit", () => reapLiveGroup(pgid, () => cfg.emit?.("session.group_reaped", opts.stage, { session_id: sessionId, pgid })));
         // "close", not "exit": stdout may still be draining, and the marker is usually last.
         child.on("close", (code) => {
-          clearTimeout(limitTimer);
+          limitTimer.clear();
           clearInterval(heartbeatTimer);
           stopBudgetWatch();
           if (workRun) { liveInRepo.set(workRun.runDir, Math.max(0, (liveInRepo.get(workRun.runDir) ?? 1) - 1)); recoverSessionWork(cfg, workRun, opts.stage, sessionId, "end"); } // WORK-RECOVERY: every way a session ends (its own exit, a stop rule, the stage limit, the run cap, the watchdog, a cancel) passes here; before the guard and the fence judge the tree

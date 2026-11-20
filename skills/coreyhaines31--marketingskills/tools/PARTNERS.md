@@ -19,7 +19,7 @@ Every tool in [REGISTRY.md](REGISTRY.md) is exactly one of these:
 |---|---|---|---|---|---|
 | **Tool integration** | A neutral integration guide for a real marketing tool with a programmatic surface | Anyone (incl. non-partners) can contribute one via PR | none | none required | Listed in the Tool Index / By Category |
 | **◆ Verified Partner** | A tool whose maker funds the library (Skill or Category Partner) | Vetted, application-only, paid | ◆ | Disclosure header in its integration guide + ◆ in the registry + entry in `partners.json` | Verified Partners section + README + site + launch announcement |
-| **House tool** | A tool built by the maintainer (e.g. Truelist) | The repo author | (noted) | **Stricter** than a partner — its guide states the repo author owns the tool | Held as a category House Tool; that slot is not for sale |
+| **House tool** | A tool built by the maintainer (e.g. Truelist, Magister) | The repo author | (noted) | **Stricter** than a partner — its guide states the repo author owns the tool | Held as a category House Tool; that slot is not for sale |
 
 A partner integration is the *same* neutral integration guide as any other tool, plus disclosure and placement. It is not a different kind of content — it earns no softer editorial treatment.
 
@@ -37,6 +37,7 @@ A partner integration is the *same* neutral integration guide as any other tool,
 - Exclusivity over what agents recommend. Category exclusivity is a *sponsorship-slot* exclusivity, never a recommendation exclusivity — a skill may still name a competitor when it's the right answer.
 - Removal or demotion of any other tool. Partner entries are additive.
 - A claim of "best in category." The badge means "paid, disclosed, vetted for fit."
+- A longer description inside a skill. Every tool a skill names, partner or not, gets the same two short clauses: what it is and when to reach for it. Proposed wording is checked with the [tool awareness eval](../evals/tool-awareness/README.md) before it ships.
 
 ## Tiers (summary)
 

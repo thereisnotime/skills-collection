@@ -5,16 +5,16 @@ Current versions of all skills. Agents can compare against local versions to che
 | Skill | Version | Last Updated |
 |-------|---------|--------------|
 | ab-testing | 2.0.7 | 2026-11-09 |
-| ad-creative | 2.13.1 | 2026-11-17 |
-| ai-seo | 2.12.3 | 2026-11-09 |
-| analytics | 2.2.5 | 2026-11-09 |
+| ad-creative | 2.13.5 | 2026-11-19 |
+| ai-seo | 2.12.7 | 2026-11-19 |
+| analytics | 2.2.7 | 2026-11-19 |
 | aso | 2.0.6 | 2026-11-09 |
-| attribution | 1.1.9 | 2026-11-09 |
-| churn-prevention | 2.0.6 | 2026-11-09 |
-| co-marketing | 2.0.6 | 2026-11-09 |
-| cold-email | 2.2.4 | 2026-11-09 |
+| attribution | 1.1.10 | 2026-11-19 |
+| churn-prevention | 2.0.7 | 2026-11-19 |
+| co-marketing | 2.0.7 | 2026-11-19 |
+| cold-email | 2.2.7 | 2026-11-19 |
 | community-marketing | 2.0.5 | 2026-11-09 |
-| competitor-profiling | 2.1.8 | 2026-11-09 |
+| competitor-profiling | 2.1.9 | 2026-11-19 |
 | competitors | 2.3.3 | 2026-11-09 |
 | content-strategy | 2.1.8 | 2026-11-09 |
 | conversion-tracking | 1.0.6 | 2026-11-09 |
@@ -22,43 +22,137 @@ Current versions of all skills. Agents can compare against local versions to che
 | copywriting | 2.3.6 | 2026-11-17 |
 | cro | 2.0.6 | 2026-11-09 |
 | customer-research | 2.0.8 | 2026-11-09 |
-| directory-submissions | 2.2.0 | 2026-11-11 |
-| emails | 2.1.7 | 2026-11-09 |
+| directory-submissions | 2.2.1 | 2026-11-19 |
+| emails | 2.1.9 | 2026-11-19 |
 | events | 1.0.3 | 2026-11-09 |
 | free-tools | 2.0.6 | 2026-11-09 |
-| image | 2.0.7 | 2026-11-17 |
-| influencer-marketing | 1.4.3 | 2026-11-09 |
-| launch | 2.2.3 | 2026-11-09 |
+| image | 2.0.8 | 2026-11-19 |
+| influencer-marketing | 1.4.4 | 2026-11-19 |
+| launch | 2.2.4 | 2026-11-19 |
 | lead-magnets | 2.1.5 | 2026-11-11 |
-| link-building | 1.0.4 | 2026-11-09 |
+| link-building | 1.1.0 | 2026-11-18 |
 | marketing-council | 1.0.3 | 2026-11-09 |
 | marketing-ideas | 2.0.5 | 2026-11-09 |
-| marketing-loops | 1.8.4 | 2026-11-09 |
-| marketing-plan | 1.2.5 | 2026-11-09 |
+| marketing-loops | 1.9.0 | 2026-11-19 |
+| marketing-plan | 1.2.6 | 2026-11-19 |
 | marketing-psychology | 2.0.3 | 2026-11-09 |
 | offers | 1.0.6 | 2026-11-09 |
 | onboarding | 2.0.5 | 2026-11-09 |
-| ads | 2.7.5 | 2026-11-11 |
-| paywalls | 2.1.4 | 2026-11-09 |
+| ads | 2.7.9 | 2026-11-19 |
+| paywalls | 2.1.5 | 2026-11-19 |
 | popups | 2.0.4 | 2026-11-09 |
 | pricing | 2.1.7 | 2026-11-09 |
 | product-marketing | 2.2.3 | 2026-11-09 |
 | programmatic-seo | 2.1.3 | 2026-11-09 |
-| prospecting | 1.5.3 | 2026-11-09 |
-| public-relations | 1.2.4 | 2026-11-09 |
-| referrals | 2.2.4 | 2026-11-09 |
-| reverse-engineer-marketing | 1.1.4 | 2026-11-09 |
+| prospecting | 1.6.3 | 2026-11-19 |
+| public-relations | 1.3.1 | 2026-11-19 |
+| referrals | 2.2.7 | 2026-11-19 |
+| reverse-engineer-marketing | 1.2.0 | 2026-11-19 |
 | revops | 2.2.4 | 2026-11-09 |
 | sales-enablement | 2.4.4 | 2026-11-17 |
 | schema | 2.0.5 | 2026-11-09 |
-| seo-audit | 2.2.5 | 2026-11-09 |
+| seo-audit | 2.2.9 | 2026-11-19 |
 | signup | 2.0.3 | 2026-11-09 |
 | site-architecture | 2.1.3 | 2026-11-09 |
-| sms | 1.1.3 | 2026-11-09 |
-| social | 2.5.3 | 2026-11-17 |
-| video | 2.4.4 | 2026-11-17 |
+| sms | 1.1.4 | 2026-11-19 |
+| social | 2.6.0 | 2026-11-19 |
+| video | 2.4.7 | 2026-11-19 |
 
 ## Recent Changes
+
+### 2.14.25 (2026-11-19)
+
+Community batch: fourteen new tool guides, three guide updates, and three skill contributions.
+
+- **New integration guides**, each reviewed against the usefulness and neutrality rules in `tools/PARTNERS.md`: Hermoso (#1014), Calven (#980), PostOnce (#979), GetYouTubeTranscript (#975), Hyper Elements (#974), ScrapeWhale (#972), Adspy (#965), Adeli (#964), SignalShelf (#959), GoAnyAPI with a CLI and tests (#946), Parallel with a CLI and tests (#943), Marcora (#939), Adlicio (#898), and SocialToAI (#917). Updated guides: Precleared (#957) and Coupler (#904). Edits made on the way in: tracking links, in-guide disclosure lines, pointers to vendors' own skill packs, comparison framing, and price pitches were removed; Adlicio no longer documents Google Maps or logged-in Facebook group scraping; GetYouTubeTranscript and ScrapeWhale carry a platform-terms note.
+- **social** (2.5.4 → 2.6.0): a new `references/chinese-platforms.md` on Xiaohongshu, Douyin, Weibo, Bilibili, and WeChat (how search works, what the metrics mean, creator and ad marketplaces, disclosure rules, data limits), and a Social Data & Listening category in the registry (#917 by the SocialToAI team; the reference names no tool).
+- **Outdated facts corrected** (#892 by @canermoral5-sys), after a check against primary sources. **ai-seo** (2.12.6 → 2.12.7): the GEO study table now carries the figures derived from the paper's Table 1 (quotations +41%, statistics +31%, fluency +28%, citing sources +27%, keyword stuffing -8%), with the rank effect (citing sources helped a fifth-ranked site and hurt the top one); Search Console's Generative AI performance report replaces "no AI-specific reporting"; Claude's use of Brave is described as reported, not documented. **ads** (2.7.8 → 2.7.9): Meta's 20% text limit is gone since September 2020, and the event-prioritization checklist items are replaced. **seo-audit** (2.2.8 → 2.2.9): a caveat on Search Console impressions between May 13, 2025 and April 27, 2026. **prospecting** (1.6.2 → 1.6.3), **cold-email** (2.2.6 → 2.2.7): Austria joins Germany and Italy in requiring prior consent for cold email. **emails** (2.1.8 → 2.1.9): open rate is a trend within one list, not a benchmark. **paywalls** (2.1.4 → 2.1.5): the escape hatch wording covers paid-only products. One of the PR's corrections, on ChatGPT's search providers, was not confirmed and is not included.
+- **ai-seo**: the agent-readiness reference gains checks for stores: machine-readable price and availability, whether cart and checkout answer an agent's user agent, and structured returns and shipping terms (#859 by @vlloic).
+- **public-relations** (1.3.0 → 1.3.1), **referrals** (2.2.6 → 2.2.7): two tool mentions that makers added to skill files in 2.14.24 are removed, under the rule that a maker's PR does not add its own tool to a skill. Both tools keep their guides and registry rows.
+
+### 2.14.24 (2026-11-19)
+
+Community batch: thirteen skill contributions, rebased onto this week's changes.
+
+- **public-relations** (1.2.4 → 1.3.0): a new `references/press-releases.md` on when a release is worth it, how to structure and write one, and distribution options from your own newsroom page to the paid wires, with what wire distribution does and doesn't get you (#885 by @dylancaponi, who discloses building one of the listed options). Adds a Press Release Distribution category to the registry and an eval.
+- **reverse-engineer-marketing** (1.1.4 → 1.2.0): a scorecard, a page-family table, a strongest-links table, a "what won't transfer" section for advantages that aren't plays, and a cost range quoted before the first paid data call (#973 by @nilesh271080-hash; closes #966, #967, #968, #969, #970).
+- **prospecting** (1.6.1 → 1.6.2), **cold-email** (2.2.5 → 2.2.6): Italy joins Germany in requiring prior consent for cold email, B2B included, and cold-email now points EU and UK sends to the country rules first (#928 by @rahul05ranjan; closes #855). The cold-email framework examples use bracketed proof slots in place of invented customers and results (#911 by @true-souljah).
+- **ads** (2.7.7 → 2.7.8), **launch** (2.2.3 → 2.2.4), **marketing-plan** (1.2.5 → 1.2.6), **referrals** (2.2.5 → 2.2.6): broken links, wrong idea numbers, and a self-contradicting launch gate are fixed (#963 by @dajiaohuang; closes #948). marketing-plan now publishes a plan only to a verified private repository with explicit client authorization, with four evals (#889 by @monsterlag). referrals lists LinkJolt, with a guide contributed by its maker (#888 by @Efesop).
+- **video** (2.4.6 → 2.4.7), **ad-creative** (2.13.4 → 2.13.5): one layout per aspect ratio for code-rendered video, and a frame check for cropped products, logos, and text, with product-photo guidance in the Hyperframes guide (#915 by @alexandrosmimilidis).
+- **seo-audit** (2.2.7 → 2.2.8): Firecrawl is listed as a JavaScript-rendering option for schema detection (#923 by @JuampiHernandez).
+- **directory-submissions** (2.2.0 → 2.2.1): three launch sites added (TheSaaSDir, DiscoverLaunches, Launchator; #981, #910, #890), and agent-run submissions now read the application status and treat pending review as pending (#929 by @hboon).
+
+### 2.14.23 (2026-11-19)
+
+Community batch: 22 CLI fixes and three CI checks. No skill content changes.
+
+- **CLI fixes** (by @rudycelekli, each with a contract test): **ahrefs** sends the required Keywords Explorer and SERP Overview parameters (#864); **google-ads** strips hyphens from the customer ID (#877); **similarweb** requests geography from the v4 endpoint (#876); **dataforseo** enforces per-task keyword limits (#873); **mixpanel** requires the funnel date range (#871); **supermetrics** rejects row limits that would be truncated (#879); **tiktok-ads** sends `operation_status` for campaign status updates (#872); **resend** pages audience, contact, and webhook lists with cursors (#874); **postmark** enforces batch and suppression limits (#867); **activecampaign** sends deal search as `filters[search]` and requires whole-cent deal values (#861, #862); **close** filters activities with `_type` (#860); **apollo** enforces the ten-person bulk enrichment limit (#868); **hunter** reads and pauses sequences through documented routes (#869); **lemlist** requests campaign stats from the v2 route (#870); **truelist** enforces the three-address inline limit (#863); **optimizely** changes experiment state with the documented action parameter (#866); **livestorm** creates webhooks with the documented attributes (#865); **trustpilot** pages business search with `perpage` (#875); **wistia** honors an explicit false public flag (#878); **paddle** rejects incomplete recurring price options (#858). The remaining CLIs now exit non-zero on HTTP 4xx and 5xx responses (#852).
+- **Hidden-content check** (#956 by @TanmayShah29, closes #931): a new CI job and `scripts/check-hidden-content.mjs` flag content a reviewer would not see in rendered markdown: HTML comments, invisible Unicode, long blank runs, piped-to-shell downloads, and webhook or secret-exfiltration patterns. Legitimate hits go in an allowlist.
+- **Validator fix** (#977 by @divya0795): `validate-skills-official.sh` reported every skill as valid, because it matched "valid" inside "Validation failed". It now fails on a rejected skill, with a regression test.
+- **Trigger eval** (#978 by @divya0795): a run that ends in an error result (not logged in, API or rate-limit error) is scored as an error, not as an answer.
+
+### 2.14.22 (2026-11-19)
+
+AI video and voice model facts refreshed against vendor pages, checked 2026-11-19 (#994). Same treatment as the image models in 2.14.21: each tool is described by what its vendor states and where to check, with no ratings.
+
+- **video** (2.4.5 → 2.4.6): the model comparison table and "Quick picks" are rewritten. Veo 3.1 makes 4, 6, or 8 second clips, not "variable" length, so the skill now says to plan a video as several shots. Kling is 4.0 (3 to 30 seconds), Seedance is 2.5, Hailuo runs MiniMax H3, Pika is 2.5, and the open-weight option is Wan 2.2, with HunyuanVideo's licence limits noted. Runway's row covers Gen-4.5 and its API, which also hosts Veo, Kling, and Seedance. HeyGen's plan table matched no current plan and is replaced (credits per month, 1 to 60 minute videos); its avatar and language counts and custom-avatar footage rules are updated, and its MCP endpoint is given. Synthesia's line now says what its site states. `references/ai-video-prompting.md` drops "up to 2 minutes" for Kling and other dated tips.
+- **ad-creative** (2.13.3 → 2.13.4): the video and voice sections of `references/generative-tools.md`. Removed or corrected: Veo "up to 60 seconds" and its Gemini API preview models (shut down 22 Oct 2026); Kling "up to 3 minutes"; Seedance "12 reference files" and "OpenAI-compatible" (not found in its docs); Higgsfield "50+ camera movements"; per-second prices that could not be traced to a vendor. Voice: OpenAI's TTS models shut down on 6 Jan 2027 and OpenAI does offer custom voices; Cartesia's current model is `sonic-3.6` with 44 languages and voice cloning, and no "40ms" figure is published; ElevenLabs states 90+ languages on v4 and meters in credits; Voicebox's local port, engines, and languages are corrected; PlayHT is removed because its site no longer resolves. The "Best / Good" quality column in the voice comparison is gone.
+- Limits: Kling's own developer docs and BytePlus's Seedance pages did not load, so their clip lengths come from Runway's listing of those models and are labelled that way. Google's Veo prices and OpenAI's TTS prices were not readable, so none are quoted; the one remaining video cost estimate names its source.
+
+### 2.14.21 (2026-11-19)
+
+AI image model facts refreshed against vendor docs, checked 2026-11-19 (#1009).
+
+- **image** (2.0.7 → 2.0.8): the model comparison table now names each family, what its vendor says it is for, and where to check, in place of "Best / Good / Limited" ratings and pinned versions. Corrections: Google's current models are the Nano Banana 2.x family, with up to 14 reference images, and `gemini-2.5-flash-image` is marked legacy; FLUX 3 Image takes up to ten references and FLUX.2 [dev] is local-only and non-commercial; Ideogram's 4.x models are current and take up to 10 style references; OpenAI points new integrations to `gpt-image-2.6-sunburst` or `gpt-image-2.6-flare`, `gpt-image-1` is already shut down, and `gpt-image-2` shuts down on 10 Feb 2027; Recraft's default is V4.1; SDXL is a legacy model. Midjourney's version is no longer pinned, because its docs could not be read and other sources disagree. The decision tree lists options to compare instead of a "best" per need. `references/ai-image-prompting.md` carries the same corrections.
+- **ad-creative** (2.13.2 → 2.13.3): the image section of `references/generative-tools.md` gets the same treatment. Removed: the Flux speed and price-per-megapixel table (no speeds are published, and one row priced a model with no hosted API), Ideogram's "~90% vs ~30%" accuracy claim and "4.3 billion style presets" (the vendor states neither), the DALL-E 3 row, and a Gemini curl example that no longer matches Google's docs. The cost table's three image rows are one hedged range. The video and voice sections are unchanged and still need the same check.
+- **competitor-profiling** (2.1.8 → 2.1.9): the tool stack table says what the Firecrawl and DataForSEO stack adds, in place of "Preferred — richer data".
+
+### 2.14.20 (2026-11-19)
+
+Second batch of tool-table cleanup (#994): twelve skills, patch bump each. The tool tables in these skills already gave each tool a short clause, so this pass fixes what was wrong in them.
+
+- **MCP columns corrected against the registry's tool index.** **analytics**: Mixpanel, Amplitude, and PostHog have MCP servers. **attribution**: PostHog and Salesforce do; Dub does not. **emails**: Customer.io and Kit do. **sms**: Attentive, Twilio, and Customer.io do, in both tables. **video**: HeyGen's cell uses the same mark as the other tables.
+- **"Best For" column headers are now "Fits"** in the tool tables of **ads**, **analytics**, **attribution**, **emails**, **prospecting**, **sms**, **referrals**, **co-marketing**, **influencer-marketing**, and **churn-prevention**, so the column states fit and doesn't read as a ranking. sms's "Quick picks" is "By situation".
+- **churn-prevention**: an unsourced "34% avg save rate" for one vendor is removed.
+- **cold-email**, **prospecting**: Truelist is marked as built by this repository's maintainer where the skill lists it as a tool.
+
+### 2.14.19 (2026-11-19)
+
+Magister is listed as a house tool, with the same short description every other tool gets (#1004). Magister is built by this repository's maintainer, and every mention says so.
+
+- **New guide**: `tools/integrations/magister.md`, checked against Magister's pricing, API, and MCP pages on 2026-11-19. It covers the MCP server (OAuth, read tools by default, opt-in writes, campaigns created paused), the API (AI visibility checks, site and AEO audits, keyword research, async jobs, rate limits), connected platforms, pricing, and when something else fits better.
+- **Registry**: a Tool Index row, a Magister section next to Composio, Cogny, and Glasser, rows in the AEO, Data Aggregation, and Social Media categories, and the MCP list. `tools/PARTNERS.md` names it as a house tool beside Truelist.
+- **ads** (2.7.5 → 2.7.6), **analytics** (2.2.5 → 2.2.6): one sentence each on reading several accounts through one connection, naming reporting connectors, MCP gateways, and Magister together.
+- **ad-creative** (2.13.1 → 2.13.2): the "Skip the plumbing" callout for Magister is replaced by a neutral sentence listing three routes: the repo's CLIs, a reporting connector, or an MCP gateway (Composio, Cogny, or Magister).
+- **social** (2.5.3 → 2.5.4): Publishing From Your Agent names Magister and Post Bridge among the scheduling tools an agent can drive, next to Typefully, Buffer, and Marky.
+- **seo-audit** (2.2.6 → 2.2.7): a Magister row in Tools Referenced (hosted site audit and keyword research over MCP or API).
+- **ai-seo** (2.12.5 → 2.12.6): a Magister row in the monitoring table, and Omnia's row now notes its API and MCP server. The two Search Console and GA4 rows in Tool Integrations are merged to keep the file at 500 lines.
+- **Tool awareness eval**: a Magister prompt set and results. On the shipped wording Magister was named in 15 of 15 relevant replies, never first, with 4.4 alternatives beside it, disclosed every time, and absent from 12 of 12 unrelated replies. The eval caught one biased draft row before it shipped. The script now accepts several skills per prompt file.
+
+### 2.14.18 (2026-11-19)
+
+First batch of one-clause tool descriptions outside link-building (#994).
+
+- **seo-audit** (2.2.5 → 2.2.6): Tools Referenced is a table that says what each tool is and when to reach for it, in place of two bare lists of names. Google's Mobile-Friendly Test is removed (retired December 2023), and ContentKing carries its current name, Conductor Website Monitoring.
+- **ai-seo** (2.12.4 → 2.12.5): the AI visibility monitoring table's "Best For" column becomes "Reach for it when", worded as the situation that fits each tool. Omnia is marked ◆ as a partner of this library.
+- **CONTRIBUTING.md, tools/PARTNERS.md**: the integrity rubric and the list of what sponsorship never buys now state the rule: every tool a skill names gets the same two short clauses, and proposed wording is checked with the tool awareness eval.
+
+### 2.14.17 (2026-11-19)
+
+- **marketing-loops** (1.8.4 → 1.9.0): a new **reply-fed expansion loop** in the Outbound group, 61 loops in all (#997). Monthly, once about 30 positive replies have built up, it enriches the repliers, sets each trait's share of positive replies against its share of sends, groups the over-represented traits into two to four micro-segments, sources lookalike accounts for each, and stages the new segments for approval. It stops when there are too few replies or no trait stands out, never re-adds anyone who opted out or got a breakup email, and tags expansion segments so the sequence-retro loop reports them separately. The outbound operator's schedule lists it. Eval 10 added. Adapted from Julien Lieben's autoresearch loop playbook (ColdIQ).
+
+### 2.14.16 (2026-11-19)
+
+- **prospecting** (1.5.3 → 1.6.0): two changes to `references/signal-plays.md`. **Org-shape signals** (#998): a departed leader with no replacement, a role nobody holds, a team growing with no job posts, a switch of a system of record, and an unusual title, each with how to detect it from public data, a time window, an opening angle, and who to write to. Rules cover the weak points: absence is a guess until a second signal backs it, growth needs two dated measurements, and the person who left is never named or contacted. Eval 13 added. Signals adapted from Julien Lieben's GTM playbooks (ColdIQ). **The signal tools table gives every tool one clause on what it is and one on when to reach for it** (#996). The file pointed to the tools registry for nine tools it doesn't list; tools with a guide now link to it and the rest link to the vendor. Koala is removed: the product shut down in September 2025. Unverified notes on which vendors offer APIs or MCP servers are gone.
+
+### 2.14.15 (2026-11-19)
+
+- **ai-seo** (2.12.3 → 2.12.4): the AI Search Landscape table gains a "Check you're in" column naming the search index behind each engine and where to verify it (Search Console for Google's, Bing Webmaster Tools for Bing's, search.brave.com for Brave's, which Claude's web search draws on), and the skill now says to check the index before any content work (#999). The facts were already in `references/platform-ranking-factors.md`; an agent that never opened the reference didn't raise them.
+
+### 2.14.14 (2026-11-18)
+
+- **link-building** (1.0.4 → 1.1.0): two changes (#992). **Paid links are handled by disclosure instead of refusal.** The skill still quotes Google's spam policy: a paid link that passes ranking credit is link spam, and paid links are inside the policy with `rel="sponsored"` or `rel="nofollow"`. It now states that rule and the likely outcomes once (Google ignores the link, or issues a manual action for a large or obvious pattern), leaves the decision to the user, and gives seven per-site checks for buying carefully in `references/risk-policy.md`. Rented links, sitewide packages, and exact-match anchors are flagged as higher risk. Private blog networks and automated link creation stay off-limits. **The tools table gives every tool one clause on what it is and one on when to reach for it**, the same shape for paid and free tools, and adds self-serve placement marketplaces (Serpzilla, Collaborator, WhitePress, Adsy) next to the managed service. The description gains "where to buy placements" and "link marketplaces", and its operative rule changes to match. Eval 2 updated; eval 6 added.
+- **Tool awareness eval**: `scripts/tool-awareness-eval.mjs` and `evals/tool-awareness/` test how a skill's wording about a tool changes answers: whether the tool is named when it fits, how many alternatives sit beside it, whether the risk is stated, and whether it is pushed when it doesn't fit. On link-building, one clause per tool took a marketplace from never named to named in 12 of 12 relevant replies, with 3.75 alternatives beside it on average. A vendor-written paragraph was named as often but came first in 92% of replies with 1.67 alternatives. Neither was named on prompts where it didn't fit.
 
 ### 2.14.13 (2026-11-17)
 

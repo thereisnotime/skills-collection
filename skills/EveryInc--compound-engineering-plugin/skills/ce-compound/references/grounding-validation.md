@@ -6,7 +6,7 @@ Read this when Phase 2.45 runs. The doc just written becomes permanent, trusted 
 
 Two claim categories verify against different trees:
 
-- **Code-behavior claims** (enum values, status semantics, limits, defaults) verify against the **local working tree**. They describe what this session's work produced and verified here.
+- **Code-behavior claims** (enum values, status semantics, limits, defaults) verify against **the code the learning will merge with**: the branch it ships on, including this session's work. On an ordinary branch that is the local working tree. When the working tree also holds changes that will not merge with the learning, such as other unmerged branches applied in a GitButler workspace, read from that branch's ref instead (`git show <ref>:<path>`), and name the tree used in the run report.
 - **Merge-state claims** ("fixed in #1608", "landed", "shipped") verify against **remote truth**. The checkout may predate a merge, so `gh pr view` (or the tracker equivalent) is primary and local git reachability is only the fallback. The script's `INFO: worktree is N commits behind …` line tells you how much to distrust the local tree for this category.
 
 Before running the script, optionally run `git fetch --quiet` (best-effort; skip silently on failure or offline, because the network is never a correctness dependency). When remote state cannot be checked at all, keep the claim, add an as-of qualifier ("as of this writing"), and record degraded verification in the run report.
@@ -17,6 +17,7 @@ The script reports in two tiers and you decide each item. A **FLAG** is a claim 
 
 | Flag | Likely meaning | Resolution |
 |------|----------------|------------|
+| line past the end of the cited file | Stale or memory-drafted line number | Cite the function, class, or config key that defines the behavior instead; keep the number only when the prose marks it as a pre-fix state |
 | path not found under the search base | Typo, drafted from memory, or a real file in a repo or store the check did not search | Keep the citation if the file exists in another repo or store you can check; otherwise fix the citation or remove the claim |
 | path missing here, exists at upstream | Stale checkout | Verify the claim against upstream; annotate if the doc implies the file is present locally |
 | path deliberately gone (doc says removed/renamed) | Historical citation | Confirm the surrounding prose marks it as historical ("removed by this fix", "pre-fix state"); add that marker if absent |
@@ -28,7 +29,7 @@ The script reports in two tiers and you decide each item. A **FLAG** is a claim 
 | scaffold ("Learning 3", `{{…}}`) | Drafting-context leak | Always fix; rewrite as a real path or link |
 | relative link unresolved | Wrong target | Fix the path |
 
-If the script cannot be resolved on this platform, apply its checks manually at the same scope: scan the body for cited paths that do not exist, hex words presented as commits anywhere in the body (in commands and code blocks as much as in prose), `Learning(s) N` / `{{…}}` scaffold, and broken relative links. Note in the run output that the check was manual. Do not silently skip.
+If the script cannot be resolved on this platform, apply its checks manually at the same scope: scan the body for cited paths that do not exist, cited line numbers past the end of their file, hex words presented as commits anywhere in the body (in commands and code blocks as much as in prose), `Learning(s) N` / `{{…}}` scaffold, and broken relative links. Note in the run output that the check was manual. Do not silently skip.
 
 After any body edit from this step or Step 2, re-run the script until it reports clean or every remaining flag is confirmed intentional.
 
@@ -46,13 +47,15 @@ knowledge store. You are read-only: never edit files. Inspect with Read,
 Grep, Glob, git (non-mutating), and gh when available.
 
 Inputs: the doc content below, the CONCEPTS.md entries below (if any), and
-this staleness context: <INFO line from the mechanical script, or "none">.
+this staleness context: <INFO line from the mechanical script, or "none">,
+and the tree to verify code against: <"working tree", or a git ref to
+read with git show <ref>:<path>>.
 
 Check every factual claim in three categories:
 
 1. CODE-BEHAVIOR CLAIMS — assertions about how code behaves: enum values,
    status semantics, limits, defaults, ordering, state transitions. For
-   each, locate the defining source in the current tree and quote the
+   each, locate the defining source in the tree named above and quote the
    defining line(s) with file:line. Verdict: verified (with quote),
    contradicted (with the quote showing otherwise), or unverifiable
    (defining source not found).

@@ -15,7 +15,7 @@ import { siteFor } from "../project_model/resolve.ts";
 import { guideFile, guideSuite } from "../project_model/guides.ts";
 import type { ProjectApi } from "../project_model/api.ts";
 import { CARGO_TEST_FILE_RE, isTestFile } from "../engine10/testmap.ts";
-import type { RunnerName, TestRef } from "../engine10/types.ts"; import type { FailureGroup } from "../engine10/failures.ts";
+import type { RunnerName, TestRef } from "../engine10/types.ts"; import { armTimer, cmdSilenceS } from "../engine10/types.ts"; import type { FailureGroup } from "../engine10/failures.ts";
 import { declaresPythonDep } from "./lock_ecosystems.ts";
 import { UNITTEST_DISCOVER_ARGS } from "./python_build_check.ts";
 import { safeGit, safeGitSpawn, tokenFreeEnv } from "./safe_git.ts";
@@ -984,6 +984,29 @@ export const baseRedShapeOn = (env: NodeJS.ProcessEnv = process.env): boolean =>
 /** The lines failureShape hashes (the one normalizer for an output with no parsed test id; verify's no-id base comparison reads the same lines). */
 export function failureLines(out: string): string[] {
   return out.split("\n").map((l) => l.replace(/\s+$/, "").replace(/\b\d{4}-\d{2}-\d{2}[T ][\d:._,]+Z?/g, "<ts>").replace(/\b\d{1,2}:\d{2}:\d{2}(?:[.,]\d+)?\b/g, "<clock>").replace(/\b\d+(?:\.\d+)?\s?(?:ms|s|sec|secs|seconds|m|min)\b/g, "<t>").replace(/\b0x[0-9a-f]{4,}\b/gi, "<hex>")).filter((l) => l !== "");
+}
+/** EXOGENOUS-RED: the facts of one suite run that say whether a base run of it can be compared with a head run. `load_errors`: the first line per module that
+ *  could not be found or loaded, at most 12 (a tree whose dependencies do not resolve fails tests the checkout passes: opencode's cli suite ran 123 tests with 84
+ *  failures in the base tree against 408 with 8 in the checkout). `executed`: the tests the run executed (ran, or bun's own "Ran N tests" line). */
+const LOAD_ERROR_RE = /Cannot find (?:package|module) ['"]|Could not resolve: ["']|preload not found|ModuleNotFoundError: |ERR_MODULE_NOT_FOUND/;
+/** The module a load-error line names (its first quoted text; the whole line when it quotes nothing). */
+export const loadErrorModule = (line: string): string => /['"]([^'"]+)['"]/.exec(line)?.[1] ?? line;
+export function loadErrors(raw: string): string[] {
+  const seen = new Set<string>(), out: string[] = [];
+  for (const l of stripAnsi(raw).split("\n").map((x) => x.trim())) {
+    if (!LOAD_ERROR_RE.test(l) || seen.has(loadErrorModule(l))) continue;
+    seen.add(loadErrorModule(l)); out.push(l.slice(0, 200)); if (out.length >= 12) break;
+  }
+  return out;
+}
+export const firstLoadError = (raw: string): string | null => loadErrors(raw)[0] ?? null;
+export function suiteFacts(out: string): { executed?: number; load_errors?: string[] } {
+  const bun = /^Ran (\d+) tests? across \d+ files?\./m.exec(stripAnsi(out)); // bun's own total: ran() reads no count from bun output
+  const n = ran(out) ?? (bun ? +bun[1]! : null), le = loadErrors(out);
+  return {
+    ...(typeof n === "number" ? { executed: n } : {}),
+    ...(le.length ? { load_errors: le } : {}),
+  };
 }
 export function failureShape(out: string): string {
   return createHash("sha256").update(failureLines(out).join("\n")).digest("hex");
@@ -2000,34 +2023,37 @@ function startWatchdog(pgid: number | undefined): ChildProcess | undefined {
   try { const w = spawn(bin!, a, { detached: true, stdio: "ignore", env: { PATH: process.env["PATH"] ?? "" } }); w.on("error", () => {}); w.unref(); return w; } catch { return undefined; }
 }
 // Bun's spawnSync ignores `detached`, so the sync path cannot lead its own process group. It runs the command through this launcher (a child of the same runtime) which does lead one, kills the whole group at the timeout and prints {status, output}. The test env travels on stdin and the launcher itself gets only PATH, so the command never inherits the parent env.
-const GROUP_LAUNCHER = `const { spawn } = require("node:child_process"); const fs = require("node:fs"); const [cmd, args, cwd, ms, wd, env] = JSON.parse(fs.readFileSync(0, "utf8")); const MAX = 1048576; let out = "", err = "", to = false, fin = false;
+const GROUP_LAUNCHER = `const { spawn } = require("node:child_process"); const fs = require("node:fs"); const [cmd, args, cwd, ms, wd, env, sil] = JSON.parse(fs.readFileSync(0, "utf8")); const MAX = 1048576; let out = "", err = "", to = false, fin = false, last = Date.now();
 const c = spawn(cmd, args, { cwd: cwd || undefined, env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
 let w; try { const a = wd.slice(1); a[a.length - 1] = a[a.length - 1].replace("__O__", String(process.pid)).replace("__G__", String(c.pid)); w = spawn(wd[0], a, { detached: true, stdio: "ignore", env: { PATH: process.env.PATH || "" } }); w.on("error", () => {}); } catch {}
 const kill = (s) => { try { process.kill(-c.pid, s); } catch { try { c.kill(s); } catch {} } };
 const done = (code, sig) => { if (fin) return; fin = true; kill("SIGKILL"); try { w.kill("SIGKILL"); } catch {} const b = Buffer.from(JSON.stringify({ status: to || sig ? null : code, output: out + "\\n" + err })); for (let i = 0; i < b.length;) { try { i += fs.writeSync(1, b, i); } catch (e) { if (e.code !== "EAGAIN") break; } } process.exit(0); };
-setTimeout(() => { to = true; kill("SIGTERM"); setTimeout(() => done(null, 1), 1000); }, ms);
+const expire = () => { to = true; kill("SIGTERM"); setTimeout(() => done(null, 1), 1000); }; if (ms) setTimeout(expire, Math.min(ms, 2147483647)); if (sil) { const q = setInterval(() => { if (Date.now() - last >= sil) { clearInterval(q); expire(); } }, Math.min(30000, Math.max(50, Math.floor(sil / 4)))); }
 const over = () => { if (out.length > MAX || err.length > MAX) { to = true; kill("SIGKILL"); } };
-c.stdout.on("data", (d) => { out += d; over(); }); c.stderr.on("data", (d) => { err += d; over(); });
+c.stdout.on("data", (d) => { last = Date.now(); out += d; over(); }); c.stderr.on("data", (d) => { last = Date.now(); err += d; over(); });
 c.on("error", () => done(null, 1)); c.on("close", done); c.on("exit", (a, b) => setTimeout(() => done(a, b), 500)); `;
 /** Sync twin of spawnCollect with the same group-kill and timeout contract (status null on spawn error, signal or timeout). */
 export function spawnGroupSync(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number }): { status: number | null; output: string } {
-  const r = spawnSync(process.execPath, [...SAFE_BUN_FLAGS, "-e", GROUP_LAUNCHER], { input: JSON.stringify([cmd, args, o.cwd ?? "", o.timeoutMs, watchdogArgv(), o.env ?? plainTestEnv()]), env: { PATH: process.env["PATH"] ?? "" }, encoding: "utf8", timeout: o.timeoutMs + 5000, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024 });
+  const fin = Number.isFinite(o.timeoutMs); // NO-DEFAULT-BUDGET: no limit (Infinity) runs under the silence guard alone (JSON would turn Infinity into null, a 0 ms timer)
+  const r = spawnSync(process.execPath, [...SAFE_BUN_FLAGS, "-e", GROUP_LAUNCHER], { input: JSON.stringify([cmd, args, o.cwd ?? "", fin ? o.timeoutMs : 0, watchdogArgv(), o.env ?? plainTestEnv(), fin ? 0 : cmdSilenceS() * 1000]), env: { PATH: process.env["PATH"] ?? "" }, encoding: "utf8", ...(fin ? { timeout: o.timeoutMs + 5000 } : {}), killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024 });
   try { return JSON.parse(r.stdout) as { status: number | null; output: string }; } catch { return { status: null, output: `${r.stdout ?? ""}\n${r.stderr ?? ""}` }; }
 }
 /** TEN-SPEED-19: async twin of the sync spawn used by RealBaseTestRunner: status is null on spawn error, signal or timeout; output is stdout and stderr merged by arrival. The child leads its own process group: SIGTERM at the timeout, then SIGKILL to the group 1s later, and the result resolves on exit plus a short drain grace, never waiting on a grandchild that holds the pipes. */
 export function spawnCollect(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number; signal?: AbortSignal; maxBytes?: number }): Promise<{ status: number | null; output: string }> {
   return new Promise((resolve) => {
     let out = "", err = "", error = false, done = false; const MAX = o.maxBytes ?? 1024 * 1024; // spawnSync parity: stdin EOF, default maxBuffer, "stdout\nstderr" join
-    const timers: NodeJS.Timeout[] = [];
-    const fin = (status: number | null) => { if (!done) { done = true; timers.forEach(clearTimeout); o.signal?.removeEventListener("abort", abort); killGroup(c.pid, "SIGKILL"); wd?.kill("SIGKILL"); resolve({ status: error ? null : status, output: `${out}\n${err}` }); } };
+    const timers: NodeJS.Timeout[] = []; let main: { clear: () => void } | undefined, quiet: ReturnType<typeof setInterval> | undefined, lastByte = Date.now();
+    const fin = (status: number | null) => { if (!done) { done = true; timers.forEach(clearTimeout); main?.clear(); if (quiet) clearInterval(quiet); o.signal?.removeEventListener("abort", abort); killGroup(c.pid, "SIGKILL"); wd?.kill("SIGKILL"); resolve({ status: error ? null : status, output: `${out}\n${err}` }); } };
     const c = spawn(cmd, args, { cwd: o.cwd, env: o.env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
     const wd = startWatchdog(c.pid);
     const term = () => { try { process.kill(-c.pid!, "SIGTERM"); } catch { c.kill("SIGTERM"); } };
-    timers.push(setTimeout(() => { error = true; term(); timers.push(setTimeout(() => { killGroup(c.pid, "SIGKILL"); fin(null); }, 1000)); }, o.timeoutMs)); // spawn's own timeout would signal the direct child only
+    const expire = (): void => { error = true; term(); timers.push(setTimeout(() => { killGroup(c.pid, "SIGKILL"); fin(null); }, 1000)); };
+    main = armTimer(expire, o.timeoutMs); // spawn's own timeout would signal the direct child only; NO-DEFAULT-BUDGET: Infinity arms nothing and the silence guard below ends a silent command
+    if (!Number.isFinite(o.timeoutMs)) quiet = setInterval(() => { if (Date.now() - lastByte >= cmdSilenceS() * 1000) { clearInterval(quiet); expire(); } }, Math.min(30_000, Math.max(50, cmdSilenceS() * 250)));
     const abort = () => { error = true; term(); timers.push(setTimeout(() => { killGroup(c.pid, "SIGKILL"); fin(null); }, 1000)); }; // an aborted stage ends the whole group like the timeout does, never only the direct child
     if (o.signal?.aborted) abort(); else o.signal?.addEventListener("abort", abort, { once: true });
     const over = () => { if (out.length > MAX || err.length > MAX) { error = true; killGroup(c.pid, "SIGKILL"); } };
-    c.stdout?.on("data", (d) => { out += d; over(); }); c.stderr?.on("data", (d) => { err += d; over(); });
+    c.stdout?.on("data", (d) => { lastByte = Date.now(); out += d; over(); }); c.stderr?.on("data", (d) => { lastByte = Date.now(); err += d; over(); });
     c.on("error", () => { error = true; fin(null); }); c.on("close", (code, sig) => fin(sig ? null : code));
     c.on("exit", (code, sig) => { timers.push(setTimeout(() => fin(sig ? null : code), 500)); }); // drain grace; close normally wins
   });

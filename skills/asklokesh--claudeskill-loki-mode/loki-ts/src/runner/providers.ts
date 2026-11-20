@@ -45,7 +45,7 @@ import { createConfigFenceHook, createHostGuardHook, HOST_GUARD_SCRIPT, hookTime
 import { fenceEnabled, fencedDenyRules, harnessOutputs, stateDenyRules } from "../util/config_fence.ts";
 import { createStopChecksHook, parseStopChecks, STOP_HOOK_MARGIN_S } from "./stop_checks.ts";
 import { compactCardOn, createCompactCardHook, createPostCompactRecordHook, TASK_CARD_ENV } from "./compact_card.ts";
-import { advisorPair, probeAdvisor, ROUTER_ADVISOR_MODEL } from "./router/advisor_probe.ts";
+import { advisorPair, probeAdvisor, routerAdvisorModel } from "./router/advisor_probe.ts";
 import { advisorOnlyEnabled, routerEnabled, routerPreset, sessionPlanEnabled } from "./router/flag.ts";
 import type {
   ProviderInvocation,
@@ -169,10 +169,10 @@ export function selectClaudeInvokerKind(
 // sonnet for every tier (v7.104.0), except fast -> haiku under LOKI_ALLOW_HAIKU.
 // An explicit per-tier pin beats the haiku gate, as it does on bash.
 export function claudeTierToModel(tier: SessionTier): string {
-  // fable unavailable, collapse to opus. Claude Fable 5 is not available at the
-  // Claude API ("use Opus 4.8"). Per-tier pins do not apply, matching the bash
-  // resolver's `fable) model="opus"` arm (v7.39.1).
-  if (tier === "fable") return "opus";
+  // Fable runs as fable (2026-11-19: claude -p --model fable and claude-fable-5-2 both answer, modelUsage claude-fable-5-2), so the engine10
+  // sessions no longer collapse it to opus. Per-tier pins do not apply. The legacy bash resolver (providers/claude.sh) still maps fable to opus;
+  // the raw /v1/messages route (tool-less calls with an API key) is not yet verified for fable, and the start line and receipt say so.
+  if (tier === "fable") return "fable";
   // EXACT "true" to mirror bash (claude.sh:294, claude-flags.sh:104) and the
   // Bun fallbackForPrimary (claude_flags.ts:101). LOKI_ALLOW_HAIKU=1 must NOT
   // enable haiku on either route (v7.41.4 parity fix).
@@ -260,6 +260,8 @@ export function useProviderDefaultModel(call: ProviderInvocation): boolean {
 }
 
 export function claudeModelFor(call: ProviderInvocation): string {
+  const roleModel = (process.env["LOKI_E10_ROLE_MODEL"] ?? "").trim(); // ROLE-MODELS: engine10 session.ts sets it only for a call whose role the user pinned; exact, ahead of every mapping below
+  if (roleModel) return roleModel;
   const routedModel = modelRouteModel(process.env); // OC-MODELS: openrouter/ollama/... route wins
   if (routedModel) return routedModel;
   const opusPin =
@@ -310,6 +312,7 @@ function applyMaxTierCeiling(tier: SessionTier, model: string): string {
       }
       return model;
     case "opus":
+      return /fable/i.test(model) ? "opus" : model; // the ceiling clamps the choice (docs/environment-variables.md); fable ranks above opus
     default:
       return model;
   }
@@ -457,13 +460,13 @@ export function planRouterSession(args: {
   if (routed && routerPreset(env) && /opus/i.test(args.model)) return null; // LOKI_ROUTER=auto: an Opus executor (a plan, or a fix round that climbed to Opus) gets no Opus advisor
   const probe = probeAdvisor(env, "claude", args.claudeCodeVersion, args.runDir, advisorPair(env, args.model));
   // Advisor alone (#246): the advisor and nothing else. No executor swap, no compact window, so the only variable is the advisor.
-  if (!routed) return probe.available ? { model: args.model, settings: { advisorModel: ROUTER_ADVISOR_MODEL } } : null;
+  if (!routed) return probe.available ? { model: args.model, settings: { advisorModel: routerAdvisorModel(env) } } : null;
   if (probe.available) {
     return {
       model: args.model,
       ...(/sonnet/i.test(args.model) ? { effort: ROUTER_SONNET_ADVISOR_EFFORT } : {}),
       settings: {
-        advisorModel: ROUTER_ADVISOR_MODEL,
+        advisorModel: routerAdvisorModel(env),
         ...compactWindowSettings(args.model, true),
       },
     };
@@ -546,7 +549,7 @@ export function claudeProvider(): ProviderInvoker {
             claudeCodeVersion: await installedClaudeCodeVersion(cli),
           })
         : null;
-      const model = routed ? routed.model : baseModel;
+      const model = routed && !process.env["LOKI_E10_ROLE_MODEL"] ? routed.model : baseModel; // ROLE-MODELS: a role pin keeps its model; the advisor settings still attach
       const window = compactWindowSettings(model); // T036: every Haiku session, routed or not
       const memory = taskMemorySettings(model); // TASK MEMORY: a Haiku implement session only (the SDK route reads the same helper)
       const sessionSettings = routed?.settings || window || memory ? { ...window, ...routed?.settings, ...memory } : undefined;
@@ -787,7 +790,7 @@ export function buildSdkLoopOptions(args: {
       })
     : null;
   if (router) {
-    out.model = router.model;
+    if (!process.env["LOKI_E10_ROLE_MODEL"]) out.model = router.model; // ROLE-MODELS: a role pin keeps its model on the SDK route too
     if (router.settings) out.settings = router.settings;
   }
   const window = compactWindowSettings(out.model ?? args.model); // T036: every Haiku session, routed or not
@@ -1085,12 +1088,12 @@ export function sdkQueryProvider(): ProviderInvoker {
 export const PROVIDER_COMMIT_HYGIENE =
   "Commit hygiene still applies: git checkpoints are LOCAL only. Never push or force-push. Stage files by explicit path, never `git add -A` or `git add .`, and never commit secrets, credentials, .env files, or untracked files you did not author this session.";
 
-/** The model a LOKI_SESSION_MODEL pin names for a claude run (undefined when unset). Throws on an unrecognized value (never the provider default). opus|sonnet|haiku are themselves, fable collapses to opus as the bash resolver does, and a tier
+/** The model a LOKI_SESSION_MODEL pin names for a claude run (undefined when unset). Throws on an unrecognized value (never the provider default). opus|sonnet|haiku|fable are themselves (engine10 runs fable as fable; the legacy bash resolver still maps it to opus), and a tier
  *  name takes that tier's configured model. An explicit haiku pin is honored without LOKI_ALLOW_HAIKU: the user asked for it; bash would dispatch sonnet there. */
 export function sessionPinModel(e: NodeJS.ProcessEnv = process.env): string | undefined {
   const pin = canonicalSessionPin(e["LOKI_SESSION_MODEL"]);
   if (!pin) return undefined;
-  if (pin === "fable") return "opus";
+  if (pin === "fable") return "fable";
   if (pin === "planning" || pin === "development" || pin === "fast") return explicitSetupModel(pin, e) ?? claudeTierToModel(pin);
   return pin;
 }

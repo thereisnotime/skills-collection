@@ -8,6 +8,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 
+## v11.170.0 (2026-11-20)
+
+### A typecheck's build info inside node_modules no longer stops the base comparison
+
+- Before a base run, Loki checks that the installed dependencies are as they were when the run started. A project can keep its typecheck's build info inside `node_modules` (opencode's `packages/core` writes `node_modules/.ts-dist/source.tsbuildinfo`), and Loki's own `tsc --noEmit` lint then created that directory during the run. Loki read it as a changed environment, gave the base tree no dependencies for that package, and reported its suite as "not measured on base", so the suite's failures counted against the change.
+- A dot-named directory in a dependency directory that holds only tool output files is no longer a dependency change. Anything else in it, a changed package file and a deleted package still are. `LOKI_E10_TOOL_OUTPUT_IN_DEPS=0` opts out.
+- Measured: unit legs; on a clone of the stored opencode base, the check read "changed" after Loki's lint command before this change and "unchanged" after it. Not yet measured in a full run.
+
+### A failing test the run did not write makes the run FAILED only when Loki can attribute it to the change
+
+- A red suite or test file that the run did not write used to make the run FAILED whenever Loki could not excuse it, including when its comparison with the base commit never happened or could not be trusted. Runs whose change passed the hidden test were labeled FAILED on this in the closed sets (hermes-agent 155462, opencode 63960, playwright 43305).
+- Now such a check makes the run FAILED only when Loki can blame the change: the base run passed and the change's run fails, the change's run could not load a module that the base run loaded, base printed failing tests and the change's run failed in another way, a failing test is not red on base or fails on base with another error, a package that was installed when the run started is gone, or a failure line names a changed file. When the base run was cut, never started, was red with no readable test id, or is not comparable (it could not load a module the change's run could, it passed without running a test, or it ran fewer than half the tests while the change edits no test file), the run is PARTIAL. The check is never excused, and the receipt names the state and its evidence.
+- Unchanged: a failing acceptance (Wall) test, holdout, task-named test, a test the run wrote or edited, lint, typecheck, build and scan still make the run FAILED.
+- `LOKI_E10_EXOGENOUS_RED=0` opts out of the rule. `LOKI_E10_BASE_UNATTRIBUTED=0` (from 11.163.0) keeps its meaning: it turns off only the case of a base run that is red with no readable test id.
+- Measured: unit legs, and a replay of the label function on stored closed-set receipts (not a live run).
+
+- Fix to 11.167.0: a run that finds the work already done seals ALREADY_SATISFIED only when Loki's own re-run of the kept proof script also meets every required acceptance line of the run (the issue's own lines, or the plan's for a prose issue), by the same rule seal uses for an issue run. A session-written proof with 1 proved step for 10 acceptance lines sealed ALREADY_SATISFIED in 11.167.0; it is now PARTIAL with "met 1 of 10 acceptance line(s)". A run with no acceptance lines stays PARTIAL, as before 11.167.0. Known limit: the proof steps and the line numbers they carry are written by the session, so an issue of any number of lines "proved" by one step per line that runs no repository code still reads ALREADY_SATISFIED; for a prose issue the lines are the plan's own, so both the lines and the proof are model-written. A detector for steps that run no repository code follows separately.
+- The known limit of the fix above is closed for the common case: on the already-done path an acceptance line counts as met only when at least one of its passing proof steps ran something of the repository's: a `loki_http` request the app answered, or a `loki_cmd` that in command position runs the repository's runner (npm, npx, node, pytest, go, make and the like) or a path that exists in the repository, or reads such a path with a file reader (grep, test, cat, ...). A runner or path word anywhere else (`true npm`, `echo package.json`, a comment) does not count, and the proof helper now replaces `|` in a step's description so no description can read as a status or a command. An N-line issue proved by N steps of `true` reads PARTIAL. The fresh-install line Loki adds for a repository that needs a database counts when its own steps passed and the same re-run has at least one request the app answered; its own steps are not checked for running repository code. Limits that remain: a proof script that sets out to forge result lines can still print them itself (the helper's token is in its environment); this stops empty proofs, not a deliberate forgery. A line whose only real steps read files (`test -f`, `grep`, `cat`) is met by something existing, not by behaviour, which suits a documentation line and is weak for a feature line. The proof helper's `loki_cmd` now prints the command it ran in its result line.
+- A changed dependency manifest now keeps the head's dependency directories out of the base run only for the packages it can affect: its own package, the packages above it (a root manifest or lockfile still blocks everything) and the packages inside it (`LOKI_E10_BASE_LINK_SCOPE=0` restores the old gate). On FireLater#18 (11.164.0) a changed backend/package.json left the frontend's tests unable to start on base, so 22 page tests already red on base were fed to the fix rounds and the run sealed SPEC_CONFLICT; with the frontend's own dependencies linked they run on base and are compared by id. verify also records which checks its base rerun ran (`base_compared`).
+### The last Loki-default limits are gone: a limit applies only when you set one
+- `--max-duration` is no longer cut to 3600 s; the value you pass is the run cap.
+- Intake baselines have no 300 s per-command limit and no 300 s shared suite budget. A command with no limit stops only after 1800 s with no output (`LOKI_E10_CMD_SILENCE_S`). `LOKI_E10_BASELINE_CMD_S`, `LOKI_E10_INTAKE_CAP_S` or a run time limit you set still bounds it.
+- The prove stage has no 600 s budget and its listing session no 3-turn cap (`LOKI_E10_PROVE_BUDGET_S`, `LOKI_E10_PROVE_LIST_TURNS` set them). The no-regression differential has no 120 s wall budget (`LOKI_E10_NRD_BUDGET_S`), and each go test in it runs under the silence guard.
+- `--deep` has no 2700 s cap, 1800 s implement limit or stage limits; its sessions and commands use the same silence and no-progress guards as every run.
+- The `--verified` bounds (rounds, wall time, dollars, tokens) have no default, and a value you set is never clamped by Loki (it was capped at 10 rounds and 4 h).
+- A continue round counts as progress only when a planned file appears, or the tree changed and the reply names new work or a changed count ("12 of 40 tests fail" then "8 of 40"). A reply that only rephrases earlier work, or only adds a new reason while nothing in the tree changed, is no progress, so such a session ends after 2 rounds.
+- After a `--deep` run, the step that posts its result stops waiting once the deep worker's process id belongs to another process, or 60 s after the worker wrote its result, so it cannot wait forever now that `--deep` has no time cap.
+- `LOKI_E10_DEFAULT_BUDGETS=1` restores every old default at once. The previous loop's $100 default and the 120 s limit on the base flaky-probe rerun are unchanged.
+- Known limits: a count that keeps changing to values never seen before while the tree keeps changing still reads as progress (only a time or round limit, which this release removes, would end it); a count that only oscillates between values already reported stops. A reply that names no number, right after one that did, counts as progress once per run when the tree changed. After `--deep`, the step that posts the result reads the worker's start time itself, so a worker pid reused before that first reading keeps it waiting while the other process lives.
+- Measured: each new guard was shown to fail its test with the guard removed (13 planted defects in this series). Not yet measured in a live run.
+- When verify hits its time limit before any package suite starts and a fix round follows, the label still names every suite that never ran. Before, the quick re-check after the fix round dropped them and the receipt said only "full suite" (seen as a flaky run-safety test under load).
+- The security scan no longer reads a member expression as a secret. In a source file (TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, Ruby, PHP, C#, Swift) a generic `token:` or `password =` match is dropped only when its value is an unquoted dotted chain of identifiers with no digit, such as `record.finish.tokens`: that line in opencode's step.ts failed the scan and refused the push on all 5 Loki seeds of oc58562. Every other value still counts, including a quoted literal, KEY=value inside a string, a comment or a docstring, a hex number, any known key format, a bearer token, a URL with a password, and any `.env` or config file. A Go short declaration of a quoted literal (`token := "..."`), which the scan used to miss, is now caught. A failed security scan now also records on the receipt's check where it matched (file:line, never the text) and why; before, only events.jsonl and the push refusal carried it.
+- A quick re-check after a fix round no longer lists a full suite as "not run" when that same re-check ran it to a pass or a fail.
+
+### Limits stated by review (read before relying on this release)
+
+- The package-scoped manifest rule gives the base run its dependencies for per-file test checks. A full suite's base run also links the repository root, and a changed manifest anywhere still blocks the root, so a full suite stays unmeasured on base when the change edits any manifest. On FireLater#18 the 22 page tests are per-file checks; that they now run on base and are compared by id is shown by a replay with no model, not by a live run on this build.
+- The security scan now drops two shapes the old scanner flagged: a digit-free dotted passphrase in a comment (`password = correct.horse.battery.staple`) and a digit-free dotted key (`api_key: sk_live_abcdefgh.ijklmnop_qrst`). Real keys carry digits; everything else the old scanner caught is still caught (31 probe files, both scanners).
+- Already-done proof check: the fresh-install line's own steps are not checked for running repository code; a line met only by file reads shows that something exists, not that it behaves; a runner in command position (`node -e 0`) still counts; a proof script written to forge result lines still can.
+- No-progress stop: a count that keeps changing to values never seen before while the tree keeps changing still reads as progress; one reply with no number after one with a number counts as progress once per run. The rule is stricter than 11.169.0: a session that keeps editing but names the same outstanding item twice in a row is stopped after 2 resumes, which ends a loop but can also end slow, honest work on one large item.
+- One run-safety leg on the scope limit is sensitive to machine load (a 1 s limit lands at different points); it now asserts whichever path ran and fails when neither appears.
+- Not measured in a live run: every change in this release. Measured: unit legs, planted defects for each way a label can be wrong, and replays of the label functions on stored runs.
+
+Gate: the full hermetic local gate (31 of the 32 tests/min files; scratch-real-services is excluded) on the merged tree. Every change was reviewed cold at its exact commit before stacking; the merge joins were reviewed by the release lead.
+
+## v11.169.0 (2026-11-20)
+
+### Verify's base tree runs a workspace suite with the dependencies the checkout has
+
+- When a suite is red on the change, Loki runs it on the untouched base commit in a separate tree to see which failures were already there. In a workspace, that tree used to get dependencies only for the suite's own package and the root, so sibling packages the suite imports could not load theirs. On opencode the cli suite ran 123 tests with 84 failures there, against 408 tests with 8 failures in the checkout, so failures that already existed on base read as new.
+- Every workspace member that has a `node_modules` in the checkout now gets its dependencies in the base tree the same way. A member that cannot be linked is named on the receipt's baseline line. `LOKI_E10_BASE_TREE_MEMBERS=0` opts out.
+- Measured on the real opencode base: the call links 37 of 37 members in under a second. With all members linked, the base-tree cli run fails the same 8 tests as the checkout (408 ran on both sides). Also covered by unit legs on a fixture workspace.
+- Not yet measured: a full replay of a stored run. On the oc63960 replay with this change alone, the label stays FAILED. Two holds moved as predicted, and the rest are being fixed in the next releases. No label changes on their own.
+
+Gate: the full hermetic local gate (31 of the 32 tests/min files; scratch-real-services is excluded) on the merged tree. Reviewed cold by a second model before release.
+
+## v11.168.0 (2026-11-20)
+
+### Loki never pushes a branch that changes nothing against the run's base
+
+- The PR step now checks the run branch against the recorded base before the push script runs, and skips with "nothing to push: <branch> has no change against the base <sha>" when they are equal. The supervisor's no-diff check uses the same helper; if Loki's hardened git call fails it falls back to plain git (fsmonitor, hooks, external diff and textconv off), and only an answer neither can give counts as "changed", now logged.
+- Found on a real user run: FireLater#24 on 11.162.0 pushed loki/e10-20261119T171256Z-7414 at the base commit to GitHub; only `gh pr create` failed. That branch has been deleted. Why the earlier no-diff check counted a change on that run is not established (its clone was removed before it was read); the PR step's own check makes it harmless either way.
+
+Gate: the full hermetic local gate ran green on this tree (4a6ff8599, 31 of the 32 tests/min files). Not measured in a live run.
+
+## v11.167.0 (2026-11-20)
+
+### A run that finds the work already done seals ALREADY_SATISFIED on Loki's own evidence
+
+- When the session says the work is already done (or intake finds it already satisfied), verify agrees and the commit changes nothing, seal re-runs the session's kept proof script on the unchanged tree. Exit 0, at least one line proved and none failed seals ALREADY_SATISFIED. Anything else stays PARTIAL with the line "already done claimed; Loki's own re-run of the kept proof script did not show it (...)". The session's word alone never gives the label.
+- Found on a real user run: FireLater#24 on 11.162.0 found the issue already implemented on main (commit dd40254) and sealed PARTIAL "no tests to run", because seal re-ran the proof only on a non-empty diff. A replay of that run's stored stage outputs now seals ALREADY_SATISFIED with a passing re-run and PARTIAL without one.
+
+Gate: the full hermetic local gate ran green on a tree holding this change, the previous release and the next one (4a6ff8599); this release's own tree passed the release checks. Not measured in a live run.
+
+## v11.166.0 (2026-11-20)
+
+### The commit stage keeps the change's own test
+
+- J3 (the rule that resets a test-only edit in a package the change does not touch) no longer resets a test when that would leave the change with no added or edited test, when the test belongs to the repository root, or when the run's kept proof script names it. A coverage test added in a neighbouring package next to the change's own test is still reset. `LOKI_E10_J3_KEEP=0` restores the old drop.
+- Measured on stored runs: in the C2 set (11.158.0) all 6 playwright issue 43305 Loki seeds lost their only regression test this way (tests/playwright-test/esm.spec.ts, root-owned), so the pull request carried no test while every plain session shipped one. Under C2 scoring this does not by itself win the task; those seeds are also held by the playwright suite that cannot run here.
+
+Gate: the full hermetic local gate (31 of the 32 tests/min files; scratch-real-services is excluded) ran green on a tree holding this change plus the next two releases (4a6ff8599); this release's own tree passed the release checks. The Maven, Gradle and .NET legs of stacks.sh do not run on the release machine. Not measured in a live run.
+
+## v11.165.0 (2026-11-19)
+
+### The receipt names what kept a run below VERIFIED
+
+- Seal already computed the holds that keep a verdict below VERIFIED. A receipt below VERIFIED now carries them as `held_by: [{kind, detail}]`, for example `check fails`, `verify not proven`, `changed symbol not referenced` and `no agent-independent proof`, including the Wall test hold that publish adds after seal. A VERIFIED receipt is byte for byte as before. No label changes.
+- Used today on a no-spend replay of 3 stored C2 Loki changes (a stand-in replaces the model): the receipts listed 18, 8 and 14 holds. That replay is how the next fix was chosen: in 2 of the 3, the full suite was never run on the untouched base, so its failures stayed counted against the change.
+
+Not measured in a live run. Gate: the full hermetic local gate (31 of the 32 tests/min files; scratch-real-services is excluded) on the merged tree; the Maven, Gradle and .NET legs of stacks.sh do not run on the release machine, and this change does not touch them.
+
+## v11.164.0 (2026-11-19)
+
+
+### Pick the model per role on loki start, and --model fable now runs Fable
+
+- `loki start` takes `--plan-model`, `--dev-model`, `--test-model`, `--review-model`, `--advisor-model`, `--helper-model` and `--escalate-model`, or one line `--models plan=opus,dev=haiku,...` (also `LOKI_ROLE_<ROLE>` and `LOKI_MODELS`). A role you set is exact: never capped to `--model`, never downgraded or climbed, and a dev pin escalates only to `--escalate-model`. A role you do not set keeps Loki's choice, so a run with no role behaves as before. The start line and `--dry-run` name the model per role, and the receipt records `models_by_role`. A typo, a route id, a role above `LOKI_MAX_TIER`, or a Claude role under `LOKI_MODEL_ROUTE` exits 2 before any session, with the nearest known model id. `--advisor-model` picks the model only; it does not turn the advisor on. See docs/environment-variables.md, "A model per role".
+- Behaviour change: `--model fable`, `--session-model fable` and a `fable` role now run Fable (`claude-fable-5-2`, added to the model catalog as the current Fable) on `loki start`, instead of Opus. The legacy bash engine still maps fable to opus. Fable is confirmed on the Claude CLI on a subscription (one `claude -p --model claude-fable-5-2` call, which reported claude-fable-5-2 as the model that ran); the Agent SDK sessions use the same CLI binary and sign-in and were not tested on their own; on the raw API (tool-less calls with `ANTHROPIC_API_KEY`) it is not verified yet. The start line and the receipt say so, and a refused Fable call prints the API's reason and is never re-run on another model. `claude-fable-5-2` is priced by the fable row of the pricing table (the Fable 5.1 rate); its own rate is not verified.
+
+
+Tests before this release: the full local gate (scripts/local-ci.sh, 31 of the 32 tests/min files; tests/min/scratch-real-services.sh is outside it) on the merged tree, with the real-vitest legs run. Not measured: a real run with a role set, and Fable on the raw API.
+
+## v11.163.0 (2026-11-19)
+
+### A full test suite that fails the same way with and without the change, and reports no test names, holds the run at PARTIAL instead of FAILED
+
+- When a full-suite check is red on the change, Loki runs the same command on the untouched base commit. If that base run is red too, with the same exit code, and neither run prints a test name Loki can parse, the failure is not the change's own and the run is labeled PARTIAL, not FAILED. It is never excused: the run is not VERIFIED on that suite, and the receipt says why. A failure line that names a file the change touched takes the rule away and the run stays FAILED. `LOKI_E10_BASE_UNATTRIBUTED=0` turns the rule off.
+- Measured on stored runs: in the C2 set (11.158.0), all 6 playwright issue 43305 Loki seeds passed the hidden tests and were labeled FAILED on `npm test` (Playwright's library suite, 200 tests red on base and on the change). Replaying this rule on their stored outputs labels them PARTIAL. A Playwright test-id parser was written and not shipped: two runs of the same base tree gave 200-id sets that differ by one test (the reporter stops at 200 failures), so a per-test comparison would make the label change from run to run.
+- Under the C2 scoring rules PARTIAL on a passing change is still a wrong label; this release removes a wrong FAILED, it does not win the task. Not yet measured in a live run.
+
+Also in this release: two test checks updated to the 11.162.0 behaviour (continues end on no progress; the self-review resume has no default turn cap). Both were not run before 11.162.0 shipped; the full hermetic gate now runs before every release.
+
+Not run before this release: the three real-toolchain legs of tests/min/stacks.sh (Maven, Gradle, .NET), whose tools are not installed on the release machine; this change does not touch those stacks. Every other leg of the 31 files the local gate runs (all tests/min files but scratch-real-services) ran, including the 18 real-vitest legs.
+
+## v11.162.0 (2026-11-19)
+
+### No run cap, verify limit, round count or dollar cap by default on the Loki 10 engine: you set one if you want one; a stage Loki stopped never alone makes a run FAILED
+
+- No default budget on the Loki 10 engine. A `loki start` run with no limit set has no run cap, no stage time limit, no verify maximum (the old 900 s), no fixed number of fix rounds, proof re-runs or continues, and no default dollar cap, with an API key or on a subscription. An API-key run prints: "no cost limit is set: the run stops when it is done or makes no progress (--max-cost <usd> sets one)".
+- A run with no limit ends when it is done or stops making progress: fix rounds, proof re-runs and continues end after 2 rounds in a row that do not improve on the best one (`LOKI_E10_NO_PROGRESS_ROUNDS`). Guards for stuck work, each a setting: a silent session (1800 s, `LOKI_E10_STALL_KILL_S`), a session that prints but changes nothing (3600 s, `LOKI_E10_LOOP_KILL_S`), a silent test command (1800 s, `LOKI_E10_CMD_SILENCE_S`), a hung worker (1800 s, `LOKI_E10_HANG_SILENCE_S`). Every stop ends with commit, seal and a draft PR of what is done.
+- Limits are yours to set: `loki start --max-time 90m` (or `LOKI_RUN_DEADLINE_S`) sets an outer limit the run finishes inside; `--verify-max-time 20m` (or `LOKI_E10_VERIFY_MAX_S`) limits one verify stage; `--max-cost`, `LOKI_BUDGET_LIMIT` or `budgets.per_run` sets a dollar cap, enforced as before. `LOKI_E10_DEFAULT_BUDGETS=1` restores every old default at once.
+- Label rule: when verify is stopped by a limit before it could attribute a failing pre-existing repo test, that test holds the label at PARTIAL, never FAILED. This covers only runs whose verify a limit stopped. In the C2 set on 11.158.0, 18 Loki seeds on three tasks passed the hidden tests and were labeled FAILED; replaying this rule on their stored outputs moves 12 of them (all hermes-agent 155462 and opencode 63960 seeds) off FAILED. It leaves the 6 playwright 43305 seeds, which finished verify and were labeled FAILED on a full-suite check with no per-test ids that also fails on base; that is not fixed here. With no default verify limit the rule only fires when a user's own limit cuts verify; whether the base comparison then completes on these repos is not yet measured by a run. A failing acceptance (Wall) test, holdout, a test the run wrote or edited, lint, typecheck or build is the change's own and still makes the run FAILED.
+- The previous loop (`autonomy/run.sh`) keeps its 100 USD default.
+- Still Loki defaults in this release (the next release makes each one opt-in): intake baseline runs (300 s per command), the prove stage's internal 600 s, the no-regression differential's 120 s, the prove listing's 3-turn cap, `--deep` (2700 s) and the `--verified` bounds, and a 3600 s ceiling the router puts on a `--max-duration` you pass.
+
+Measured: the hermetic test files on the merged tree (counts in the release commit's checks). Not yet measured: a real run on a large repository under the no-budget default; the C2 ten-issue set runs on it next.
+
+Correction to 11.159.0: its first heading said a passing change was no longer sealed FAILED on a time limit. That was true only for hermes-agent issue 155462, whose verify now finishes in about 8 minutes; the 900 s limit was still on until this release. The heading on the GitHub release and in CHANGELOG.md was reworded on 2026-11-19.
+
 ## v11.161.0 (2026-11-19)
 
 ### A JavaScript or TypeScript change runs only the tests whose imports point at it

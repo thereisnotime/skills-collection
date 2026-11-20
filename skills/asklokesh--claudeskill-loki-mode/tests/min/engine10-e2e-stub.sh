@@ -72,6 +72,12 @@
 #   34. loki-ts/src/util/receipt_surface.ts proofCardOf: go green on verdict VERIFIED instead of mutation_outcome "yes" (the never-green and states proof card unit lines fail).
 #   35. loki-ts/src/e10ext/liveline.ts CandidateView: clear the pending flag on the first test.result instead of on verify's stage.completed (the diff-early, label-until-verify and stopped-verify unit lines fail).
 #   36. loki-ts/src/e10ext/liveline.ts CandidateView: clear the pending flag on a failed verify too (the stopped-verify unit line fails).
+#   66. secret-scan.sh and verify.sh tier2: `[:=]` in place of `(:=|[:=])`; the F1 Go short-declaration leg reads no/no.
+#   65. stages/seal.ts scanWhy: return {} (rebuild dist); the SCAN-WHY leg reads null None.
+#   61. autonomy/lib/secret-scan.sh: chain_filter stays `cat` for source files (drop the case); the F1 step.ts and auth.py legs read hit.
+#   62. _secret_scan_drop_member_chain in both files: drop every unquoted value (the 459fddf4b rule, `grep -E '[:=][[:space:]]*[\"'\'']'`); the F1 deploy.py, envstr.ts, tpl.js, doc.py and digit.ts legs read no.
+#   63. autonomy/verify.sh only: drop the source-file case (the lockstep break); the F1 step.ts and auth.py legs read no/hit.
+#   64. _secret_scan_drop_member_chain in both files: allow digits in a segment (`[A-Za-z0-9_]`); the F1 digit.ts leg reads no.
 #   37. loki-ts/src/engine10/supervisor.ts: drop failedPr from the push condition (rebuild dist); the FAILED-run legs read no PR, no pushed branch and no failing-checks body.
 #   38. loki-ts/src/engine10/supervisor.ts: drop !refusal from the push condition (rebuild dist); the secret-match legs read a PR and a pushed branch.
 #   39. loki-ts/src/engine10/stages/deep.ts runSecretScan: skip locate() (rebuild dist); every match reads "file name looks like a secret file", never calc.ts:5.
@@ -139,7 +145,7 @@ console.log([
   "plain=" + plain[0].replace(/\s+/g, " ") + "|" + plain.find((l) => l.startsWith("NOT PROVEN")).replace(/^NOT PROVEN:\s+/, ""),
   "one=" + c.reviewerFlagsSuffix(["cross-review block (claude): x"]) + "|none=" + JSON.stringify(c.reviewerFlagsSuffix(["cross-review not run: claude exited 1", "cross-review skipped: low risk (claude not run)"])),
   "on=" + [c.verifiedOn({ LOKI_VERIFIED: "1" }), c.verifiedOn({}), c.verifiedOn({ LOKI_VERIFIED: "0" })].join(","),
-  "bounds=" + JSON.stringify(c.verifiedBounds({})) + JSON.stringify(c.verifiedBounds({ LOKI_VERIFIED_ROUNDS: "2", LOKI_VERIFIED_MAX_S: "600", LOKI_VERIFIED_MAX_USD: "1.5", LOKI_VERIFIED_MAX_TOKENS: "bad" })),
+  "bounds=" + JSON.stringify(c.verifiedBounds({})) + JSON.stringify(c.verifiedBounds({ LOKI_VERIFIED_ROUNDS: "2", LOKI_VERIFIED_MAX_S: "600", LOKI_VERIFIED_MAX_USD: "1.5", LOKI_VERIFIED_MAX_TOKENS: "bad" })) + JSON.stringify(c.verifiedBounds({ LOKI_E10_DEFAULT_BUDGETS: "1" })) + JSON.stringify(c.verifiedBounds({ LOKI_VERIFIED_ROUNDS: "50" }).rounds), // NO-DEFAULT-BUDGET: no bound unless set (null), never clamped; the knob restores the old bounds
   "block=" + JSON.stringify(c.verifiedReceiptBlock({})) + (c.verifiedReceiptBlock({ LOKI_VERIFIED: "1" }).verified_mode ? "+on" : "+missing"),
   "header=" + (c.verifiedHeader({}).startsWith("verified mode: ") && (c.CLOSURE_ROUNDS_BUILT || /not in this build/.test(c.verifiedHeader({})))),
 ].join("\n"));
@@ -149,7 +155,7 @@ first=cross-review flag (claude): bulk s
 plain=Outcome: VERIFIED|kill switch not checked
 one=, 1 reviewer flag open|none=""
 on=true,false,false
-bounds={"rounds":3,"wall_s":7200,"usd":5,"tokens":3000000}{"rounds":2,"wall_s":600,"usd":1.5,"tokens":3000000}
+bounds={"rounds":null,"wall_s":null,"usd":null,"tokens":null}{"rounds":2,"wall_s":600,"usd":1.5,"tokens":null}{"rounds":3,"wall_s":7200,"usd":5,"tokens":3000000}50
 block={}+on
 header=true'
 [ "$RW3B" = "$RW3B_WANT" ] && ok "rw-03 unit: reviewer findings are counted beside the label and read first; no finding leaves the summary as it was; verified mode has its switch, bounds and receipt block" || bad "rw-03 step 2 unit gave: $RW3B"
@@ -263,6 +269,28 @@ awe() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.ar
 [ "$(awe card_line)" = "Proof: yes, calc.test.ts fails on your code and passes after the change | Proof: no (the new tests also pass on your old code, so they do not show the fix) | Proof: not run (inconclusive: timeout) | Proof: not run (the fail-then-pass proof runs only on a VERIFIED run) | Proof: not run (no trusted receipt was sealed)" ] && ok "awe proof card, one line (D48 default): yes names the proving test; no and not run say why" || bad "awe proof card line: got $(awe card_line)"
 [ "$(awe pr_no_model_cmp)" = "true,false" ] && ok "PR body (runPr, VERIFIED): no model-tier or model-comparison text, no 'opus' (Loki's own cost only)" || bad "PR body model comparison: got $(awe pr_no_model_cmp)"
 [ "$(awe pr_off)" = "true,false,true" ] && ok "awe PR body off: LOKI_AWE_LIVE_COST=0 is the old body; LOKI_AWE_PROOF_CARD=0 drops only the proof section" || bad "awe PR body off: got $(awe pr_off)"
+# EMPTY-PUSH (FireLater#24 on 11.162.0: an already-done run pushed loki/<id> at the base commit and only gh pr create failed). runPr never spawns the push
+# script for a branch equal to the run's base; a branch with a commit still reaches it. diffAgainstBase is tri-state: changed, unchanged, unknown (a bad ref).
+# The supervisor's P1 gate uses the same helper instead of a bare safeGit call whose throw counted as a diff.
+# Plants: EPa pr.ts drop the `=== false) return { status: "skipped"` guard (the empty branch reaches the push script); EPb safe_git.ts diffAgainstBase
+# `return r.status === 0;` in place of `return r.status === 1;` (unchanged reads changed); EPc supervisor.ts back to the bare safeGit diff (the wiring check fails).
+git -C "$AWR" branch -q loki/e10-empty "$AWB"; git -C "$AWR" stash -q -u; git -C "$AWR" checkout -q -b loki/e10-full; printf 'export const more = 2;\n' > "$AWR/more.ts"; git -C "$AWR" add more.ts; git -C "$AWR" commit -q -m full; git -C "$AWR" checkout -q main; git -C "$AWR" stash pop -q
+cat > "$T/emptypush.ts" <<'TS'
+const SRC = process.env.EP_SRC!, [repo, base, dir] = process.argv.slice(2);
+const { runPr } = await import(`${SRC}/engine10/stages/pr.ts`), { diffAgainstBase } = await import(`${SRC}/util/safe_git.ts`);
+const { writeFileSync, existsSync, chmodSync, mkdirSync } = await import("node:fs");
+mkdirSync(dir, { recursive: true }); const fake = `${dir}/push.sh`, mark = `${dir}/pushed`; writeFileSync(fake, `#!/bin/sh\necho "$@" >> "${mark}"\nexit 1\n`); chmodSync(fake, 0o755);
+const run = async (branch: string) => (await runPr({ runId: "e10-ep", repoDir: repo, runDir: `${dir}/run-${branch.replace(/\W/g, "")}`, baseSha: base, branch, provider: "claude", model: "sonnet", deep: false, capS: 0, pinnedOrigin: "https://github.com/acme/calc.git", emit: () => {}, outputs: () => ({ seal: { verdict: "PARTIAL", not_proven: [], receipt_path: null, receipt_sha256: null }, intake: { task: "t", base_sha: base }, verify: { changed_files: [] } }) } as never, new AbortController().signal, { pushScriptPath: fake, gitlabPushScriptPath: fake }).catch((e: unknown) => ({ status: "threw", reason: String(e) }))) as { status: string; reason?: string };
+const empty = await run("loki/e10-empty"), pushedAfterEmpty = existsSync(mark), full = await run("loki/e10-full");
+console.log(JSON.stringify({ empty: [empty.status, /nothing to push/.test(empty.reason ?? ""), pushedAfterEmpty].join(","), full: [full.status !== "skipped", existsSync(mark)].join(","),
+  tri: [diffAgainstBase(repo, base, "refs/heads/loki/e10-empty"), diffAgainstBase(repo, base, "refs/heads/loki/e10-full"), diffAgainstBase(repo, base, "refs/heads/no-such-branch")].map(String).join(",") }));
+TS
+EP="$(cd "$ROOT/loki-ts" && EP_SRC="$ROOT/loki-ts/src" bun "$T/emptypush.ts" "$AWR" "$AWB" "$T/emptypush" 2>&1 | tail -1)"
+epv() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2]))' "$EP" "$1" 2>/dev/null; }
+[ "$(epv empty)" = "skipped,true,false" ] && ok "EMPTY-PUSH runPr: a branch equal to the run's base is skipped ('nothing to push') and the push script is never spawned" || bad "EMPTY-PUSH empty branch: got $(epv empty) ($EP)"
+[ "$(epv full)" = "true,true" ] && ok "EMPTY-PUSH runPr: a branch with a commit still reaches the push script" || bad "EMPTY-PUSH full branch: got $(epv full) ($EP)"
+[ "$(epv tri)" = "false,true,null" ] && ok "EMPTY-PUSH diffAgainstBase: unchanged, changed, and unknown for a ref git cannot read" || bad "EMPTY-PUSH diffAgainstBase: got $(epv tri) ($EP)"
+grep -q 'const ch = diffAgainstBase(opts.repoDir, base, "HEAD", workerEnv);' "$ROOT/loki-ts/src/engine10/supervisor.ts" && grep -q 'hasDiff = ch !== false;' "$ROOT/loki-ts/src/engine10/supervisor.ts" && ! grep -q 'any failure counts as a diff' "$ROOT/loki-ts/src/engine10/supervisor.ts" && ok "EMPTY-PUSH wiring: the supervisor's P1 gate uses the tri-state helper" || bad "EMPTY-PUSH wiring: the supervisor's P1 gate does not use diffAgainstBase"
 
 echo "TEST: engine10 end to end on the stub provider"
 
@@ -637,21 +665,25 @@ rd = sys.argv[1]
 ev = [json.loads(l) for l in open(os.path.join(rd, "events.jsonl")) if l.strip().startswith("{")]
 rec = json.load(open(os.path.join(rd, "receipt.json")))
 print(rec.get("verdict"), sum(e.get("type") == "pr.opened" for e in ev), json.dumps(rec.get("push_refused", {}).get("matches")), any(n.startswith("not pushed: the security scan matched a secret at calc.ts:5") for n in rec.get("not_proven", [])))
+sc = next((c for c in rec.get("checks", []) if c.get("name") == "security scan"), {})
+print("SCANWHY", json.dumps(sc.get("secret_matches")), sc.get("reason"))
 PY
 )"
+has "secret match: the receipt's failed security scan check records where it matched and why (SCAN-WHY)" "$f" 'SCANWHY ["calc.ts:5"] secret match: calc.ts:5'
+f="${f%%$'\n'*}"
 [ "$f" = 'FAILED 0 ["calc.ts:5"] True' ] && ok "secret match: no PR, the receipt names calc.ts:5 in push_refused and NOT PROVEN" || { bad "secret match facts: $f"; printf '%s\n' "$OUT" | tail -8 | sed 's/^/    | /'; }
 [ -z "$(git -C "$D/origin.git" rev-parse --verify -q "loki/$(basename "$RUNDIR")")" ] && ok "secret match: nothing was pushed" || bad "secret match: loki/<run> reached the origin"
 [ -n "$(git -C "$REPO" rev-parse --verify -q "loki/$(basename "$RUNDIR")")" ] && ok "secret match: the run branch is kept locally" || bad "secret match: the run branch is gone"
 has "secret match: one line names the file:line and the push command" "$OUT" "engine10: run $(basename "$RUNDIR"): not pushed: the security scan matched a secret at calc.ts:5; review it, then push by hand: git push -u origin loki/$(basename "$RUNDIR")"
 case "$OUT" in *"ended FAILED with no PR"*) bad "secret match: the no-PR line repeats the refusal" ;; *) ok "secret match: the refusal is not repeated by the no-PR line" ;; esac
-grep -q 'globalThis.ELASTICSEARCH' <<< "$OUT" && bad "secret match: the matched text was printed" || ok "secret match: the matched text is never printed"
+grep -q 'q7ZpLm4Rt8' <<< "$OUT" && bad "secret match: the matched text was printed" || ok "secret match: the matched text is never printed"
 
 # Unit: the scan's line location (git -U0 hunks to head lines, bisection over the matcher), the refusal's fail-safe rules, the FAILED title and body, the writeback text.
 U="$(cd "$ROOT/loki-ts" && T="$T" bun -e '
 const d = await import("./src/engine10/stages/deep.ts"), s = await import("./src/engine10/stages/seal.ts"), p = await import("./src/engine10/stages/pr.ts"), w = await import("./src/integrations/writeback.ts");
 const { mkdirSync, writeFileSync } = await import("node:fs"); const root = process.env.T + "/secline";
 mkdirSync(root + "/backend/src/config", { recursive: true });
-const cfg = ["import { z } from \"zod\";", "const schema = z.object({", "  ELASTICSEARCH_URL: z.string().optional(),", "  ELASTICSEARCH_API_KEY: z.string().optional(),", "});", "export const search = {", "  url: parsed.data.ELASTICSEARCH_URL,", "    apiKey: parsed.data.ELASTICSEARCH_API_KEY,", "};"];
+const cfg = ["import { z } from \"zod\";", "const schema = z.object({", "  ELASTICSEARCH_URL: z.string().optional(),", "  ELASTICSEARCH_API_KEY: z.string().optional(),", "});", "export const search = {", "  url: parsed.data.ELASTICSEARCH_URL,", "    apiKey: \"q7Zp" + "Lm4Rt8Vw2Xy6Bn\",", "};"]; // F1: a quoted literal (an unquoted parsed.data.X in a .ts file is an expression, never a match)
 writeFileSync(root + "/backend/src/config/index.ts", cfg.join("\n") + "\n");
 console.log("lines=" + JSON.stringify(await d.secretLines(d.DEFAULT_SECRET_SCAN_SH, root, "backend/src/config/index.ts")));
 console.log("hunks=" + JSON.stringify(d.addedLineNumbers("diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -3,0 +4,2 @@\n+a\n+b\n@@ -10 +12 @@\n-old\n+new\n")));
@@ -661,7 +693,7 @@ console.log("title=" + p.prTitle("FAILED", root, "add search", ["security scan"]
 console.log("head=" + JSON.stringify(p.failedHead("FAILED", ["security scan"], ["one reviewer"]).split("\n").slice(0, 3)) + " other=" + JSON.stringify(p.failedHead("PARTIAL", ["x"], ["y"])));
 console.log("wb=" + JSON.stringify(w.commentText({ phase: "failed", verdict: "FAILED", prUrl: "https://github.com/o/r/pull/9", receiptSha256: null, task: "", reason: "failing: security scan" })));
 ' 2>&1)"
-has "unit: bisection finds the incident's flagged config line (apiKey, line 8 here), not the schema lines" "$U" "lines=[7]"
+has "unit: bisection finds the flagged config line (a quoted apiKey literal, line 8 here), not the schema lines" "$U" "lines=[7]"
 has "unit: -U0 hunks map added lines to head line numbers" "$U" "hunks=[4,5,12]"
 has "unit: a secret match refuses the push with the push command" "$U" 'refuse={"check":"security scan","matches":["a.ts:3"],"command":"git push -u origin loki/e10-x"}'
 has "unit: a scan failed only by a secure-scan HIGH finding does not refuse" "$U" "high_only=null"
@@ -670,6 +702,39 @@ has "unit: a passing scan never refuses" "$U" "pass=null"
 has "unit: the FAILED title names the failing check, then how many more" "$U" "title=[FAILED: security scan] add search | [FAILED: vitest:frontend/src/app/applications/... +2] add search | [FAILED] add search | [PARTIAL] add search"
 has "unit: the FAILED body leads with the failing checks; other verdicts get none" "$U" 'head=["## Failing checks","This run sealed FAILED: 1 blocking check still fails. Opened as a draft so the committed work is visible; it is not ready to merge until these pass.","- security scan"] other=""'
 has "unit: the failed writeback names the draft PR" "$U" 'wb="Loki run failed; its committed work is in draft PR https://github.com/o/r/pull/9.\nReason: failing: security scan"'
+# F1 (oc58562, 5 of 5 seeds refused their push): in a source file whose language quotes its string literals, an unquoted tier-2 value that is a dotted
+# chain of identifiers with no digit (record.finish.tokens) is a member expression, not a literal; every other unquoted value still counts (Fable's review). Both scanners (autonomy/lib/secret-scan.sh and autonomy/verify.sh, kept in lockstep) read every case; the values are assembled here.
+F1D="$T/f1scan"; mkdir -p "$F1D/packages/core/src" "$F1D/svc" "$F1D/conf"; F1V="abcdefghijklmnop$(printf '1234')"; F1H="Q7zp$(printf 'Lm4Rt8')Vw2Xy6Bn"
+printf '          const usage = { tokens: record.finish.tokens,\n' > "$F1D/packages/core/src/step.ts"
+printf 'export const cfg = { token: "%s" };\n' "$F1V" > "$F1D/packages/core/src/quoted.ts"
+printf 'TOKEN=%s\n' "$F1V" > "$F1D/.env"
+printf "const apiKey = 'sk-%s';\n" "$(printf 'A1b2C3d4')E5f6G7h8I9j0K1l2" > "$F1D/packages/core/src/sk.ts"
+printf 'password = "%s"\n' "$F1H" > "$F1D/svc/db.py"
+printf 'token = session.access_token_value\n' > "$F1D/svc/auth.py"
+printf 'token: %s\n' "$F1V" > "$F1D/conf/app.yaml"
+printf 'package cfg\n\nfunc Load() {\n\ttoken := "%s"\n\t_ = token\n}\n' "$F1H" > "$F1D/svc/cfg.go"
+printf 'cmd = "export SECRET_KEY=%s && deploy"\n' "$F1V" > "$F1D/svc/deploy.py"
+printf 'const s = "TOKEN=%s";\n' "$F1V" > "$F1D/packages/core/src/envstr.ts"
+printf 'const env = `\nAPI_KEY=%s\n`;\n' "$F1V" > "$F1D/packages/core/src/tpl.js"
+printf 'def run():\n    """set auth_token=%s"""\n' "$F1V" > "$F1D/svc/doc.py"
+printf 'const token = abcdefgh.ijklmnop%s;\n' "$(printf 1)" > "$F1D/packages/core/src/digit.ts"
+F1="$(for f in packages/core/src/step.ts packages/core/src/quoted.ts .env packages/core/src/sk.ts svc/db.py svc/auth.py conf/app.yaml svc/cfg.go svc/deploy.py packages/core/src/envstr.ts packages/core/src/tpl.js svc/doc.py packages/core/src/digit.ts; do
+  a=no; b=no; bash -c '. "$1"; _commit_scan_secret_file "$2"' _ "$ROOT/autonomy/lib/secret-scan.sh" "$F1D/$f" && a=hit
+  bash -c '. "$1" >/dev/null 2>&1; verify_secret_scan_file "$2"' _ "$ROOT/autonomy/verify.sh" "$F1D/$f" && b=hit
+  printf '%s=%s/%s ' "$f" "$a" "$b"; done)"
+has "F1: the oc58562 line (tokens: record.finish.tokens, unquoted in a .ts file) is not a secret, in both scanners" "$F1" "packages/core/src/step.ts=no/no "
+has "F1: an unquoted member chain in a .py file (session.access_token_value) is not a secret, in both scanners" "$F1" "svc/auth.py=no/no "
+has "F1: a quoted token literal in a .ts file is still a secret, in both scanners" "$F1" "packages/core/src/quoted.ts=hit/hit "
+has "F1: a high-entropy quoted password in a .py file is still a secret, in both scanners" "$F1" "svc/db.py=hit/hit "
+has "F1: a .env KEY=value is still a secret, in both scanners" "$F1" ".env=hit/hit "
+has "F1: an unquoted value in a config file is still a secret, in both scanners" "$F1" "conf/app.yaml=hit/hit "
+has "F1: an sk- key in single quotes is still a secret, in both scanners" "$F1" "packages/core/src/sk.ts=hit/hit "
+has "F1: a Go short declaration of a quoted literal (token := \"...\") is a secret, in both scanners (missed before F1)" "$F1" "svc/cfg.go=hit/hit "
+has "F1: KEY=value inside a quoted shell command in a .py file is still a secret, in both scanners" "$F1" "svc/deploy.py=hit/hit "
+has "F1: TOKEN=value inside a quoted string in a .ts file is still a secret, in both scanners" "$F1" "packages/core/src/envstr.ts=hit/hit "
+has "F1: API_KEY=value on a template literal line in a .js file is still a secret, in both scanners" "$F1" "packages/core/src/tpl.js=hit/hit "
+has "F1: auth_token=value in a .py docstring is still a secret, in both scanners" "$F1" "svc/doc.py=hit/hit "
+has "F1: an unquoted dotted value with a digit is still a secret, in both scanners" "$F1" "packages/core/src/digit.ts=hit/hit "
 
 # ---- DELIVER-WHAT-EXISTS begin (2026-11-17): a run that produced a change never ends with "PR: none" -------------------------------------------
 # Every way a run ends other than the user cancelling it, a usage-limit pause (resumable by design) and a security-scan secret match (the one
@@ -1228,6 +1293,10 @@ try {
   await dp.deepPost([id, String(w2.pid), "https://github.com/o/r.git"], { pushScriptPath: stub, pushExtraEnv: { STUB_LOG: log }, pollMs: 50 });
   res("DEEP-POST an addendum of another run is never trusted (error)", readFileSync(log, "utf8").includes(`status|${sha}|error|`));
   res("DEEP-POST bad arguments exit 2 and post nothing", (await dp.deepPost(["../x", "1", ""], {})) === 2);
+  // NO-DEFAULT-BUDGET (fable-planner review): with no cap the wait still ends. An unrelated long-lived process on the pid, with the worker's addendum written, posts after the grace.
+  writeFileSync(join(run, "receipt-addendum-1.json"), JSON.stringify({ run_id: id, status_state: "success", checks: [], not_proven: [] })); writeFileSync(log, "");
+  const other = sleeper(60), tq = Date.now(); await dp.deepPost([id, String(other.pid), "https://github.com/o/r.git"], { pushScriptPath: stub, pushExtraEnv: { STUB_LOG: log }, pollMs: 50, waitCapMs: Infinity, addendumGraceMs: 300 }); other.kill();
+  res("DEEP-POST with no wait cap a pid that never exits is left once the addendum has existed for the grace, and the status is posted", Date.now() - tq < 10_000 && readFileSync(log, "utf8").includes(`status|${sha}|success|`));
 } finally { process.chdir(cwd0); }
 const a = sup.deepPostArgv(["/bun", "--smol", "/cli.ts", "engine10", "deep-worker", id, "claude", "sonnet"], "https://github.com/o/r.git", 4242);
 res("DEEP-POST argv reuses the runtime and CLI with run id, worker pid and origin", JSON.stringify(a) === JSON.stringify(["/bun", "--smol", "/cli.ts", "engine10", "deep-post", id, "4242", "https://github.com/o/r.git"]));
@@ -1247,7 +1316,7 @@ rmSync(R, { recursive: true, force: true });
 TS
 out="$(cd "$ROOT/loki-ts" && bun "$T/fl24-deeppost.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
 grep -q '^EXIT 0$' <<< "$out" || bad "fl24-deeppost unit script crashed or exited non-zero"
-[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 12 ] || bad "fl24-deeppost unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 12"
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 13 ] || bad "fl24-deeppost unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 13"
 while IFS= read -r line; do
     case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
 done <<< "$out"
@@ -1344,7 +1413,8 @@ LOKI_VERIFIED=1 run_engine done
 RW3E="$RC $(rw3_vm) $(grep -c 'verified mode: ' <<< "$OUT")"
 E2E_VERB=start run_engine done --verified # through `loki start`, where autonomy/route.sh decides which flags reach the engine
 RW3S="$RC $(rw3_vm) $(grep -c 'verified mode: ' <<< "$OUT")"
-[ "$RW3V" = "0 VERIFIED block 3 1" ] && [ "$RW3P" = "0 VERIFIED none - 0" ] && [ "$RW3E" = "0 VERIFIED block 3 1" ] && [ "$RW3S" = "0 VERIFIED block 3 1" ] \
+# NO-DEFAULT-BUDGET: the --verified bounds have no default (closure.ts verifiedBounds), so the block records rounds as null (None), never Loki's old 3.
+[ "$RW3V" = "0 VERIFIED block None 1" ] && [ "$RW3P" = "0 VERIFIED none - 0" ] && [ "$RW3E" = "0 VERIFIED block None 1" ] && [ "$RW3S" = "0 VERIFIED block None 1" ] \
     && ok "rw-03: --verified and LOKI_VERIFIED=1 are said on the start line and recorded in the receipt; label and exit code are those of the plain run; a plain run carries nothing of it" \
     || bad "rw-03 verified flag: flag '$RW3V' plain '$RW3P' env '$RW3E' start '$RW3S'"
 unset -f rw3_vm
@@ -1417,7 +1487,8 @@ rw_engine() { # rw_engine <name> <task or file> [VAR=value...] -> RWOUT, RWRUN (
         git -C "$d/repo" add calc.ts calc.test.ts bunfig.toml; git -C "$d/repo" commit -q -m base
     fi
     RWDIR="$d"; RWP="$d/prompt"
-    RWOUT="$(cd "$d/repo" && env -u LOKI_MODEL_OVERRIDE -u LOKI_RECEIPT_SIGNING_KEY -u LOKI_E10_ISSUE_JSON -u LOKI_E10_WORK_ROAD LOKI_E10_INVOKER=cli LOKI_CLAUDE_CLI="$RWD/bin/claude" PATH="$FIX/bin:$PATH" \
+    # LOKI_E10_DEFAULT_BUDGETS=1 below: the RW-02 legs read the issue cap rule (cap=2400), which sizes only a run cap; with no budget there is none (NO-DEFAULT-BUDGET)
+    RWOUT="$(cd "$d/repo" && env -u LOKI_MODEL_OVERRIDE -u LOKI_RECEIPT_SIGNING_KEY -u LOKI_E10_ISSUE_JSON -u LOKI_E10_WORK_ROAD LOKI_E10_DEFAULT_BUDGETS=1 LOKI_E10_INVOKER=cli LOKI_CLAUDE_CLI="$RWD/bin/claude" PATH="$FIX/bin:$PATH" \
         E2E_STUB_MODE=done E2E_STUB_LOG="$d/stub.log" E2E_STUB_PROMPT_LOG="$RWP" E2E_STUB_LINECHECK_FILE="$RWD/met.txt" LOKI_RECEIPT_SIGNING_KEY_FILE="$d/k.pem" "$@" \
         ${TO[@]+"${TO[@]}"} bash "$ROOT/bin/loki" start "$task" --no-pr </dev/null 2>&1)"
     RWRUN="$(dirname "$(ls "$d"/repo/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")"; RWSTAGES="$(tr '\n' ' ' < "$d/stub.log" 2>/dev/null)"
@@ -1516,5 +1587,151 @@ RW_REUSE="$RWDIR" rw_engine resume2 "$RWD/list.md" E2E_STUB_LIMIT=implement E2E_
     && ok "RW-02 resume: a road run cut in implement and started again resumes the same run on the road and is VERIFIED on Loki's own count" || bad "RW-02 resume gave: cut '$RWCUT', runs $(ls "$RWDIR"/repo/.loki/runs 2>/dev/null | wc -l | tr -d ' '), $RWF ($(grep -E '^(Outcome|Reason|engine10:)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-500))"
 rw_proof -
 # ---- end RW-02 ----
+
+# ---------------------------------------------------------------- NO-DEFAULT-BUDGET (founder 2026-11-18): Loki sets no time, round, turn, test-count or dollar budget
+# by default; a run ends when it is done or makes no progress, always with a draft PR of what is done. Planted defects (each shown red, then reverted):
+#   NB1. util/run_cap.ts resolveRunCapS: drop the no-limit return (the default cap comes back): "no user limit means no cap" goes red.
+#   NB2. engine10/types.ts armTimer: drop the non-finite early return: the Infinity timer fires at once.
+#   NB3. runner/watchdog.ts sessionKillsS: `noLimit ? SILENCE_KILL_S : 0` -> 0: the no-limit default leg goes red (the e2e stuck leg sets
+#        LOKI_E10_STALL_KILL_S=20, so it tests the override and stayed green under the old plant).
+#   NB4. engine10/machine.ts fix loop: drop the `stillRounds++`: the no-progress fix loop never ends (unit) .
+#   NB5. e10ext/budget_cap.ts resolveCap: return DEFAULT_MAX_COST_USD with an API key: the no-default-dollar-cap leg goes red.
+#   NB6. autonomy/route.sh: drop the --max-time arm: the --max-time dry-run leg goes red.
+#   NB7. util/shell.ts: drop the implied silence guard for a non-finite timeout: the silent command is never stopped.
+#   NB8. stages/seal.ts verdictOf: drop `&& !unattributedRed(o, c)`: the LIMIT-NOT-FAILED leg reads FAILED.
+#   NB11. runner/repo_profile.ts baselineCmdS: drop the defaultBudgetsOn guard on the 300 s line (always 300): the intake-limit leg goes red.
+#   NB12. runner/repo_profile.ts shellRunner: drop the no-limit branch (spawnSync with an Infinity timeout): the silent intake command is never stopped.
+#   NB13. stages/prove.ts proveBudgetS: default 600 again: the prove leg goes red.  NB14. features/no_regression.ts nrdBudgetS: default 120 again: the NRD leg.
+#   NB15. engine10/types.ts deepCapS: always DEEP_CAP_S: the worker-cap leg.  NB16. engine10/closure.ts boundOf: dflt always: the RW-03 bounds line.
+#   NB17. util/conflict_resume.ts outstandingWords: keep the whole text as one item (no normalization): the rephrase leg goes red.
+#   NB18. util/conflict_resume.ts continueMoved: drop `o.treeChanged &&`: the reason-only sequence reads moved.  NB19. drop the number comparison: the counts read no.
+#   NB21. continueMoved: compare with the previous reply only (`seenNums` holds just the last tuple): the oscillating counts read moved every round.
+#   NB20. stages/deep.ts deepPost: drop the addendum grace: the no-cap DEEP-POST leg waits out the 60 s sleeper.
+#   NB9. runner/repo_profile.ts asyncShellRunner: setTimeout(stop, timeoutMs) again: the no-limit base run is cut at once.
+cat > "$T/nobudget.ts" <<'TS'
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+const root = process.argv[2]!;
+const ty = await import(root + "/loki-ts/src/engine10/types.ts"), rc = await import(root + "/loki-ts/src/util/run_cap.ts"), mc = await import(root + "/loki-ts/src/engine10/machine.ts");
+const vf = await import(root + "/loki-ts/src/engine10/stages/verify.ts"), cr = await import(root + "/loki-ts/src/util/conflict_resume.ts"), sr = await import(root + "/loki-ts/src/features/self_review.ts");
+const ep = await import(root + "/loki-ts/src/contrib/effort_policy.ts"), bc = await import(root + "/loki-ts/src/e10ext/budget_cap.ts"), sh = await import(root + "/loki-ts/src/util/shell.ts");
+const wk = await import(root + "/loki-ts/src/engine10/worker.ts"), sv = await import(root + "/loki-ts/src/engine10/supervisor.ts"), wp = await import(root + "/loki-ts/src/runner/worker_proc.ts"), wd = await import(root + "/loki-ts/src/runner/watchdog.ts");
+const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
+const B = { LOKI_E10_DEFAULT_BUDGETS: "1" };
+const d = mkdtempSync(join(tmpdir(), "nb-"));
+try {
+  const r0 = rc.resolveRunCapS(d, true, {}), rb = rc.resolveRunCapS(d, true, B), ru = rc.resolveRunCapS(d, true, { LOKI_E10_CAP_S: "600" }), rbad = rc.resolveRunCapS(d, true, { LOKI_E10_CAP_S: "soon" });
+  res("NO-DEFAULT-BUDGET no user limit means no cap and no ceiling; the control knob restores 900 s; a user cap is fixed; an unusable one fails closed to 900 s", r0.capS === Infinity && r0.ceilingS === Infinity && r0.fixedS === undefined && rb.capS === 900 && ru.capS === 600 && ru.fixedS === 600 && rbad.capS === 900);
+  res("NO-DEFAULT-BUDGET the worker cap: unset is no limit, a set cap is that cap, --deep has no 2700 s cap unless budgets are on", wk.workerCapS(false, {}) === Infinity && wk.workerCapS(false, { LOKI_E10_CAP_S: "700" }) === 700 && wk.workerCapS(true, {}) === Infinity && wk.workerCapS(true, B) === ty.DEEP_CAP_S && ty.deepCapS({}) === Infinity && wk.workerCapS(false, B) === 900);
+  const env: Record<string, string> = { LOKI_E10_CAP_S: "900", LOKI_E10_CAP_FIXED_S: "900" }; sv.applyCapEnv(env, Infinity, { fixedS: undefined });
+  res("NO-DEFAULT-BUDGET no limit reaches the worker as an unset cap, never the string Infinity", !("LOKI_E10_CAP_S" in env) && !("LOKI_E10_CAP_FIXED_S" in env));
+  let fired = 0; const t1 = ty.armTimer(() => fired++, Infinity), t2 = ty.armTimer(() => fired++, 2 ** 31 + 5), t3 = ty.armTimer(() => fired += 10, 5);
+  await Bun.sleep(80); t1.clear(); t2.clear(); t3.clear();
+  res("NO-DEFAULT-BUDGET armTimer: Infinity arms nothing, a delay past 2^31-1 ms does not fire at once (Bun fires a raw one after 1 ms), a short one fires", fired === 10);
+  res("NO-DEFAULT-BUDGET verify has no maximum of Loki's own: none with no run cap, only the time left under a user's run cap, the user's LOKI_E10_VERIFY_MAX_S when set; the control knob restores 900 s", mc.verifyLimitFor(120, Infinity, 50, {}) === Infinity && mc.verifyLimitFor(120, Infinity, 50, { LOKI_E10_VERIFY_MAX_S: "77" }) === 77 && mc.verifyLimitFor(120, 99999, 0, {}) === 99999 - 150 && mc.verifyLimitFor(120, 99999, 0, B) === mc.VERIFY_MAX_S);
+  res("NO-DEFAULT-BUDGET the suite timeout: none by default, 300 s with budgets, the user's value when set", vf.suiteTimeoutFor(undefined, 0, {}) === Infinity && vf.suiteTimeoutFor(undefined, 0, B) === 300_000 && vf.suiteTimeoutFor(undefined, 0, { LOKI_E10_SUITE_TIMEOUT_S: "42" }) === 42_000);
+  res("NO-DEFAULT-BUDGET counts and turn caps are opt-in: continues, the continue dollar line, coverage, self-review and verified-finish turns", cr.continueMax({}) === Infinity && cr.continueMaxUsd({}) === Infinity && cr.coverageMaxTurns({}) === 0 && sr.selfReviewMaxTurns({}) === 0 && sr.verifiedFinishMaxTurns({}) === 0 && cr.continueMax(B) === 4 && cr.continueMaxUsd(B) === 5 && cr.coverageMaxTurns(B) === 10 && sr.selfReviewMaxTurns(B) === 12 && sr.verifiedFinishMaxTurns(B) === 8 && cr.continueMax({ LOKI_E10_CONTINUE_MAX: "2" }) === 2);
+  const hi = ep.sessionCaps("implement", "claude-haiku-5-5", {}), hf = ep.sessionCaps("fix", "claude-haiku-5-5", {}), hb = ep.sessionCaps("implement", "claude-haiku-5-5", B);
+  res("NO-DEFAULT-BUDGET the Haiku turn and token caps are opt-in; the fix session's no-edit rule (a no-progress stop) stays", hi === undefined && hf?.noEditByTurn === 8 && hf.turns === undefined && hb?.turns === 45);
+  const e2: Record<string, string> = {}; wp.clampBashTimeoutEnv(e2, Infinity);
+  res("NO-DEFAULT-BUDGET a session with no time limit gets no derived turn cap and keeps Claude's own Bash timeouts", !("LOKI_E10_MAX_TURNS" in e2) && e2["BASH_MAX_TIMEOUT_MS"] === "600000" && e2["BASH_DEFAULT_TIMEOUT_MS"] === "120000");
+  const fp = mc.fixProgressOf({ checks: [{ result: "fail", ids: ["a", "b"] }, { result: "fail" }, { result: "pass" }, { result: "not_run" }] });
+  res("NO-DEFAULT-BUDGET fix-loop progress counts failing ids (an id-less failing check once) and the checks that ran", fp.failing === 3 && fp.ran === 3);
+  const ck = bc.resolveCap(null, d, { ANTHROPIC_API_KEY: "x" }), cs = bc.resolveCap(null, d, {}), cbad = bc.resolveCap(null, d, { LOKI_BUDGET_LIMIT: "lots" }), cflag = bc.resolveCap("5", d, { ANTHROPIC_API_KEY: "x" });
+  res("NO-DEFAULT-BUDGET no default dollar cap with an API key; the start line says how to set one; a user cost limit is kept and an unusable one fails closed", "usd" in ck && ck.usd === 0 && bc.capNote(ck.usd, ck.source) === bc.NO_COST_LIMIT_NOTE && "usd" in cs && cs.usd === 0 && "error" in cbad && "usd" in cflag && cflag.usd === 5);
+  const t0 = Date.now(), quiet = await sh.run(["sh", "-c", "sleep 20"], { timeoutMs: Infinity, silenceMs: 300 });
+  const chatty = await sh.run(["sh", "-c", "for i in 1 2 3 4 5 6 7 8; do echo $i; sleep 0.1; done"], { timeoutMs: Infinity, silenceMs: 400 });
+  const prevSil = process.env.LOKI_E10_CMD_SILENCE_S; process.env.LOKI_E10_CMD_SILENCE_S = "0.3"; const tImp = Date.now(), implied = await sh.run(["sh", "-c", "sleep 20"], { timeoutMs: Infinity }); if (prevSil === undefined) delete process.env.LOKI_E10_CMD_SILENCE_S; else process.env.LOKI_E10_CMD_SILENCE_S = prevSil;
+  res("NO-DEFAULT-BUDGET a command with no time limit is stopped after its silence window (given, or implied by Infinity: LOKI_E10_CMD_SILENCE_S), while a command that keeps printing runs to its end", quiet.silent === true && quiet.timedOut === true && Date.now() - t0 < 10_000 && implied.silent === true && Date.now() - tImp < 10_000 && chatty.exitCode === 0 && !chatty.silent && chatty.stdout.includes("8"));
+  const kInf = wd.sessionKillsS(Infinity, {}), kLim = wd.sessionKillsS(480, {}), kEnv = wd.sessionKillsS(Infinity, { LOKI_E10_STALL_KILL_S: "20", LOKI_E10_LOOP_KILL_S: "40" });
+  res("NO-DEFAULT-BUDGET a session with no time limit ends on 1800 s of silence or 3600 s of output with no tree change by default (env unset); one with a limit keeps no kill; the env values win", kInf.stallS === 1800 && kInf.loopS === 3600 && kLim.stallS === 0 && kLim.loopS === 0 && kEnv.stallS === 20 && kEnv.loopS === 40);
+  let now = 0; const w = wd.createWatchdog(() => now, 10_000); w.tick(10, "d1"); now = 5_000; w.tick(20, "d1"); now = 9_000; const tk = w.tick(30, "d1");
+  res("NO-DEFAULT-BUDGET the loop guard sees output with no tree change (diffIdleS grows while output streams)", tk.diffIdleS === 9 && tk.cls !== "stalled");
+  const hung = await wp.spawnWorker([process.execPath, "-e", "setTimeout(() => {}, 20000)"], { PATH: process.env.PATH ?? "" }, d, Infinity, 500, () => {}, { silenceS: 0.4, lastEventMs: () => 0 });
+  res("NO-DEFAULT-BUDGET the supervisor's hang guard stops a silent worker that runs no process, and says it was hung (no backstop is armed)", hung.killed === true && hung.hung === true);
+  const crw = await import(root + "/loki-ts/src/util/conflict_resume.ts"), said0 = crw.outstandingWords("Progress made. Still outstanding: the docs for multiply.");
+  res("NO-DEFAULT-BUDGET a continue reply that only rephrases the outstanding work an earlier one named names nothing new (no progress); one that names more does", !crw.namesNewWork(crw.outstandingWords("Remaining work: multiply docs."), said0) && !crw.namesNewWork(crw.outstandingWords("Next: write the docs for multiply"), said0) && crw.namesNewWork(crw.outstandingWords("Still outstanding: the docs for multiply, and a divide() test."), said0));
+  const seq = (texts: string[], tree: boolean): string => { const named = crw.outstandingWords(texts[0]), seen = new Set([crw.outstandingNumbers(texts[0]).join(",")]); const out: string[] = []; for (const t of texts.slice(1)) { const w = crw.outstandingWords(t), n = crw.outstandingNumbers(t); out.push(crw.continueMoved({ left: 0, fewestMissing: 0, treeChanged: tree, words: w, named, nums: n, seenNums: seen }) ? "moved" : "no"); for (const x of w) named.add(x); seen.add(n.join(",")); } return out.join(","); };
+  res("NO-DEFAULT-BUDGET continue progress (fable-planner review): a count that falls is progress, a new reason with an unchanged tree is not, and a count that only oscillates back to one already seen is not", seq(["items 5 to 10 remain", "items 7 to 10 remain", "items 9 to 10 remain"], true) === "moved,moved" && seq(["12 of 40 tests still fail", "8 of 40 tests still fail", "3 of 40 tests still fail"], true) === "moved,moved" && seq(["the docs for multiply remain", "multiply documentation is blocked", "multiply docs await a network retry", "multiply docs paused until rate limit clears"], false) === "no,no,no" && seq(["12 of 40 tests still fail", "13 of 40 tests still fail", "12 of 40 tests still fail", "13 of 40 tests still fail"], true) === "moved,no,no");
+  { const says = ["13 of 40 tests still fail", "12 of 40 tests still fail", "13 of 40 tests still fail", "12 of 40 tests still fail", "13 of 40 tests still fail"]; let tree = 0, k = 0;
+    const fx = { provider: "claude", repoDir: d, runDir: d, runId: "e10-x", emit: () => {}, sessions: { run: async () => { await Bun.sleep(1); tree++; return { exit: 0, killed: false, durationS: 1, markers: { done: true, alreadyDone: null, specConflict: null, finishLine: null }, summary: says[k++ % says.length] }; } } } as never; // the sleep lets the abort timer fire
+    const first = { exit: 0, killed: false, durationS: 1, markers: { done: true, alreadyDone: null, specConflict: null, finishLine: null }, summary: "12 of 40 tests still fail" } as never;
+    const osc = await crw.resumeToFinish(fx, { iterationId: "it", brief: "B" } as never, first, { fingerprint: () => String(tree), spentUsd: () => null, compactions: () => null, signal: AbortSignal.timeout(5000), env: {} }); // bounded: a loop that never stops ends "aborted" and reads red, never hangs this file
+    res("NO-DEFAULT-BUDGET an S1b loop whose count only oscillates (12, 13, 12 of 40) while the tree keeps changing ends as no progress", osc.record.ended === "no progress" && osc.iterationIds.length === 3); }
+  const pv = await import(root + "/loki-ts/src/engine10/stages/prove.ts"), nr = await import(root + "/loki-ts/src/features/no_regression.ts");
+  res("NO-DEFAULT-BUDGET the prove stage has no 600 s budget and its listing no 3-turn cap unless set (the knob or LOKI_E10_PROVE_BUDGET_S / LOKI_E10_PROVE_LIST_TURNS); a user cap still reserves 600 s for it when sizing implement", pv.proveBudgetS({}) === Infinity && pv.proveBudgetS(B) === 600 && pv.proveBudgetS({ LOKI_E10_PROVE_BUDGET_S: "45" }) === 45 && pv.proveReserveOfS({}) === 600 && pv.proveListTurns({}) === undefined && pv.proveListTurns(B) === 3 && pv.proveListTurns({ LOKI_E10_PROVE_LIST_TURNS: "5" }) === 5);
+  res("NO-DEFAULT-BUDGET the no-regression differential has no 120 s wall budget unless set; the knob restores it", nr.nrdBudgetS({}) === Infinity && nr.nrdBudgetS(B) === 120 && nr.nrdBudgetS({ LOKI_E10_NRD_BUDGET_S: "30" }) === 30);
+  const rp = await import(root + "/loki-ts/src/runner/repo_profile.ts"), base = await rp.asyncShellRunner()("sleep 0.3; echo base-ran", d, Infinity);
+  res("NO-DEFAULT-BUDGET intake baselines have no 300 s limit of Loki's own: none by default, a third of a user's run cap, the user's LOKI_E10_BASELINE_CMD_S; the knob restores 300 s; the shared suite budget likewise", rp.baselineCmdS(Infinity, {}) === Infinity && rp.baselineCmdS(600, {}) === 200 && rp.baselineCmdS(Infinity, { LOKI_E10_BASELINE_CMD_S: "50" }) === 50 && rp.baselineCmdS(Infinity, B) === 300 && rp.suiteBaselineBudgetS({}) === Infinity && rp.suiteBaselineBudgetS(B) === 300);
+  const prevSil2 = process.env.LOKI_E10_CMD_SILENCE_S; process.env.LOKI_E10_CMD_SILENCE_S = "0.3"; const tSr = Date.now(), srOk = rp.shellRunner("sleep 0.2; echo intake-ran", d, Infinity), srQuiet = rp.shellRunner("sleep 20", d, Infinity), srWall = Date.now() - tSr; if (prevSil2 === undefined) delete process.env.LOKI_E10_CMD_SILENCE_S; else process.env.LOKI_E10_CMD_SILENCE_S = prevSil2;
+  res("NO-DEFAULT-BUDGET an intake baseline command with no limit runs to its end, and one silent past LOKI_E10_CMD_SILENCE_S is stopped as timed out (the sync runner had no guard)", srOk.code === 0 && srOk.out.includes("intake-ran") && srQuiet.timedOut === true && srWall < 10_000);
+  res("NO-DEFAULT-BUDGET a base suite run with no limit runs to its end (a raw Infinity timer cut it at once: fl24 base run incomplete)", base.code === 0 && base.timedOut === false && base.out.includes("base-ran"));
+  const se = await import(root + "/loki-ts/src/engine10/stages/seal.ts"), red = [{ name: "pytest:tests/old_test.py", cmd: "x", result: "fail", duration_s: 1, provenance: "exogenous" }, { name: "pytest:tests/new_test.py", cmd: "x", result: "pass", duration_s: 1, provenance: "agent_authored", n: 1 }] as never[];
+  const oCut = { implement: { exit: "done" }, verify: { stopped_at: "limit" } }, oFull = { implement: { exit: "done" }, verify: {} };
+  const own = [{ name: "pytest:tests/new_test.py", cmd: "x", result: "fail", duration_s: 1, provenance: "agent_authored" }] as never[], lint = [{ name: "lint:ruff", cmd: "x", result: "fail", duration_s: 1, provenance: "exogenous" }] as never[];
+  res("LIMIT-NOT-FAILED a verify stopped by Loki's own limit or cap seals PARTIAL on an unattributed pre-existing red test, never FAILED; a full verify, the run's own test or lint red is still FAILED (hm155462)", se.verdictOf(oCut as never, red, false, false, false, true) === "PARTIAL" && se.verdictOf({ ...oCut, verify: { stopped_at: "cap" } } as never, red, false, false, false, true) === "PARTIAL" && se.verdictOf(oFull as never, red, false, false, false, true) === "FAILED" && se.verdictOf(oCut as never, own, false, false, false, true) === "FAILED" && se.verdictOf(oCut as never, lint, false, false, false, true) === "FAILED");
+} finally { rmSync(d, { recursive: true, force: true }); }
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/nobudget.ts" "$ROOT" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || { bad "no-default-budget unit script crashed or exited non-zero"; printf '%s\n' "$out" | tail -8 | sed 's/^/    | /'; }
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 24 ] || bad "no-default-budget unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 24"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+# End to end, no limit set: the default run is VERIFIED with no cap anywhere (no LOKI_E10_CAP_S in the session, no derived turn cap, no time note, no cap.hit).
+NBTO=(${TO[@]+"${TO[@]}"}); TO=(${NBTO[@]+"${NBTO[@]}"}); run_engine done
+NBF="$(python3 -I - "$RUNDIR" "$STUBENV" <<'PY'
+import json, os, sys
+rd, envlog = sys.argv[1], sys.argv[2]
+ev = [json.loads(l) for l in open(os.path.join(rd, "events.jsonl")) if l.strip().startswith("{")]
+st = next(e["data"] for e in ev if e["type"] == "run.started")
+imp = [l.split() for l in open(envlog) if l.startswith("implement BUDGET ")]
+print(json.load(open(os.path.join(rd, "receipt.json"))).get("verdict"), st.get("cap_s"), sum(e["type"] in ("cap.hit", "cap.sized") for e in ev), len(imp) > 0 and all(x[2:] == ["CAP=", "TURNS=", "TIMENOTE=0"] for x in imp))
+PY
+)"
+[ "$NBF" = "VERIFIED None 0 True" ] && ok "NO-DEFAULT-BUDGET a run with no limit set is VERIFIED with no cap: run.started cap_s null, no cap event, the session got no cap, no turn cap and no time note" || { bad "NO-DEFAULT-BUDGET default run facts: $NBF"; printf '%s\n' "$OUT" | tail -6 | sed 's/^/    | /'; }
+# A stuck session (silent after its edit) with no limit set still ends, and the run delivers a draft PR of what was done.
+TO=(LOKI_E10_STALL_KILL_S=20 E2E_STUB_SLEEP=900); command -v timeout >/dev/null 2>&1 && TO+=(timeout 400)
+NB0=$(date +%s); run_pr nb-stuck none LOKI_RISK_TIER=medium; NBW=$(( $(date +%s) - NB0 ))
+NBF="$(python3 -I - "$RUNDIR" <<'PY'
+import json, os, sys
+rd = sys.argv[1]
+ev = [json.loads(l) for l in open(os.path.join(rd, "events.jsonl")) if l.strip().startswith("{")]
+pr = [e for e in ev if e.get("type") == "pr.opened"]
+ended = [e["data"] for e in ev if e["type"] == "session.ended" and e.get("stage") == "implement"]
+print(json.load(open(os.path.join(rd, "receipt.json"))).get("verdict"), len(pr), bool(pr and pr[0]["data"].get("draft")), any("stalled" in str(x.get("cause", "")) or x.get("killed") for x in ended), sum(e["type"] == "cap.hit" for e in ev))
+PY
+)"
+[ "$NBW" -lt 400 ] && [ "${NBF%% *}" != VERIFIED ] && [ "$(cut -d' ' -f2-5 <<< "$NBF")" = "1 True True 0" ] && ok "NO-DEFAULT-BUDGET a stuck session with no limit ends on its silence (${NBW}s), the run is not VERIFIED and opens a draft PR of what was done ($NBF)" || { bad "NO-DEFAULT-BUDGET stuck run (${NBW}s): $NBF"; printf '%s\n' "$OUT" | tail -8 | sed 's/^/    | /'; }
+# A limit the user set that is hit still ends in a draft PR of what was done.
+TO=(LOKI_RUN_DEADLINE_S=95 E2E_STUB_SLEEP=200); command -v timeout >/dev/null 2>&1 && TO+=(timeout 300)
+run_pr nb-deadline none LOKI_RISK_TIER=medium
+NBF="$(python3 -I - "$RUNDIR" <<'PY'
+import json, os, sys
+rd = sys.argv[1]
+ev = [json.loads(l) for l in open(os.path.join(rd, "events.jsonl")) if l.strip().startswith("{")]
+pr = [e for e in ev if e.get("type") == "pr.opened"]
+print(json.load(open(os.path.join(rd, "receipt.json"))).get("verdict"), sum(e["type"] == "cap.hit" for e in ev) > 0, len(pr), bool(pr and pr[0]["data"].get("draft")))
+PY
+)"
+[ "$(cut -d' ' -f2- <<< "$NBF")" = "True 1 True" ] && [ "${NBF%% *}" != VERIFIED ] && ok "NO-DEFAULT-BUDGET a user time limit that is hit ends the run with cap.hit and a draft PR of what was done ($NBF)" || { bad "NO-DEFAULT-BUDGET user-limit run: $NBF"; printf '%s\n' "$OUT" | tail -8 | sed 's/^/    | /'; }
+TO=(${NBTO[@]+"${NBTO[@]}"})
+# --max-time is the opt-in outer limit (LOKI_RUN_DEADLINE_S); with neither it nor --max-duration the dry run names no time limit.
+NBD="$(mktemp -d "$T/nbdry.XXXXXX")"; git -C "$NBD" init -q -b main; git -C "$NBD" commit -q --allow-empty -m base
+NBO="$(cd "$ROOT/loki-ts" && bun -e '
+const st = await import("./src/commands/start.ts"), rc = await import("./src/util/run_cap.ts");
+const env = {}, set = (k, v) => { env[k] = v; }, errs = [];
+const ok = st.parseStartArgs(["add a multiply function", "--max-time", "2m", "--verify-max-time=90"], (e) => errs.push(e), () => {}, set);
+const bad = st.parseStartArgs(["add a multiply function", "--max-time", "soon"], (e) => errs.push(e), () => {}, () => {});
+const none = {}; st.parseStartArgs(["add a multiply function"], () => {}, () => {}, (k, v) => { none[k] = v; });
+console.log([typeof ok === "object", env.LOKI_RUN_DEADLINE_S, env.LOKI_E10_VERIFY_MAX_S, bad, "LOKI_RUN_DEADLINE_S" in none, rc.parseDurationS("90m"), String(rc.parseDurationS("0")), st.START_USAGE.includes("--max-time DUR") && st.START_USAGE.includes("--verify-max-time DUR")].join(" "));' 2>&1)"
+[ "$NBO" = "true 120 90 2 false 5400 null true" ] && ok "NO-DEFAULT-BUDGET loki start --max-time 2m sets a 120 s outer limit and --verify-max-time=90 a 90 s verify limit; a bad duration is refused; without them nothing is set; both are in --help" || bad "NO-DEFAULT-BUDGET start time flags gave: $NBO"
+NBE="$(cd "$NBD" && bash -c '. "$1/autonomy/route.sh" 2>/dev/null; loki_route_resolve start "add a multiply function" --max-time 90m >/dev/null 2>&1; printf "%s" "${R_DEADLINE_S:-}"' _ "$ROOT" 2>/dev/null)"
+[ "$NBE" = 5400 ] && ok "NO-DEFAULT-BUDGET --max-time 90m resolves to a 5400 s deadline" || bad "NO-DEFAULT-BUDGET --max-time 90m resolved to '$NBE'"
+# A user's own --max-duration is never capped by Loki (it was clamped to 3600 s). Plant NB10: restore the clamp in route.sh; this reads 3600.
+NBM="$(cd "$NBD" && bash -c '. "$1/autonomy/route.sh" 2>/dev/null; loki_route_resolve start "add a multiply function" --max-duration 3h >/dev/null 2>&1; printf "%s|%s" "${R_E10_CAP_S:-}" "${R_NOTICE:-}"' _ "$ROOT" 2>/dev/null)"
+[ "$NBM" = "10800|" ] && ok "NO-DEFAULT-BUDGET --max-duration 3h stays 10800 s with no clamp notice" || bad "NO-DEFAULT-BUDGET --max-duration 3h resolved to '$NBM'"
+# ---- end NO-DEFAULT-BUDGET ----
 
 finish

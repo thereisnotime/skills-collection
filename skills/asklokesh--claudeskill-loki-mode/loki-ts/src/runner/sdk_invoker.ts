@@ -15,6 +15,7 @@
 // REJECT / block). It NEVER throws for a normal failure. judgeJsonOutcome()
 // returns the same call as a typed JudgeOutcome naming the cause.
 
+import { isClaudeModel, noteRoleSkip, providerOf, roleNamesModel } from "../util/claude_model.ts"; import { redactSecrets } from "../util/redact.ts";
 import { inferenceGeoParam } from "../providers/model_routes.ts";
 import { assertStaticSchema } from "../council/finding_schema.ts";
 import { tmpdir } from "node:os";
@@ -266,11 +267,12 @@ export type JudgeOutcome<T> =
   | { kind: "context_exceeded" }
   | { kind: "malformed" }
   | { kind: "budget" } // toolLessCall only: the run dollar cap was already reached, no request was sent
-  | { kind: "transport" };
+  | { kind: "transport" }
+  | { kind: "unsupported"; reason: string }; // toolLessCall only: ROLE-MODELS, an opencode role names a non-Claude model and this call runs on the Anthropic API only; no request was sent
 
 /** Compact name for a non-ok outcome (stderr line, ledger field): "refused:cyber", "truncated". */
 export function describeJudgeOutcome(o: JudgeOutcome<unknown>): string {
-  return o.kind === "refused" && o.category ? `refused:${o.category}` : o.kind;
+  return o.kind === "refused" && o.category ? `refused:${o.category}` : o.kind === "unsupported" ? `unsupported: ${o.reason}` : o.kind;
 }
 
 /** The text an in-process caller appends to its gate record for a non-ok outcome, so the cause is named and never a bare miss. */
@@ -287,7 +289,12 @@ const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 const TRUNCATION_RETRY_CAP = Math.max(...Object.values(EFFORT_MAX_TOKENS)); // the effort table's ceiling, so an xhigh/max default is never capped below its own size
 
 function fallbackEligible(model: string): boolean {
-  return /^claude-(fable|opus|sonnet)-5(-\d+)?$/i.test(model);
+  return /^claude-(opus|sonnet)-5(-\d+)?$/i.test(model); // FABLE-RAW-API: a Fable call is never re-run on another model; a refusal is reported (fableFailure)
+}
+/** FABLE-RAW-API: a Fable tool-less call that fails or is refused on /v1/messages says so on stderr with the API's own text (redacted), so a refusal is
+ *  visible and never mistaken for a swap; other models keep their quiet outcome records. */
+function fableFailure(model: string, what: string): void {
+  if (/fable/i.test(model)) process.stderr.write(`loki: ${model} on the raw API: ${redactSecrets(what).replace(/\s+/g, " ").slice(0, 400)} (not retried on another model)\n`);
 }
 
 // Refusal categories the default fallback does NOT retry (claude-api model
@@ -405,9 +412,11 @@ async function runJudge(params: JudgeParams | TextParams, schema: Record<string,
         return { kind: "context_exceeded" };
       }
       noteJudgeFailure(ledger, model, "transport", max, pt);
+      fableFailure(model, err instanceof Error ? err.message : String(err));
       return { kind: "transport" };
     }
     const outcome = classifyStop(msg);
+    if (outcome.kind === "refused") fableFailure(model, `refused${outcome.category ? ` (${outcome.category})` : ""}`);
     const billed = typeof msg.model === "string" && msg.model ? msg.model : model;
     noteJudgeUsage(ledger, billed, msg, describeJudgeOutcome(outcome), max, pt);
 
@@ -593,6 +602,7 @@ export async function toolLessCall(p: ToolLessParams): Promise<ToolLessResult> {
   const lokiDir = p.ledger?.lokiDir ?? process.env["LOKI_DIR"];
   const ledger = lokiDir ? { lokiDir, phase: p.ledger?.phase ?? "toolless" } : undefined;
   const remaining = toolLessRemainingUsd(process.env, lokiDir);
+  if (providerOf(process.env) === "opencode" && !isClaudeModel(p.model) && roleNamesModel(p.model)) { const reason = `${p.model} is not a Claude model and this call runs on the Anthropic API only (opencode run)`; noteRoleSkip(p.ledger?.phase ?? "toolless", reason); return { outcome: { kind: "unsupported", reason }, route: "api", usd: null, thinkingTokens: null }; } // ROLE-MODELS: skipped with the reason, never sent to the wrong API
   await loadSdk();
   if (remaining !== null && remaining <= 0) return { outcome: { kind: "budget" }, route: client() ? "api" : "agent-sdk", usd: null, thinkingTokens: null };
   if (client() === null) return toolLessViaAgentSdkRetrying(p, ledger, remaining);

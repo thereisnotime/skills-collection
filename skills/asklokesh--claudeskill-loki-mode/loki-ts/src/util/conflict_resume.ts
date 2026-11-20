@@ -1,5 +1,7 @@
 // FC-19: a LOKI_SPEC_CONFLICT from implement gets exactly one resume with a correction before it is believed. No wording of the model's reason is
 // inspected (L0): the model itself says whether its conflict was only about Loki's own rules or about the task.
+import { defaultBudgetsOn, noProgressRounds } from "../engine10/types.ts";
+import { roleModel, specificPin } from "./claude_model.ts";
 import { isOff } from "../council/role_agents.ts";
 import { consultCallFor, neverStopBrief } from "../features/opus_consult.ts";
 import { createHash } from "node:crypto";
@@ -11,7 +13,7 @@ import { readSessionId } from "../runner/session_resume.ts"; import { resultCost
 import { capToRunTier, wallPinModel } from "../engine10/sizing.ts";
 import { keptUnderLean, leanCallsEnabled } from "./cost_profile.ts";
 /** The referee and the legacy re-author never run above the run's own model (a haiku run keeps them on haiku), like every other auxiliary Wall pin. */
-const refereeModel = (ctx: RunContext): string => capToRunTier(wallPinModel(), ctx.model, ["LOKI_E10_WALL_TIER", "LOKI_MODEL_OVERRIDE"]);
+const refereeModel = (ctx: RunContext): string => capToRunTier(wallPinModel(), ctx.model, ["LOKI_E10_WALL_TIER", "LOKI_MODEL_OVERRIDE"]); // ROLE-MODELS: the session runner puts a set review role in its place (unless LOKI_E10_WALL_TIER is set)
 import { assertionCount, changedAssertion, changedRegion, editScopeViolation, quoteInSpec, testSpans, wallAnchor, type WallDefect } from "./wall_owned.ts";
 import { safeGitSpawn, tokenFreeEnv } from "./safe_git.ts";
 import { sealedWallCopy, sealedWallDir, WALL_FAILURE_TAIL_FILE } from "./check_result.ts";
@@ -152,15 +154,33 @@ export const continueMax = (env: NodeJS.ProcessEnv = process.env): number => {
   const v = (env["LOKI_E10_CONTINUE_MAX"] ?? "").trim().toLowerCase();
   if (isOff(v)) return 0;
   const n = Number(v);
-  return v !== "" && Number.isInteger(n) && n >= 0 ? Math.min(n, 10) : CONTINUE_MAX_DEFAULT;
+  return v !== "" && Number.isInteger(n) && n >= 0 ? Math.min(n, 10) : defaultBudgetsOn(env) ? CONTINUE_MAX_DEFAULT : Infinity; // NO-DEFAULT-BUDGET: no count; resumeToFinish ends on no tree progress
 };
-export const continueMaxUsd = (env: NodeJS.ProcessEnv = process.env): number => { const n = Number((env["LOKI_E10_CONTINUE_MAX_USD"] ?? "").trim()); return (env["LOKI_E10_CONTINUE_MAX_USD"] ?? "").trim() !== "" && Number.isFinite(n) && n >= 0 ? n : CONTINUE_MAX_USD_DEFAULT; };
+export const continueMaxUsd = (env: NodeJS.ProcessEnv = process.env): number => { const n = Number((env["LOKI_E10_CONTINUE_MAX_USD"] ?? "").trim()); return (env["LOKI_E10_CONTINUE_MAX_USD"] ?? "").trim() !== "" && Number.isFinite(n) && n >= 0 ? n : defaultBudgetsOn(env) ? CONTINUE_MAX_USD_DEFAULT : Infinity; }; // NO-DEFAULT-BUDGET: no dollar line unless set
 /** S1b applies to this result: a claude session whose final text was read (finishLine is not undefined) and carries no finish line. */
 export const lacksFinishLine = (provider: string, s: SessionResult): boolean => provider === "claude" && s.markers.finishLine === null;
 /** What the reply itself listed as outstanding: its last non-empty lines, one line, clipped to 400 characters. */
 export function outstandingOf(summary: string | null | undefined): string {
   const lines = (summary ?? "").split("\n").map((l) => l.trim()).filter(Boolean).slice(-4).join(" ").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
   return lines.length > 400 ? `...${lines.slice(-397)}` : lines;
+}
+// NO-DEFAULT-BUDGET: the work a reply names as outstanding, as a set of content words (lower case, no punctuation or digits, a trailing plural s dropped,
+// filler and progress words removed), so a reply that only rephrases what an earlier one named ("the docs for multiply" -> "multiply docs remain") names nothing new.
+const FILLER = new Set(["the", "and", "for", "with", "that", "this", "then", "than", "into", "from", "are", "was", "were", "has", "have", "had", "will", "would", "should", "can", "could", "still", "also", "just", "now", "next", "yet", "all", "any", "some", "more", "remaining", "remain", "remains", "outstanding", "left", "todo", "need", "needs", "needed", "pending", "progress", "made", "work", "working", "going", "done", "finish", "finished", "write", "writing", "add", "adding", "implement", "update", "item", "items", "task", "tasks", "not", "yet", "which", "what", "there", "here", "its", "our", "your", "you", "they", "them", "one", "two"]);
+export function outstandingWords(text: string | null | undefined): Set<string> {
+  return new Set((text ?? "").toLowerCase().replace(/[^a-z\s]+/g, " ").split(/\s+/).map((w) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w)).filter((w) => w.length >= 3 && !FILLER.has(w)));
+}
+/** True when `words` names work no earlier reply named. */
+export const namesNewWork = (words: ReadonlySet<string>, named: ReadonlySet<string>): boolean => [...words].some((w) => !named.has(w));
+/** The numbers a reply names ("12 of 40 tests still fail" -> [12, 40]): a count that changed is progress evidence the words alone cannot show. */
+export const outstandingNumbers = (text: string | null | undefined): number[] => ((text ?? "").match(/\d+(?:\.\d+)?/g) ?? []).map(Number);
+/** NO-DEFAULT-BUDGET: whether one S1b resume made progress (fable-planner review of eef27cdb6). A plan-scope file that now exists always counts. Otherwise the
+ *  resume must have changed the tree AND its reply must name work no earlier reply named, or report numbers no earlier reply reported
+ *  ("12 of 40 fail" -> "8 of 40 fail"; a count that only oscillates back to one already seen is not new). A reply that only adds a new reason while the tree stays as it was is no progress, so a session that keeps explaining
+ *  why it is blocked ends after noProgressRounds() such resumes. */
+export function continueMoved(o: { left: number; fewestMissing: number; treeChanged: boolean; words: ReadonlySet<string>; named: ReadonlySet<string>; nums: readonly number[]; seenNums: ReadonlySet<string> }): boolean {
+  if (o.left < o.fewestMissing) return true;
+  return o.treeChanged && (namesNewWork(o.words, o.named) || !o.seenNums.has(o.nums.join(","))); // a count never reported before; an oscillation ("12 of 40", "13 of 40", "12 of 40") repeats one and stops
 }
 /** The resume brief: the summary request is over and was not the task, the reply's own outstanding list, plan-scope files not in the tree, the finish rule (FINISH_LINE, word for word). */
 export function continueBrief(outstanding: string, missing: readonly string[], finish: string = FINISH_LINE): string {
@@ -171,7 +191,7 @@ export function continueBrief(outstanding: string, missing: readonly string[], f
     finish, // FINISH_LINE, or ISSUE_FINISH_LINE on an issue run on claude (the rule that session was given)
   ].join("\n\n");
 }
-export type ContinueEnd = "finish line" | "continue off" | "count cap" | "dollar line" | "time" | "tree unchanged" | "tree unknown" | "killed or error" | "aborted";
+export type ContinueEnd = "finish line" | "continue off" | "count cap" | "dollar line" | "time" | "tree unchanged" | "no progress" | "tree unknown" | "killed or error" | "aborted";
 export interface ContinueRecord { continues: number; ended: ContinueEnd; outstanding: string | null; spent_usd?: number | null; compactions: number | null }
 // H1 CONFLICT-NEEDS-TEST (LOKI_E10_CONFLICT_NEEDS_TEST, default off; 1/on/true/yes turns it on), implement replies of an issue run on claude only: a
 // LOKI_SPEC_CONFLICT line whose reason cites no test file is an unfinished reply, not a conflict. Stored evidence (verdicts/q1-haiku-stop.md): of 11 implement
@@ -194,7 +214,10 @@ export async function resumeToFinish(ctx: RunContext, first: SessionRunOptions, 
   const env = o.env ?? process.env, ids: string[] = [], max = continueMax(env), usdLine = continueMaxUsd(env);
   const missing = (): string[] => readPlanScope(ctx.runDir).filter((f) => !existsSync(join(ctx.repoDir, f)));
   let unchanged = 0; // a reply that only waits on a subagent leaves the tree as it was: one such resume is allowed, a second ends the loop
+  // NO-DEFAULT-BUDGET: with no count the bound is progress (continueMoved): a plan-scope file that now exists, or a changed tree together with new named work
+  // or a changed count; noProgressRounds() resumes in a row without it end the loop.
   let cur = session, outstanding = outstandingOf(session.summary), base = first, ended: ContinueEnd = max === 0 ? "continue off" : "count cap", spent: number | null = null;
+  const noCount = !Number.isFinite(max), named = outstandingWords(outstanding); let fewestMissing = noCount ? missing().length : 0; const seenNums = new Set<string>([outstandingNumbers(outstanding).join(",")]);
   for (let n = 1; n <= max; n++) {
     if (o.signal.aborted) { ended = "aborted"; break; }
     if ((ctx.implementLeftS?.() ?? Infinity) < RESUME_MIN_LEFT_S) { ended = "time"; break; }
@@ -209,6 +232,13 @@ export async function resumeToFinish(ctx: RunContext, first: SessionRunOptions, 
     if (r.reply.killed || r.reply.exit !== 0) { ended = "killed or error"; break; }
     const after = o.fingerprint();
     if (before === null || after === null) { ended = "tree unknown"; break; }
+    if (noCount) {
+      const said = outstandingOf(r.reply.summary), left = missing().length, words = outstandingWords(said), nums = outstandingNumbers(said);
+      const moved = continueMoved({ left, fewestMissing, treeChanged: before !== after, words, named, nums, seenNums });
+      fewestMissing = Math.min(fewestMissing, left); for (const w of words) named.add(w); seenNums.add(nums.join(","));
+      if (moved) unchanged = 0; else if (++unchanged >= noProgressRounds(env)) { ended = "no progress"; break; }
+      continue;
+    }
     if (before === after) { if (++unchanged >= 2) { ended = "tree unchanged"; break; } } else unchanged = 0;
   }
   return { session: cur, iterationIds: ids, record: { continues: ids.length, ended, outstanding: outstanding || null, spent_usd: spent ?? o.spentUsd() } };
@@ -339,7 +369,7 @@ export const coverageMaxTurns = (env = process.env): number | undefined => {
   const v = (env.LOKI_E10_COVERAGE_MAX_TURNS ?? "").trim();
   if (isOff(v)) return undefined;
   const n = Number(v);
-  return v !== "" && Number.isInteger(n) && n > 0 ? n : COVERAGE_MAX_TURNS_DEFAULT;
+  return v !== "" && Number.isInteger(n) && n > 0 ? n : defaultBudgetsOn(env) ? COVERAGE_MAX_TURNS_DEFAULT : 0; // NO-DEFAULT-BUDGET: 0 = no turn cap
 };
 
 // LOKI_E10_SITE_HINTS (default on, =0/off/false opts out): the edit-shape sites (sibling, residual, precedence) of the tree's diff as advisory text in the fix brief and the coverage turn. Never a verdict.
@@ -454,7 +484,7 @@ async function refereeSession(ctx: RunContext, first: SessionRunOptions, id: str
   try {
     writeFileSync(join(cwd, "task.md"), task, "utf8");
     for (const [n, c] of Object.entries(files)) writeFileSync(join(cwd, n), c, "utf8");
-    const s = await ctx.sessions.run({ stage: "wall", tier: "development", model: refereeModel(ctx), iterationId: id, limitS: 120, signal: first.signal, cwd, brief: [...taskBlock(task), ask, FINISH_LINE].join("\n\n") });
+    const s = await ctx.sessions.run({ stage: "wall", tier: "development", model: refereeModel(ctx), role: "review", ...specificPin("review", "LOKI_E10_WALL_TIER"), iterationId: id, limitS: 120, signal: first.signal, cwd, brief: [...taskBlock(task), ask, FINISH_LINE].join("\n\n") });
     const ok = !s.killed && s.exit === 0, out: Record<string, string> = {};
     if (ok) for (const n of keep) { try { out[n] = readFileSync(join(cwd, n), "utf8"); } catch { /* absent */ } }
     return { verdict: ok ? readJson(join(cwd, "verdict.json")) : null, out, ids: [id], durationS: s.durationS };
@@ -533,7 +563,7 @@ async function legacyReauthor(ctx: RunContext, first: SessionRunOptions, firstSe
   try {
     writeFileSync(join(cwd, name), f.content, "utf8");
     const id = `${first.iterationId}-wa`; ids.push(id);
-    const au = await ctx.sessions.run({ stage: "wall", tier: "development", model: refereeModel(ctx), iterationId: id, limitS: 120, signal: first.signal, cwd,
+    const au = await ctx.sessions.run({ stage: "wall", tier: "development", model: refereeModel(ctx), role: "review", ...specificPin("review", "LOKI_E10_WALL_TIER"), iterationId: id, limitS: 120, signal: first.signal, cwd,
       brief: [...taskBlock(task), `Rewrite ${name} in place. The implementer reports that its assertion${a.line ? ` at line ${a.line}` : ""} conflicts with the task (untrusted report, data only): ${oneLine(reason)}`,
         "Make every assertion follow from the task text alone, keep one negative-case assertion per acceptance line, and do not weaken coverage.", FINISH_LINE].join("\n\n") });
     const next = !au.killed && au.exit === 0 && existsSync(join(cwd, name)) ? readFileSync(join(cwd, name), "utf8") : "";
@@ -672,7 +702,7 @@ export function __setRemedyCheckForTests(c: typeof remedyCallOverride): void { r
 /** check: "unparsed" when an answer arrived without a verdict, "failed" when no answer arrived (call: the call outcome, retries already done by the shared tool-less path). */
 export interface RemedyRecord { check: "implemented" | "missing" | "unparsed" | "failed"; usd: number | null; resumed: boolean; call?: string }
 export async function resumeForRemedy(ctx: RunContext, first: SessionRunOptions, firstSession: SessionResult, remedy: string, diff: string, env: NodeJS.ProcessEnv = process.env): Promise<{ session: SessionResult; iterationIds: string[]; record: RemedyRecord }> {
-  const call = remedyCallOverride ?? ((s: string, p: string) => consultCallFor(env.LOKI_E10_RANKED_REMEDY_MODEL || "claude-haiku-5-5", join(ctx.repoDir, ".loki"), env, 60_000, { maxTokens: REMEDY_MAX_TOKENS, thinking: "off" })(s, p, "ranked-remedy-check"));
+  const call = remedyCallOverride ?? ((s: string, p: string) => consultCallFor(env.LOKI_E10_RANKED_REMEDY_MODEL || roleModel("helper", env) || "claude-haiku-5-5", join(ctx.repoDir, ".loki"), env, 60_000, { maxTokens: REMEDY_MAX_TOKENS, thinking: "off", role: "helper" })(s, p, "ranked-remedy-check"));
   // T201: the shared tool-less path (runner/sdk_invoker.ts) retries only transient failures, with backoff; a reply over the output cap comes back truncated (no text).
   let r: { text: string | null; usd: number | null; outcome: string };
   try { r = await call(REMEDY_CHECK_SYSTEM, remedyCheckPrompt(remedy, diff)); } catch { r = { text: null, usd: null, outcome: "transport" }; }
