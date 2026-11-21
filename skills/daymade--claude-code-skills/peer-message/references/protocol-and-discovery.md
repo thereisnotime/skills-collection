@@ -107,9 +107,9 @@ UDS 连接写两行 NDJSON 后关闭：
 地址解析不决定使用哪一种 transport；发送流程按本文件 §3 执行。
 官方 Claude peer 工具不能用这个地址寻址 Codex thread，接收者仍须先检查当前宿主的原生覆盖范围。
 
-所以 `from` **保持** `codex:<thread-id>`，同时在正文首行补 `[reply: peer.py send codex:<id>]`（这是跨产品脚本补缺提示，接收者仍先按主路由检查原生工具是否覆盖目标）——属性集合是固定的，正文首行是唯一还能说话的地方。**两个一起走**：删掉地址只为了让一类接收方少踩一次可恢复的失败，会同时夺走另一类接收方手里能用的东西，还让路由脱离了它所路由的对象。
+所以 `from` **保持** `codex:<thread-id>`，同时在正文首行补 `[reply: peer.py send codex:<id>]`（这是跨产品脚本补缺提示，接收者仍先按主路由检查原生工具是否覆盖目标）——脚本产生端的属性集合是固定的，正文首行是唯一还能说话的地方。**两个一起走**：删掉地址只为了让一类接收方少踩一次可恢复的失败，会同时夺走另一类接收方手里能用的东西，还让路由脱离了它所路由的对象。
 
-当前 Claude parser 只接受它定义的 peer 属性集合与顺序；`message-id` 因此留在正文首行，不能自创 XML attribute。脚本拒绝正文自行闭合 `cross-session-message`/`peer-message`，避免正文逃出来源边界。官方 `SendMessage` 可用时不要手写这层；让官方通道负责包装和版本适配。
+当前 Claude 接收 parser 接受宿主生成的 `<cross-session-message>` 属性序列（包括 `from`、`from-name`、`from-mode`、`from-session`、`hop-chain`、`from-plugin`），正文首行既可以是 `[peer-coordination]`，也可以先写 `[peer-message-id]`；带 transport ID 时必须与 coordination metadata ID 一致。脚本仍拒绝正文自行闭合 `cross-session-message`/`peer-message`，避免正文逃出来源边界。官方 `SendMessage` 可用时不要手写这层；让官方通道负责包装和版本适配。精确取件与校验配方见 [Claude 跨会话入站原件接收](local-coordination.md#从-claude-跨会话入站原件接收)。
 
 ## 3. Codex 发现与实时投递
 
@@ -120,11 +120,20 @@ UDS 连接写两行 NDJSON 后关闭：
 不要为投递启动第二个 App Server 或重开目标 Tab；环境修复仍受当前用户的进程与前台授权约束。
 使用默认实时路径，由该 adapter 连接 Codex home 下
 `app-server-control/app-server-control.sock` 的 Unix WebSocket。先 initialize，再
-thread/read 核对精确 ID、status 与 canAcceptDirectInput；active/idle 使用
+thread/read 核对精确 ID、status 与 canAcceptDirectInput；默认 `live` 的 active/idle 使用
 turn/start 的 toolOutput（namespace=peer_message、name=delivery），不覆盖模型、cwd、
 sandbox 或 approval，不回复服务审批请求。消息在宿主下一次接收边界进入当前回合，
-不强行中断工具调用。notLoaded 才保留官方 queue，receipt 标明 target_not_loaded；
-不自动 resume。明确需要延迟留话时才显式传 `--codex-delivery queued`：它可能等长回合结束，完整信封会作为用户消息进入对话，而不是内部 tool output。选择前由发送 agent 核对任务是否需要这次延迟送达、内容到达时是否仍有用；`expires-at` 只约束本地协调处理，不会让宿主队列自动过期，也不保证在期限前显示。接收方不回 ACK 或 `coord finish` 不会隐藏、撤回已排队的原文。脚本无法替 agent 判断这项业务必要性。
+不强行中断工具调用。需要精确介入当前 active turn 时显式选择 `--codex-delivery live-steer`：
+adapter 在同一连接上读取 `thread/turns/list`，active 时用 `turn/steer` 加精确
+`expectedTurnId` 写入 user text；idle 仍保持上述 tool output；notLoaded 仍进入官方 queue。
+live-steer 不把 turn ID 写入协调合同，也不在 Minions 侧预读；expected-turn fence 的明确
+mismatch 才记为 `outcome=not_sent, reason_code=target_changed`，其他写入拒绝和超时保持
+unknown。notLoaded 的 receipt 标明 target_not_loaded，不自动 resume。明确需要延迟留话时
+才显式传 `--codex-delivery queued`：它可能等长回合结束，完整信封会作为用户消息进入对话，
+而不是内部 tool output。选择前由发送 agent 核对任务是否需要这次延迟送达、内容到达时是否
+仍有用；`expires-at` 只约束本地协调处理，不会让宿主队列自动过期，也不保证在期限前显示。
+接收方不回 ACK 或 `coord finish` 不会隐藏、撤回已排队的原文。脚本无法替 agent 判断这项
+业务必要性。
 
 缺 uv、socket 不可用或只读前置失败时
 报告 not_sent；写入后超时、断连、拒绝或 receipt 无法解析时保留 unknown。禁止自动

@@ -870,6 +870,54 @@ export function emptyDiscovery(cls: Classified, out: string): boolean {
 }
 /** classifyCheck result plus the rerun-only "flaky" verdict (TEN-QUALITY-17); kept separate so existing classifyCheck callers keep the narrow type. */
 export interface ClassifiedRerun extends Omit<Classified, "result"> { result: Classified["result"] | "flaky"; rerun?: { first: "fail"; second: "pass"; n?: number } }
+export const SUITE_FIX_SKIP_NOTE = "fix round skipped: only full-suite failures remained while the change's own targeted tests passed, so those failures are NOT PROVEN unrelated to the change (LOKI_E10_SUITE_FIX_SKIP=0 runs the round)";
+/** G5: the failing ids Loki measured as NEW on head, as "check::id" (a failing check with no ids counts once as "check"). Not new: a check verify recorded red
+ *  on base (pre_red_checks, base_red_checks), an id it recorded red on base (pre_red), and a harness-owned failure; each held-out failure counts once.
+ *  `suiteOnly` keeps only the full-suite checks. Fix-loop progress is this set shrinking; the suite-skip note holds a run only when the suite view is non-empty. */
+export function newFailingIds(d: Record<string, unknown> | undefined, suiteOnly = false): Set<string> {
+  const list = (k: string): string[] => (Array.isArray(d?.[k]) ? (d![k] as unknown[]).map(String) : []);
+  const checks = Array.isArray(d?.checks) ? (d!.checks as Record<string, unknown>[]) : [], pre = new Set([...list("pre_red_checks"), ...list("base_red_checks")]), preIds = new Set(list("pre_red")), out = new Set<string>();
+  for (const c of checks) {
+    const name = String(c?.name ?? "");
+    if (c?.result !== "fail" || pre.has(name) || c?.owner === "harness" || (suiteOnly && !name.startsWith("full suite"))) continue;
+    const ids = Array.isArray(c.ids) ? (c.ids as unknown[]).map(String) : [], fresh = ids.filter((i) => !preIds.has(i));
+    if (ids.length) for (const i of fresh) out.add(`${name}::${i}`); else out.add(name);
+  }
+  const held = Number(d?.holdout_failed) > 0 ? Number(d!.holdout_failed) : 0;
+  if (!suiteOnly) for (let k = 0; k < held; k++) out.add(`holdout#${k + 1}`);
+  return out;
+}
+/** G5: the suite-skip note (SUITE_FIX_SKIP_NOTE) holds a run only when the skipped full-suite red contains at least one NEW failing id. A suite red only on
+ *  ids recorded red on base had nothing new to fix, so the skip was right and must not hold the label (oc63960). */
+export const suiteSkipHolds = (d: Record<string, unknown> | undefined): boolean => newFailingIds(d, true).size > 0;
+/** G5 LINE-FALLBACK: a test file the change edited or added never ends not_run because the runner's summary could not be parsed. The verdict then comes from
+ *  the exit code plus per-test result lines that NAME THIS FILE (summary-parse review of 08952e0e1: a bare check mark, "ok 1" or "--- PASS:" from any program
+ *  about any file passed a test that never ran): pytest "<file>::name PASSED" / "FAILED <file>::name", vitest/jest/mocha file lines with a check or cross mark
+ *  or a PASS/FAIL header naming the file. TAP "ok N" / "not ok N" count only for a node runner (node --test prints them for the one file it ran). Output that
+ *  says no tests ran ("no tests", "0 tests", "collected 0") keeps not_run. A FAIL line fails it, even under exit 0; exit 0 with at least one PASS line and no
+ *  FAIL line passes it with n = the PASS lines; nothing recognisable keeps it not_run. Go never takes this path (its own parse decides). The receipt says so
+ *  through `count`. */
+export const LINE_FALLBACK_COUNT = "measured from the exit code and per-test pass and fail lines (the runner's summary could not be parsed)";
+const NO_TESTS_LINE = /\bno tests?\b|\b0 tests?\b|\bcollected 0\b|\bno test files?\b/i;
+// The path a per-test line names: pytest "<path>::name PASSED" / "PASSED <path>::name" (and FAILED/ERROR), vitest/jest/mocha "<mark> <path> (..)" and
+// "PASS <path>" / "FAIL <path>" headers.
+const PASS_PATH = [/^\s*(\S+?)::\S+\s+PASSED\b/, /^\s*PASSED\s+(\S+?)::/, /^\s*(?:\u2713|\u2714|\u221a|PASS)\s+(\S+)/];
+const FAIL_PATH = [/^\s*(\S+?)::\S+\s+(?:FAILED|ERROR)\b/, /^\s*(?:FAILED|ERROR)\s+(\S+?)::/, /^\s*(?:\u2715|\u2717|\u00d7|FAIL)\s+(\S+)/];
+const pathOf = (line: string, res: RegExp[]): string | null => { for (const r of res) { const m = r.exec(line); if (m?.[1]) return m[1].replace(/[:,]+$/, ""); } return null; };
+export function lineVerdict(out: string, ok: boolean, file: string, runner: string): Classified | null {
+  if (!file || runner === "go") return null;
+  const text = stripAnsi(out), lines = text.split("\n");
+  if (NO_TESTS_LINE.test(text)) return null;
+  const named = lines.map((l) => ({ l, pass: pathOf(l, PASS_PATH), fail: pathOf(l, FAIL_PATH) })), base = file.split("/").pop()!;
+  // summary-parse review (5875e7732): a different file whose name ends in the basename, or the same basename in another directory, never counts. A printed path
+  // matches only as the whole repo-relative path, or a suffix of it that starts at a "/" (the cwd-relative form a package runner prints), or a longer path that
+  // ends in "/<file>" (an absolute path). The basename alone counts only when the output prints no path with a "/" for any test.
+  const anyDir = named.some((x) => (x.pass ?? x.fail ?? "").includes("/"));
+  const same = (t: string | null): boolean => !!t && (t === file || (t.includes("/") && file.endsWith(`/${t}`)) || t.endsWith(`/${file}`) || (!anyDir && t === base));
+  const tap = runner === "node", passes = named.filter((x) => same(x.pass) || (tap && /^ok \d+\b/.test(x.l))).length, fails = named.some((x) => same(x.fail) || (tap && /^not ok \d+\b/.test(x.l)));
+  if (fails) return { result: "fail", count: LINE_FALLBACK_COUNT };
+  return ok && passes > 0 ? { result: "pass", n: passes, count: LINE_FALLBACK_COUNT } : null;
+}
 /** One attempt of one check. static = lint/typecheck/scan (exit code decides, no count). test = a test runner: pass needs n>0. */
 export function classifyCheck(i: ClassifyInput): Classified {
   if (i.missing) return { result: "not_run", reason: "tool not found on PATH" };
@@ -990,7 +1038,7 @@ export function failureLines(out: string): string[] {
  *  failures in the base tree against 408 with 8 in the checkout). `executed`: the tests the run executed (ran, or bun's own "Ran N tests" line). */
 const LOAD_ERROR_RE = /Cannot find (?:package|module) ['"]|Could not resolve: ["']|preload not found|ModuleNotFoundError: |ERR_MODULE_NOT_FOUND/;
 /** The module a load-error line names (its first quoted text; the whole line when it quotes nothing). */
-export const loadErrorModule = (line: string): string => /['"]([^'"]+)['"]/.exec(line)?.[1] ?? line;
+export const loadErrorModule = (line: string): string => { const m = /['"]([^'"]+)['"]/.exec(line)?.[1] ?? line; return m.startsWith("/") ? m.split("/").filter(Boolean).slice(-2).join("/") : m; }; // an absolute path differs between the base tree, the checkout and a temp dir: its last two segments are the key
 export function loadErrors(raw: string): string[] {
   const seen = new Set<string>(), out: string[] = [];
   for (const l of stripAnsi(raw).split("\n").map((x) => x.trim())) {
@@ -1000,12 +1048,35 @@ export function loadErrors(raw: string): string[] {
   return out;
 }
 export const firstLoadError = (raw: string): string | null => loadErrors(raw)[0] ?? null;
-export function suiteFacts(out: string): { executed?: number; load_errors?: string[] } {
+/** UNRUNNABLE-CHECK (runner/repo_profile.ts unrunnableOnBothSides): what one run of a check says about whether it could run at all, read without knowing the
+ *  tool. `lines`: its distinct error lines, with paths and numbers replaced so two runs of one tree give the same set whatever order a parallel runner prints
+ *  in (at most 60; `more` when there were more, and then nothing is concluded). `start`: how many of them are a start failure, something missing before any
+ *  test could run (an executable, a module, a command, a connection). `assertion`: one of them reads like a test that ran and failed. `passed`: the run reports
+ *  a test that passed. `failed`: the failed count it prints, or null. closed-set-2 pw43305: two base runs of `npm test` print the same 4 lines (198 and 2
+ *  "Executable doesn't exist", 2 reporter lines), 200 failed, none passed; their failureLines sets differ in about 298 lines each way. */
+export interface StartFacts { lines: string[]; more?: true; start: number; assertion: boolean; passed: boolean; failed: number | null }
+const ERRORISH_RE = /(?:^|[^A-Za-z])(?:[A-Za-z_.]*Error|error|ERROR|[A-Za-z_.]*Exception|FAILED|fatal|panic)(?::|\s)/;
+const START_FAILURE_RE = /[Ee]xecutable (?:doesn't|does not) exist|[Ee]xecutable file not found|command not found|: not found(?:$|\s)|No such file or directory|is not installed|Cannot find (?:package|module)|ModuleNotFoundError|No module named|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND|preload not found|Could not resolve|ECONNREFUSED|[Cc]onnection refused|could not connect to|cannot open shared object file|spawn \S+ ENOENT/;
+const ASSERTION_RE = /assert|\bexpect(?:ed|ation)?\b|\btoBe|\btoEqual|\bshould (?:be|equal|have|not)\b|\bnot equal\b|!=|mismatch/i;
+const PASSED_RE = /(?:^|[^\d.])[1-9]\d* (?:passed|passing|pass)\b|^ok\s+\S|^# pass [1-9]/m;
+export function startFacts(raw: string): StartFacts {
+  const out = stripAnsi(raw), seen = new Set<string>(); let more = false;
+  for (const l0 of out.split("\n")) {
+    const l = l0.trim(); if (l === "" || !(ERRORISH_RE.test(l) || START_FAILURE_RE.test(l))) continue;
+    const n = l.replace(/(?:[A-Za-z]:)?(?:[\w.@+~-]*[/\\]){2,}[\w.@+~-]*/g, "<path>").replace(/\d+/g, "N").slice(0, 240);
+    if (seen.size >= 60 && !seen.has(n)) { more = true; continue; }
+    seen.add(n);
+  }
+  const lines = [...seen].sort(), fm = [...out.matchAll(/(?:^|[^\d.])(\d+) (?:failed|failing|failures?)\b/g)].pop();
+  return { lines, ...(more ? { more: true as const } : {}), start: lines.filter((x) => START_FAILURE_RE.test(x)).length, assertion: lines.some((x) => !START_FAILURE_RE.test(x) && ASSERTION_RE.test(x)), passed: PASSED_RE.test(out), failed: fm ? +fm[1]! : null };
+}
+export function suiteFacts(out: string): { executed?: number; load_errors?: string[]; start?: StartFacts } {
   const bun = /^Ran (\d+) tests? across \d+ files?\./m.exec(stripAnsi(out)); // bun's own total: ran() reads no count from bun output
   const n = ran(out) ?? (bun ? +bun[1]! : null), le = loadErrors(out);
   return {
     ...(typeof n === "number" ? { executed: n } : {}),
     ...(le.length ? { load_errors: le } : {}),
+    start: startFacts(out),
   };
 }
 export function failureShape(out: string): string {
@@ -1550,7 +1621,7 @@ const TOOL_CACHE_GITIGNORE: Record<string, string> = {
 };
 const CACHE_CODE_EXT = /\.(py[a-z]?|pth|so|pyd|dylib|dll|js|mjs|cjs|ts|sh|rb|pl)$/i;
 /** True only when `dir` (repo-relative) is a known pure tool cache: its .gitignore is exactly that tool's own text and nothing under it is importable, executable, linked, or a virtual environment. Any doubt is false. */
-function pureToolCache(repoDir: string, dir: string): boolean {
+export function pureToolCache(repoDir: string, dir: string): boolean {
   const text = TOOL_CACHE_GITIGNORE[basename(dir)];
   if (text === undefined) return false;
   try {
@@ -1586,14 +1657,14 @@ export function ignoreRuleChanges(repoDir: string, snap: unknown, baseSha?: stri
     const gi = new Set(changedFiles(repoDir, baseSha ?? "HEAD").filter((f) => basename(f) === ".gitignore"));
     const hidden: string[] = [];
     for (const [f, h] of Object.entries(cur)) {
-      if (prior[f] === h) continue;
+      if (prior[f] === h || lokiKeptOwns(repoDir, f)) continue; // G2: a file a Loki-chosen command created and left is Loki's, never the change's (a later change still counts)
       if (basename(f) === ".gitignore" && pureToolCache(repoDir, dirname(f))) continue;
       if (basename(f) === ".gitignore") gi.add(f); else hidden.push(f);
     }
     if (gi.size) notes.push(`ignore rules changed while the run was in progress: ${[...gi].slice(0, 20).join(", ")} was added or edited, so git may hide files the run created`);
     if (hidden.length) notes.push(`an ignored file that can change what verify runs or imports was added or changed during the run: ${hidden.slice(0, 20).join(", ")}${hidden.length > 20 ? ` (+${hidden.length - 20} more)` : ""}`);
     if (notes.length === 0) return [];
-    const made = listIgnoredFiles(repoDir).filter((f) => { try { const st = statSync(join(repoDir, f)); return Math.max(st.birthtimeMs, st.mtimeMs) >= s.at!; } catch { return false; } });
+    const made = listIgnoredFiles(repoDir).filter((f) => !lokiKeptOwns(repoDir, f)).filter((f) => { try { const st = statSync(join(repoDir, f)); return Math.max(st.birthtimeMs, st.mtimeMs) >= s.at!; } catch { return false; } });
     if (made.length) notes.push(`ignored file created during the run, hidden from the diff and the receipt: ${made.slice(0, 20).join(", ")}${made.length > 20 ? ` (+${made.length - 20} more)` : ""}`);
     return notes;
   } catch { return ["ignore rules could not be compared with the intake snapshot: git failed"]; }
@@ -1976,10 +2047,11 @@ export function assertionFailure(runner: string, output: string, reported: Repor
 /** SPAWN-NOT-RUN (LOKI_E10_SPAWN_NOT_RUN, default on, =0 opts out): the tool a failed check could not start, or null. A wrapper that could not spawn its tool
  *  (`uv run -- ruff`: "error: Failed to spawn: `ruff`"), a shell that could not find it (exit 127, "ruff: command not found"), or node's "spawn ruff ENOENT",
  *  and only when that is essentially all the output (at most 6 non-empty lines), so a test that itself spawns a missing program still reads as its own failure. */
+const UV_PROGRESS = /^\s*(?:Using CPython|Creating virtual environment|Building |Built |Installed \d+ packages?|Uninstalled \d+ packages?|Resolved \d+ packages?|Prepared \d+ packages?|Audited \d+ packages?|Downloading |Downloaded )/; // printed by `uv run` before it starts the tool; a first run in a new environment prints five or more
 export const spawnNotRunOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_SPAWN_NOT_RUN"] ?? "").trim());
 export function spawnFailedTool(out: string, exitCode: number | null): string | null {
   if (!spawnNotRunOn() || exitCode === 0) return null;
-  const t = stripAnsi(out), lines = t.split("\n").filter((l) => l.trim() !== "");
+  const t = stripAnsi(out), lines = t.split("\n").filter((l) => l.trim() !== "" && !UV_PROGRESS.test(l)); // uv's own setup lines are not the tool's output
   if (lines.length > 6) return null;
   const uv = /^\s*error: Failed to spawn: `([^`]+)`/m.exec(t); if (uv) return uv[1]!;
   const sh = exitCode === 127 ? /^(?:\S*sh: (?:line \d+: )?)?([\w.+-]+): (?:command )?not found\s*$/m.exec(t) : null; if (sh) return sh[1]!;
@@ -2075,6 +2147,33 @@ export function toolFallbacks(repoDir: string, tool: string, env: NodeJS.Process
  *  existed, and 33 files failed in 0.06 s with "No module named pytest". With the probe red the tests run on the interpreter outside the virtualenv, as
  *  they did before the .venv appeared (`uv run` is skipped too: it runs in that same .venv), and venvSkipNotes names the interpreter and the reason. */
 const importProbe = new Map<string, boolean>(), venvSkips = new Map<string, string>();
+/** G2 ENV-GUARD (util/base_guard.ts guardEnv): a virtualenv a harness command created and the guard removed is forgotten here too, so neither the import
+ *  probe nor the "tests ran outside the project virtualenv" note outlives it. */
+export function forgetVenv(dir: string): void {
+  for (const k of [...importProbe.keys()]) if (k.startsWith(`${dir}/`)) importProbe.delete(k);
+  for (const k of [...venvSkips.keys()]) if (k.includes(`\0${dir}/`)) venvSkips.delete(k);
+}
+/** G2 ENV-GUARD registry, per repository: the informational lines guardEnv wrote ("Loki's own command changed the environment") and the paths a Loki-chosen
+ *  command created that could not be moved out safely (kept), each with the time the guard finished and, for a dependency directory, its listing then.
+ *  Readers that judge the environment subtract only what existed at that time: a file or directory under a kept path whose ctime or mtime is later, or a
+ *  kept dependency directory whose listing changed since, still counts, so a real install into it after the guard is never hidden. Lives for the run's worker process. */
+export interface LokiKept { rel: string; at: number; listing: string[] | null }
+const lokiEnv = new Map<string, { notes: string[]; kept: Map<string, LokiKept> }>();
+export function recordLokiEnv(repoDir: string, note: string, kept: readonly LokiKept[]): void {
+  const e = lokiEnv.get(repoDir) ?? { notes: [], kept: new Map<string, LokiKept>() }; if (!e.notes.includes(note)) e.notes.push(note);
+  for (const k of kept) { const rel = k.rel.replace(/\/$/, ""); if (!e.kept.has(rel)) e.kept.set(rel, { ...k, rel }); }
+  lokiEnv.set(repoDir, e);
+}
+export const lokiEnvNotes = (repoDir: string): string[] => [...(lokiEnv.get(repoDir)?.notes ?? [])];
+export const lokiEnvKept = (repoDir: string): LokiKept[] => [...(lokiEnv.get(repoDir)?.kept.values() ?? [])];
+/** The kept record `rel` (repo-relative) lies in or is, if any. */
+export const lokiKeptFor = (repoDir: string, rel: string): LokiKept | undefined => lokiEnvKept(repoDir).find((k) => rel === k.rel || rel.startsWith(`${k.rel}/`));
+/** True only when `rel` is under a kept path AND was last changed no later than the guard that kept it (lstat: a link is judged itself). */
+export function lokiKeptOwns(repoDir: string, rel: string): boolean {
+  const k = lokiKeptFor(repoDir, rel); if (!k) return false;
+  try { const st = lstatSync(join(repoDir, rel)); return Math.max(st.ctimeMs, st.mtimeMs) <= k.at; } catch { return false; }
+}
+export function resetLokiEnv(): void { lokiEnv.clear(); }
 export function canImport(py: string, module: string): boolean {
   if (!/^[A-Za-z_][\w.]*$/.test(module)) return false;
   const k = `${py}\0${module}`;
@@ -2083,11 +2182,27 @@ export function canImport(py: string, module: string): boolean {
 }
 /** The receipt lines for the virtualenvs resolveTool skipped in `repoDir` during this run: which interpreter ran the tests, and why. */
 export const venvSkipNotes = (repoDir: string): string[] => [...venvSkips].filter(([k]) => k.startsWith(`${repoDir}\0`)).map(([, v]) => v);
+/** UV-ENV-OUTSIDE-CHECKOUT (LOKI_E10_UV_ENV_OUTSIDE, default on; =0/off/false/no opts out). `uv run` in a project with no .venv creates one in the
+ *  checkout, even with --no-sync. closed-set-2 hm155462: verify's own lint (`uv run -- ruff check`) created the root .venv (66 runtime packages, no
+ *  pytest); after that the receipt carried "tests ran on python3, outside the project virtualenv", ".venv/.gitignore was added", "an ignored file that
+ *  can change what verify runs", and the full suite was "not measured on base" (the environment changed since intake). A harness-run `uv run` now
+ *  keeps its environment in a directory this process owns (UV_PROJECT_ENVIRONMENT, one per repository), so the checkout stays as intake left it.
+ *  Only taken when the repository has no virtualenv of its own; null (the plain `uv run`) on Windows, when the user set the variable, or with no owned dir. */
+export const uvEnvOutsideOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_UV_ENV_OUTSIDE"] ?? "").trim());
+export function uvEnvDir(repoDir: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  if (!uvEnvOutsideOn(env) || process.platform === "win32" || env["UV_PROJECT_ENVIRONMENT"]) return null;
+  const e: Record<string, string> = {}; for (const [k, v] of Object.entries(env)) if (typeof v === "string") e[k] = v;
+  const root = testHomeRoot(e); if (!root) return null;
+  let real = repoDir; try { real = realpathSync(repoDir); } catch { /* the path as given */ }
+  return join(root, "uv-env", createHash("sha256").update(real).digest("hex").slice(0, 12));
+}
 export function resolveTool(repoDir: string, bin: string, fallback: string, lastResort = fallback, module?: string): [string, Interpreter, string[]] {
   const inRepo = (p: string): boolean => { try { const r = relative(realpathSync(repoDir), realpathSync(p)); return r !== "" && !r.startsWith("..") && !isAbsolute(r); } catch { return false; } };
   const venvEnv = process.env["VIRTUAL_ENV"], onPath = (b: string): string | null => Bun.which(b, { PATH: process.env["PATH"] ?? "" }); // Bun.which caches the startup PATH unless given the live one
   const project = [join(repoDir, ".venv", "bin", bin), join(repoDir, "venv", "bin", bin), ...(venvEnv && inRepo(venvEnv) ? [join(venvEnv, "bin", bin)] : [])].find(existsSync);
   if (project && module && !canImport(project, module)) { const sys = onPath(fallback) ? fallback : lastResort; venvSkips.set(`${repoDir}\0${project}\0${module}`, `tests ran on ${sys}, outside the project virtualenv: ${relative(repoDir, project)} cannot import ${module}`); return [sys, "system", []]; }
+  const uvDir = project ? null : uvEnvDir(repoDir);
+  if (!project && uvDir && existsSync(join(repoDir, "uv.lock")) && onPath("uv") && onPath("env")) return ["env", "project", [`UV_PROJECT_ENVIRONMENT=${uvDir}`, "uv", "run", "--", bin]]; // UV-ENV-OUTSIDE-CHECKOUT
   return project ? [project, "project", []] : existsSync(join(repoDir, "uv.lock")) && onPath("uv") ? ["uv", "project", ["run", "--", bin]] : [onPath(fallback) ? fallback : lastResort, "system", []]; // TEN-QUALITY-11: uv.lock, no venv: uv run is the project interpreter
 }
 /** FC-WALL-GO-FILE-RUNS-WHOLE-PACKAGE: the Test, Fuzz and Example function names of one Go file, matched by name only. Over-inclusion is harmless for -run (a name that is no test matches nothing); a signature check would drop valid tests (multi-line, unnamed or aliased *testing.T, non-ASCII names) and turn a red Wall into no run. TestMain is excluded; [] when unreadable or none. */

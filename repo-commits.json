@@ -691,6 +691,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "58d1a83",
+      "message": "fix(ce-compound): label stale learnings and clear the mark once settled (#2093)",
+      "date": "2026-11-20",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "467f92c",
       "message": "docs(lfg): add standing-instruction guidance for automatic use (#2089)",
       "date": "2026-11-20",
@@ -741,12 +747,6 @@
     {
       "sha": "8d9796f",
       "message": "fix(ce-explain): answer plain why/how questions from the record (#2079)",
-      "date": "2026-11-16",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "26e86a9",
-      "message": "fix(verification): prove each guard when a checked property rests on several (#2078)",
       "date": "2026-11-16",
       "author": "Trevin Chow"
     }
@@ -877,6 +877,24 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "00315df",
+      "message": "fix(deep-research): make the Claim Decomposition trigger, Reading cases, and fact-check case agree (#1133 follow-up) (#1",
+      "date": "2026-11-21",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "d473358",
+      "message": "Add Claim Decomposition pass to source_verification_agent (#1128) (#1133)",
+      "date": "2026-11-21",
+      "author": "Siddhardha Nanda"
+    },
+    {
+      "sha": "64e9ed0",
+      "message": "docs(academic-paper): name resubmission organization in the mode guide's committee branch (#1123 point 5) (#1135)",
+      "date": "2026-11-21",
+      "author": "Tanmay Shah"
+    },
+    {
       "sha": "bd57330",
       "message": "docs: name the DSH sibling distribution in the README (#1126) (#1134)",
       "date": "2026-11-20",
@@ -916,24 +934,6 @@
       "sha": "2305363",
       "message": "docs(academic-paper): MLA 9th keeps a DOI that the entry has (#1095) (#1120)",
       "date": "2026-11-19",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "74fe227",
-      "message": "docs(cross-model): search signal, uri check, NOT_FOUND and NOT_SEARCHED wording say what the checks show (#1116) (#1119)",
-      "date": "2026-11-19",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "dea856a",
-      "message": "docs(cross-model): Gemini invalid-index note and one-call-per-reference rationale say what the code shows (#1114) (#1117",
-      "date": "2026-11-19",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "016e65f",
-      "message": "docs(cross-model): cost notes and grounding-guard comments say what the code shows (#1113) (#1115)",
-      "date": "2026-11-18",
       "author": "Edward Cheng-I Wu"
     }
   ],
@@ -2901,6 +2901,12 @@
   ],
   "netlify--context-and-tools": [
     {
+      "sha": "b111e77",
+      "message": "fix(context): sync skills from netlify/docs (#174)",
+      "date": "2026-11-20",
+      "author": "ntl-ax-team"
+    },
+    {
       "sha": "f75a283",
       "message": "chore: swap the plugin logo to the 2026 brand (#175)",
       "date": "2026-11-18",
@@ -2951,12 +2957,6 @@
     {
       "sha": "7f7cfc7",
       "message": "chore(deps): update actions/setup-node action to v7.1.0 (#153)",
-      "date": "2026-11-09",
-      "author": "renovate[bot]"
-    },
-    {
-      "sha": "0a527dc",
-      "message": "chore(deps): update actions/upload-artifact action to v7.0.2 (#152)",
       "date": "2026-11-09",
       "author": "renovate[bot]"
     }
@@ -3645,6 +3645,24 @@
   ],
   "stripe--ai": [
     {
+      "sha": "1bb4869",
+      "message": "Add Stripe plugin for Gemini (#631)",
+      "date": "2026-11-21",
+      "author": "John O'Sullivan"
+    },
+    {
+      "sha": "e01f21e",
+      "message": "sync skills",
+      "date": "2026-11-20",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
+      "sha": "cfaab55",
+      "message": "sync skills",
+      "date": "2026-11-20",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
       "sha": "119bc4a",
       "message": "sync skills",
       "date": "2026-11-20",
@@ -3684,24 +3702,6 @@
       "sha": "74f7f39",
       "message": "Stop copying process.env when opting CLI checks out of telemetry (#629)",
       "date": "2026-11-14",
-      "author": "John O'Sullivan"
-    },
-    {
-      "sha": "e2d2674",
-      "message": "Address Claude plugin credential-scan findings (#628)",
-      "date": "2026-11-14",
-      "author": "John O'Sullivan"
-    },
-    {
-      "sha": "b0d6592",
-      "message": "sync skills",
-      "date": "2026-11-14",
-      "author": "stripe-ai-sync[bot]"
-    },
-    {
-      "sha": "1ef4a81",
-      "message": "Configure feedback sampling with ordered product and event rules (#622)",
-      "date": "2026-11-13",
       "author": "John O'Sullivan"
     }
   ],
@@ -4017,6 +4017,30 @@
   ],
   "vercel-labs--agent-skills": [
     {
+      "sha": "5a37a63",
+      "message": "Merge pull request #358 from jaryalarshita/fix/web-design-guidelines-pin-rules",
+      "date": "2026-11-20",
+      "author": "MelkeyDev"
+    },
+    {
+      "sha": "53b6e3d",
+      "message": "docs(web-design-guidelines): expand guideline update steps",
+      "date": "2026-11-09",
+      "author": "Arshita Jaryal"
+    },
+    {
+      "sha": "840f3b0",
+      "message": "chore(web-design-guidelines): regenerate zip with bundled guidelines",
+      "date": "2026-11-09",
+      "author": "Arshita Jaryal"
+    },
+    {
+      "sha": "f766b64",
+      "message": "fix(web-design-guidelines): bundle pinned guidelines instead of fetching from main",
+      "date": "2026-11-09",
+      "author": "Arshita Jaryal"
+    },
+    {
       "sha": "1a2c79d",
       "message": "Merge pull request #350 from t-mdo/tmo/temporary-deploy-fallback",
       "date": "2026-10-27",
@@ -4049,30 +4073,6 @@
     {
       "sha": "063bee9",
       "message": "Merge pull request #328 from vercel-labs/codex/suspense-crossfade-local-wrapper",
-      "date": "2026-08-28",
-      "author": "Aurora Scharff"
-    },
-    {
-      "sha": "0c04547",
-      "message": "Fix view transition reference anchors",
-      "date": "2026-08-28",
-      "author": "Aurora Scharff"
-    },
-    {
-      "sha": "516bcc6",
-      "message": "Preserve view transition skill flow",
-      "date": "2026-08-28",
-      "author": "Aurora Scharff"
-    },
-    {
-      "sha": "a90fee4",
-      "message": "Clarify view transition guidance sources",
-      "date": "2026-08-28",
-      "author": "Aurora Scharff"
-    },
-    {
-      "sha": "058bb5f",
-      "message": "Split view transition troubleshooting",
       "date": "2026-08-28",
       "author": "Aurora Scharff"
     }
@@ -4465,62 +4465,62 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "e614a9c",
-      "message": "release: v11.170.0",
+      "sha": "6e34bc3",
+      "message": "release: v11.174.0",
+      "date": "2026-11-21",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "f188b63",
+      "message": "Empty Unreleased ahead of v11.174.0 (its notes carry every bullet)",
+      "date": "2026-11-21",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "d158cc4",
+      "message": "HELDOUT-CAL-2.md: the go-cmp skip was wrong; by the rule #142 is the third Go task, xstrings stays",
+      "date": "2026-11-21",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "05fafa0",
+      "message": "Held-out calibration set 2 result: 0 false VERIFIED on 24 bad changes, 2 of 8 merged fixes VERIFIED",
+      "date": "2026-11-21",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "f96e2c9",
+      "message": "HELDOUT-CAL-2.md: how the reserves were picked and cleared, the base-suite reading, and the D-class ruling",
+      "date": "2026-11-21",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "4e67e41",
+      "message": "Held-out calibration set 2: 8 hc2- replay tasks chosen by a pre-registered rule, run as --suite hc2",
+      "date": "2026-11-21",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "a6080b5",
+      "message": "A Python project's build requirements no longer count as declared dependencies, so a passing change on the system interp",
+      "date": "2026-11-21",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "823319e",
+      "message": "release: v11.173.0",
       "date": "2026-11-20",
       "author": "asklokesh"
     },
     {
-      "sha": "ca4ba74",
-      "message": "Empty Unreleased ahead of v11.170.0 (its notes carry every bullet)",
+      "sha": "b1d7044",
+      "message": "Empty Unreleased ahead of v11.173.0 (its notes carry every bullet)",
       "date": "2026-11-20",
       "author": "asklokesh"
     },
     {
-      "sha": "271741a",
-      "message": "Five legs expect the no-limits behaviour: continues that name only earlier work end after 2, --verified bounds record no",
-      "date": "2026-11-20",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "f5845c1",
-      "message": "Stack fixes: the SCAN-WHY leg reads its first line without a pipe into head (SIGPIPE under pipefail), and the tool-outpu",
-      "date": "2026-11-20",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "9bed99a",
-      "message": "On the already-done path a line counts as met only when a passing step ran repository code (ADS-REAL)",
-      "date": "2026-11-20",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "ba51469",
-      "message": "run-safety: the limitearly leg reads which path ran from the run's events, a guard fails when neither appears, and a wir",
-      "date": "2026-11-20",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "3e1eac9",
-      "message": "The base-tree-members wiring leg reads the member link as BASE-LINK-SCOPE joined it",
-      "date": "2026-11-20",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "1bbf2e5",
-      "message": "A typecheck's build info inside node_modules is not a changed environment",
-      "date": "2026-11-20",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "9c0c084",
-      "message": "A failing check the run did not write makes the run FAILED only when it is attributed to the change",
-      "date": "2026-11-20",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "ead581f",
-      "message": "A quick re-verify drops a carried \"not run: full suite\" line once it ran that suite itself",
+      "sha": "8e0d9a8",
+      "message": "Two low-tier legs pin the old rule (LOKI_E10_LOW_TIER_FULL_SUITE=0), and a G6 leg shows a low-tier new full-suite failur",
       "date": "2026-11-20",
       "author": "asklokesh"
     }
@@ -4893,64 +4893,64 @@
   ],
   "alirezarezvani--claude-skills": [
     {
-      "sha": "f8593c4",
-      "message": "Merge pull request #1155 from alirezarezvani/dev",
-      "date": "2026-11-17",
+      "sha": "5909a72",
+      "message": "Merge pull request #1164 from alirezarezvani/dev",
+      "date": "2026-11-21",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "6f2a81a",
-      "message": "docs(release): CHANGELOG and versions for v2.14.14 (#1154)",
-      "date": "2026-11-17",
+      "sha": "19323c2",
+      "message": "Merge pull request #1163 from alirezarezvani/claude/release-v2.14.15",
+      "date": "2026-11-21",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "13566ae",
-      "message": "feat: mobile-release, cloud-finops and support-ops plugins (#1153)",
-      "date": "2026-11-17",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "9edcb8e",
-      "message": "feat(marketing): register cinematic-shot-prompting as a standalone marketplace plugin (#1151)",
-      "date": "2026-11-17",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "085eedb",
-      "message": "Release v2.14.13: dev \u2192 main (#1150)",
-      "date": "2026-11-17",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "229f8a5",
-      "message": "docs(release): CHANGELOG and versions for v2.14.13 (#1149)",
-      "date": "2026-11-17",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "e9932ea",
-      "message": "feat(ra-qm): nis2-readiness and dora-readiness plugins (#1148)",
-      "date": "2026-11-17",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "5080a9b",
-      "message": "feat(readme-polish): land community README-polish skill (#1146, from #1145)",
-      "date": "2026-11-17",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "29fafe2",
-      "message": "fix(readme-polish): no R003 on substrings, keep GitHub's emoji-heading slugs",
-      "date": "2026-11-17",
+      "sha": "ce691a3",
+      "message": "docs(release): fold game-universe-studio (#1162) into v2.14.15",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "19d1da3",
-      "message": "fix(readme-polish): exit-code contract, duplicate heading slugs, badge counting",
-      "date": "2026-11-17",
+      "sha": "76eaf86",
+      "message": "Merge pull request #1162 from alirezarezvani/claude/triage-2026-11-21",
+      "date": "2026-11-21",
+      "author": "Alireza Rezvani"
+    },
+    {
+      "sha": "230fa58",
+      "message": "docs(release): CHANGELOG and version for v2.14.15",
+      "date": "2026-11-21",
       "author": "Claude"
+    },
+    {
+      "sha": "381a8e3",
+      "message": "fix(game-universe-studio): enforce the manifest rules the docs state; register in the engineering bundle",
+      "date": "2026-11-21",
+      "author": "Claude"
+    },
+    {
+      "sha": "2139c85",
+      "message": "feat(engineering): add focused game-universe-studio with manifest validator script",
+      "date": "2026-11-21",
+      "author": "287523023qq-hue"
+    },
+    {
+      "sha": "c019ea2",
+      "message": "refactor: clear previous draft of game-universe-studio",
+      "date": "2026-11-21",
+      "author": "287523023qq-hue"
+    },
+    {
+      "sha": "f864003",
+      "message": "feat(engineering): add game-universe-studio skill for web games, 3D cutscenes, and character pipelines",
+      "date": "2026-11-21",
+      "author": "287523023qq-hue"
+    },
+    {
+      "sha": "ae6e12e",
+      "message": "Merge pull request #1160 from alirezarezvani/claude/codex-marketplace-1157",
+      "date": "2026-11-19",
+      "author": "Alireza Rezvani"
     }
   ],
   "VoltAgent--awesome-agent-skills": [
@@ -5141,6 +5141,12 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "35fc927",
+      "message": "content(blog): dual-publish store-facets-not-grades-rerun-safe-index to tonsofskills.com/blog",
+      "date": "2026-11-21",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "8efda9e",
       "message": "content(blog): dual-publish same-model-different-price-open-weight-spread to tonsofskills.com/blog",
       "date": "2026-11-20",
@@ -5191,12 +5197,6 @@
     {
       "sha": "160021e",
       "message": "test(external-sync): count coreweave-pack as an upstream-owned manifest",
-      "date": "2026-11-14",
-      "author": "jeremy longshore"
-    },
-    {
-      "sha": "69d61a8",
-      "message": "chore(generated): refresh projections after the coreweave-pack mirror switch",
       "date": "2026-11-14",
       "author": "jeremy longshore"
     }
@@ -5265,63 +5265,63 @@
   ],
   "daymade--claude-code-skills": [
     {
-      "sha": "0d6ec79",
-      "message": "docs(skills): keep provider settings host-portable and check self-hosted runners before watch (#1656)",
-      "date": "2026-11-20",
+      "sha": "134cd00",
+      "message": "feat(claude-md-progressive-disclosurer): cover project-level 24KB Antigravity truncation and CI guard (#1705)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "6c6fdbb",
-      "message": "fix(read-claude-code-history): stream Antigravity query cursors to prevent pre-filter LIMIT starvation (#1657)",
-      "date": "2026-11-20",
+      "sha": "e6011b4",
+      "message": "feat(peer-message): add precise Codex live steering (#1704)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "3e799bf",
-      "message": "feat(daymade-claude-code): add Antigravity history reader and routing (#1655)",
-      "date": "2026-11-20",
+      "sha": "9478e1c",
+      "message": "docs(transcript-fixer): bound full cold-read rounds (#1703)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "259c403",
-      "message": "fix(peer-message,git-safety-net): clarify --from fallback, untracked residual checks, waiting status, and ancestor-prefi",
-      "date": "2026-11-20",
+      "sha": "4d07591",
+      "message": "docs(skills): align peer protocol and dedupe runner guidance (#1702)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "578ff5b",
-      "message": "transcript-fixer \u8bcd\u5178\u6cbb\u7406\uff1a\u8bcd\u5178\u65b9\u5411\u4e0e\u961f\u5217\u65b9\u5411\u51b2\u7a81\u7684\u5224\u5b9a\u5408\u540c (#1651)",
-      "date": "2026-11-20",
+      "sha": "44990f5",
+      "message": "docs(skills): capture release coordination lessons (#1701)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "4804d11",
-      "message": "docs(claude-md-progressive-disclosurer): document Antigravity 24KB single-file rule cap and agy -p readback (#1653)",
-      "date": "2026-11-20",
+      "sha": "d5046b6",
+      "message": "docs(skills): harden runner and peer recovery guidance (#1700)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "ebd9c9e",
-      "message": "docs(macos-watchdog,macos-cleaner): document nvm node PATH fallback, timer self-retirement, BuildKit parent deps, and Fi",
-      "date": "2026-11-20",
+      "sha": "ec54ea9",
+      "message": "docs(github-ops): add resilient run watch, pre-scale allowlist, selector and migration lessons (v1.19.2) (#1699)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "70ca30e",
-      "message": "feat(skills): Agent-native skill lookup, adaptive hot/cold evolution, and optional third-party auto-update (#1650)",
-      "date": "2026-11-20",
+      "sha": "35f0b5c",
+      "message": "docs(skills): add self-hosted runner and container local-network lessons (#1698)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "ece5035",
-      "message": "docs(watchdog,lark-cli): document clean plist PATH, 0-token transition alerts, and lark-cli readback checks (#1649)",
-      "date": "2026-11-19",
+      "sha": "2e4ba88",
+      "message": "feat(github-ops): add read-only landing preflight (#1697)",
+      "date": "2026-11-21",
       "author": "daymade"
     },
     {
-      "sha": "2393e2e",
-      "message": "Verify existing-host relocation at the actual consumers (#1648)",
-      "date": "2026-11-19",
+      "sha": "22d5830",
+      "message": "feat(claude-code): add permission prompt triage (#1695)",
+      "date": "2026-11-21",
       "author": "daymade"
     }
   ],
@@ -5513,63 +5513,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "46d53af",
-      "message": "docs(subagents): update Last Updated badge to Nov 20, 2026 \u2014 Claude Code v2.1.329",
-      "date": "2026-11-20",
+      "sha": "c0701c9",
+      "message": "chore(badge): update Last Updated badge to Nov 21, 2026 v2.1.330",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "54fe7be",
-      "message": "changelog(subagents): append 2026-11-20 drift check entry \u2014 Claude Code v2.1.329",
-      "date": "2026-11-20",
+      "sha": "0138387",
+      "message": "chore(changelog): append 2026-11-21 subagents drift entry for v2.1.330",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "485a260",
-      "message": "chore: append 2026-11-20 drift-check entry for v2.1.329 \u2014 no structural drift",
-      "date": "2026-11-20",
+      "sha": "60ea753",
+      "message": "docs(claude-commands): bump Last Updated badge and version to v2.1.330",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "0479f8a",
-      "message": "chore: bump Last Updated badge to Nov 20, 2026 and version to v2.1.329",
-      "date": "2026-11-20",
+      "sha": "28f9dea",
+      "message": "changelog: append 2026-11-21 no-drift run entry (v2.1.330)",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "4ec2291",
-      "message": "docs(claude-skills): bump badge to v2.1.329 and Nov 20, 2026 10:03 AM PKT",
-      "date": "2026-11-20",
+      "sha": "28a3eb4",
+      "message": "docs(claude-skills): update Last Updated badge to Nov 21, 2026 and version to v2.1.330",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "2b1ef6f",
-      "message": "changelog(claude-skills): add 2026-11-20 no-drift entry for v2.1.329",
-      "date": "2026-11-20",
+      "sha": "371f1e1",
+      "message": "changelog(claude-skills): add 2026-11-21 drift check entry for v2.1.330",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "665d63d",
-      "message": "chore(badge): update Last Updated badge to Nov 20, 2026 9:36 AM PKT",
-      "date": "2026-11-20",
+      "sha": "6b29cc8",
+      "message": "docs(README): update Last Updated badge to Nov 21, 2026 9:37 AM PKT",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "71a3511",
-      "message": "chore(changelog): append 2026-11-20 concepts drift entry (v2.1.329)",
-      "date": "2026-11-20",
+      "sha": "7fb0d09",
+      "message": "changelog(concepts): append v2.1.330 drift-check entry (2026-11-21)",
+      "date": "2026-11-21",
       "author": "Claude"
     },
     {
-      "sha": "fc331ac",
-      "message": "Add Nov 20 2026 development workflows changelog entry",
-      "date": "2026-11-20",
+      "sha": "4510786",
+      "message": "changelog(development-workflows): append 2026-11-21 update entry",
+      "date": "2026-11-21",
       "author": "Claude Routine"
     },
     {
-      "sha": "71333b6",
-      "message": "Update DEVELOPMENT WORKFLOWS table: star updates Nov 20 2026",
-      "date": "2026-11-20",
+      "sha": "a5c03d8",
+      "message": "update development workflows table: stars, counts, workflows (Nov 21)",
+      "date": "2026-11-21",
       "author": "Claude Routine"
     }
   ],
@@ -5637,6 +5637,54 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "e036452",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-21",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "22aebe6",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-21",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "eba221f",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-21",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "d47405f",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-21",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "00e1ce3",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-21",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "6061664",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-20",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "4cae684",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-20",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "a429278",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-11-20",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "6bd39d5",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-11-20",
@@ -5646,54 +5694,6 @@
       "sha": "5078f97",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-11-20",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "2a461a5",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-20",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "eb2def1",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-20",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "db4bb38",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-20",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "948a89c",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-19",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "01f905c",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-19",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "963c64d",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-19",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "e354daf",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-19",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "e24ee9b",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-11-19",
       "author": "github-actions[bot]"
     }
   ],

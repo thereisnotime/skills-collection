@@ -291,9 +291,10 @@ const unesc = (v: string): string => v.replace(/&(lt|gt|quot|apos|amp|#x?[0-9a-f
     : String.fromCodePoint(e[1] === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)));
 const SEVERITY: TestOutcome[] = ["passed", "xpassed", "skipped", "xfailed", "failed", "error"];
 
-/** Per-testcase outcome from the junit report, keyed "classname::name"; a duplicated key keeps its worst outcome. */
-function parseJunitCases(xml: string): Record<string, TestOutcome> {
-  const out: Record<string, TestOutcome> = {};
+/** Every junit testcase in document order: its decoded attributes, its body and its outcome (error, then failure, then skipped or
+ *  xfail, else passed). The one testcase reader: parseJunitCases below and util/test_report.ts readJunit build on it. */
+export function scanJunitCases(xml: string): { attrs: Record<string, string>; body: string; outcome: TestOutcome }[] {
+  const cases: { attrs: Record<string, string>; body: string; outcome: TestOutcome }[] = [];
   for (const m of xml.matchAll(/<testcase\b((?:[^>"]|"[^"]*")*?)(\/>|>)/g)) {
     const attrs: Record<string, string> = {};
     for (const [, k, v] of (m[1] ?? "").matchAll(/([\w:.-]+)="([^"]*)"/g)) attrs[k!] = unesc(v ?? "");
@@ -303,8 +304,17 @@ function parseJunitCases(xml: string): Record<string, TestOutcome> {
       body = xml.slice((m.index ?? 0) + m[0].length, end < 0 ? undefined : end);
     }
     const sk = /<skipped\b([^>]*)>/.exec(body);
-    const o: TestOutcome = /<error\b/.test(body) ? "error" : /<failure\b/.test(body) ? "failed"
+    const outcome: TestOutcome = /<error\b/.test(body) ? "error" : /<failure\b/.test(body) ? "failed"
       : sk ? (/type="pytest\.xfail"/.test(sk[1] ?? "") ? "xfailed" : "skipped") : "passed";
+    cases.push({ attrs, body, outcome });
+  }
+  return cases;
+}
+
+/** Per-testcase outcome from the junit report, keyed "classname::name"; a duplicated key keeps its worst outcome. */
+function parseJunitCases(xml: string): Record<string, TestOutcome> {
+  const out: Record<string, TestOutcome> = {};
+  for (const { attrs, outcome: o } of scanJunitCases(xml)) {
     const key = `${attrs.classname ?? ""}::${attrs.name ?? ""}`;
     const prev = out[key];
     if (prev === undefined || SEVERITY.indexOf(o) > SEVERITY.indexOf(prev)) out[key] = o;
@@ -463,14 +473,34 @@ export function projectInterpreter(root: string): "project" | "system" {
 /** The system-interpreter advisory (verify.ts) is a cap only when the repo declares a Python environment the system interpreter may not match.
  *  True when any file in the tree at `ref` is a dependency manifest or lock (requirements*.txt, Pipfile, setup.py, poetry/uv/pdm lock,
  *  conda environment), a setup.cfg with install_requires, or a pyproject.toml declaring dependencies. Fails closed: an unreadable tree is true. */
+/** BUILD-REQUIRES: true when a pyproject.toml declares dependencies the code needs to run. `requires` under [build-system] lists what builds a wheel
+ *  (setuptools, flit_core), not what the code imports, so it is not counted, and neither is an empty `dependencies = []`. A non-empty [project]
+ *  `dependencies` list, any optional-dependencies, and a poetry, pdm, uv or dependency-groups table count. Measured on the V1 calibration seed: all six
+ *  Python tasks declare only build-system requires, and the system-interpreter cap held 6 of 8 merged fixes below VERIFIED. */
+export function pyprojectDeclaresDeps(text: string): boolean {
+  if (/^\s*\[(?:tool\.poetry|tool\.pdm|tool\.uv|project\.optional-dependencies|dependency-groups)\b/m.test(text)) return true;
+  let table = "";
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!.replace(/#.*$/, ""), h = /^\s*\[([^\]]+)\]\s*$/.exec(l);
+    if (h) { table = h[1]!.trim(); continue; }
+    if (table !== "project") continue;
+    if (/^\s*optional-dependencies\s*=/.test(l)) return true;
+    const m = /^\s*dependencies\s*=\s*\[(.*)$/.exec(l);
+    if (!m) continue;
+    let body = m[1]!; for (let j = i + 1; !body.includes("]") && j < lines.length; j++) body += lines[j]!.replace(/#.*$/, "");
+    if (/["']/.test(body.slice(0, body.indexOf("]") < 0 ? body.length : body.indexOf("]")))) return true;
+  }
+  return false;
+}
 export function declaresPythonEnv(root: string, ref: string): boolean {
   const MANIFEST = /^(?:[\w.-]*requirements[\w.-]*\.(?:txt|in)|Pipfile(?:\.lock)?|setup\.py|poetry\.lock|uv\.lock|pdm\.lock|environment\.ya?ml|conda\.ya?ml)$/i;
-  const DEPS: Record<string, RegExp> = { "pyproject.toml": /^\s*(?:dependencies|optional-dependencies|requires)\s*=|^\s*\[(?:tool\.poetry|tool\.pdm|tool\.uv|project\.optional-dependencies|dependency-groups)/m, "setup.cfg": /^\s*install_requires\s*=/m };
+  const DEPS: Record<string, (text: string) => boolean> = { "pyproject.toml": pyprojectDeclaresDeps, "setup.cfg": (t) => /^\s*install_requires\s*=/m.test(t) };
   try {
     for (const f of safeGit(root, ["ls-tree", "-r", "-z", "--name-only", ref]).split("\0").filter(Boolean)) {
       const b = f.slice(f.lastIndexOf("/") + 1);
       if (MANIFEST.test(b)) return true;
-      if (DEPS[b] && DEPS[b]!.test(safeGit(root, ["show", `${ref}:${f}`]))) return true;
+      if (DEPS[b] && DEPS[b]!(safeGit(root, ["show", `${ref}:${f}`]))) return true;
     }
     return false;
   } catch { return true; }

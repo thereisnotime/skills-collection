@@ -104,6 +104,7 @@
 #  29b. discover.ts: drop the fanOut early return (fall through to the session); the diet check fails (fan 1 session instead of 0).
 #  29c. discover.ts fanOutSessionEnabled: always false; the diet check fails (fan-on false).
 #  30. manifestModel: members only from tracked package.json files; the diet check fails (packages/gen missing).
+#  33. runner/repo_profile.ts isPackagingSetupPy: `return true`; the setup-py check fails (cli, a module named setup.py, is a package with a pip install).
 # PROVE (each planted, rebuilt, the prove legs run, reverted):
 #  P1. machine.ts: drop the proveNow call before verify; every e2e prove leg fails (no stage, no record).
 #  P2. seal.ts: drop ...proveNotes from openNotes; the listing, exit-3, setup, base, no-script, timeout and port legs fail (VERIFIED).
@@ -354,11 +355,12 @@ print(" ".join("%s:%s" % (e["stage"], e["type"].split(".")[1]) for e in ev if e[
 # It is 88f0207ba3c89b01 since ce0e9c178 (2026-11-17, "Finished work is never lost"): that commit adds STASH_RULE (e10ext/context.ts, the fixed rules
 # "Never run git stash ...") to the brief of every session that writes code, on purpose (opencode 63310 lost its whole change in a stash). Attribution by
 # reading the merged commits: it is the only one that adds brief text to an issue run; lane B's tip gave 56283bbaf3afe29d.
+# The receipt key set gained verified_by with VERIFY-PLAN V7 (2026-11-20): every receipt says what verified the change; nothing else in the signature moved.
 W3="$T/whole-sig"; make_repo "$W3" 0
 LOKI_E10_PROVE=0 LOKI_E10_PROVE_BY_RUNNING=0 LOKI_E10_ISSUE_ACCEPTANCE=0 E2E_STUB_MODE=done run_loki "$W3" "$T/whole-sig-stub.log" start acme/search#24 --no-pr --max-cost 5
 cp "$(dirname "$(ls "$W3"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")/implement-brief.txt" "${S1B_KEEP:-/dev/null}" 2>/dev/null # S1B_KEEP=<file>: keep the brief the hash is taken from (for a diff when the pin moves)
 W3SIG="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$(dirname "$(ls "$W3"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")" "$W3" 2>&1)"
-[ "$W3SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,self_review,task,time,toolchain,tree,verdict,verification,wall; implement=already_done_evidence,brief_files,cascade,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,self_review,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=88f0207ba3c89b01" ] \
+[ "$W3SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,self_review,task,time,toolchain,tree,verdict,verification,verified_by,wall; implement=already_done_evidence,brief_files,cascade,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,self_review,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=88f0207ba3c89b01" ] \
     && ok "S1b no-loss (issue run): stage order, receipt key set, implement key set and the normalized implement brief equal the base commit's" || bad "S1b no-loss (issue run) differs from the base commit: $W3SIG"
 
 # --- F4 rerun guard: before any model call, an open Loki pull request from the origin's owner that covers the issue stops `loki start owner/repo#N` --------
@@ -1128,13 +1130,14 @@ printf '%s\n' "$OUT" | grep -E '^(backlog: #25 [A-Z]|#25 |Total:)' | sed 's/^/  
 
 # --- PR mode, one slice stops on its own SPEC_CONFLICT while the others open PRs: the split is PARTIAL (exit 6), not FAILED ---------
 # LOKI_SPLIT_ONE_PR=0: the per-slice PR path stays covered end to end (the one-PR default is the pr mode leg above).
+# LOKI_E10_MEASURED_LABELS=0: the stub slice's conflict claim is unmeasured, so it would seal PARTIAL; this leg is about the split outcome of a SPEC_CONFLICT slice.
 C2="$T/conflict-split"
 make_repo "$C2" 0
 git init -q --bare "$T/conflict-origin.git"
 git -C "$C2" remote add origin "$T/conflict-origin.git"
 git -C "$C2" push -q origin main
 SPLIT3='{"slices":[{"id":"s1","title":"search backend","acceptance":["full-text search returns ranked rows"],"depends_on":[],"files":["calc.ts"]},{"id":"s2","title":"search index","acceptance":["the index is rebuilt nightly"],"depends_on":[],"files":["calc.ts"]},{"id":"s3","title":"search UI","acceptance":["the search box shows ranked results"],"depends_on":[],"files":["calc.ts"]}]}'
-LOKI_ISSUE_WHOLE_FIRST=0 LOKI_SPLIT_ONE_PR=0 E2E_STUB_MODE=slice E2E_STUB_CONFLICT_SLICE=s2 E2E_STUB_SPLIT="$SPLIT3" LOKI_EPIC_PARALLEL=1 LOKI_E10_OPUS_CONSULT=0 run_loki "$C2" "$T/conflict-stub.log" start acme/search#25 --max-cost 5
+LOKI_ISSUE_WHOLE_FIRST=0 LOKI_SPLIT_ONE_PR=0 E2E_STUB_MODE=slice E2E_STUB_CONFLICT_SLICE=s2 E2E_STUB_SPLIT="$SPLIT3" LOKI_EPIC_PARALLEL=1 LOKI_E10_OPUS_CONSULT=0 LOKI_E10_MEASURED_LABELS=0 run_loki "$C2" "$T/conflict-stub.log" start acme/search#25 --max-cost 5
 printf '%s\n' "$OUT" | grep -E '^(#25 s[123] (PARTIAL|VERIFIED|SPEC_CONFLICT)|Outcome:|Reason:|PR:)' | sed 's/^/    conflict e2e: /'
 [ "$RC" -eq 6 ] && grep -Eq '^Outcome: +PARTIAL$' <<< "$OUT" && grep -Eq '^Reason: +slice s2: SPEC_CONFLICT .*\(2 of 3 slices opened a PR' <<< "$OUT" \
     && [ "$(printf '%s\n' "$OUT" | grep -cE '^PR: +local:///.+#loki/')" = 2 ] \
@@ -1688,6 +1691,14 @@ IA9="$(ia_facts)"
 ia_run noevidence "$T/ia-noevidence.txt"
 IANE="$(ia_facts)"
 [ "$IANE" = 'PARTIAL 9 8 8 1 check ["not addressed: Optimize search performance for large datasets"]' ] && ok "issue acceptance e2e: a MET with no evidence phrase counts as not addressed" || bad "issue acceptance MET without evidence gave: $IANE"
+# MEASURED-LABELS (G4, summary-parse review): the session does the work and still declines part of the issue with a conflict claim; every check passes and
+# one acceptance line is unmet. The claim labels nothing (the run reads as with no claim), so the gate that holds it is ISSUE-ACCEPTANCE in seal.ts
+# (issueNotes from notAddressedNotes, which caps VERIFIED at PARTIAL): PARTIAL with that line not addressed and the claim disclosed, never VERIFIED.
+# Planted defect: seal.ts issueNotes = [] (the acceptance gate bypassed); this leg then reads VERIFIED (rebuild dist).
+ia_run claimpart "$T/ia-noevidence.txt" E2E_STUB_DONE_CONFLICT="calc.test.ts:3 pins add(); optimizing search for large datasets is out of scope here"
+IACL="$(ia_facts)"
+[ "$IACL" = 'PARTIAL 9 8 8 1 check ["not addressed: Optimize search performance for large datasets"]' ] && python3 -I -c 'import json,sys; np=json.load(open(sys.argv[1]))["not_proven"]; sys.exit(0 if any(n.startswith("conflict claimed by the session and not measured by Loki") for n in np) else 1)' "$IARUN/receipt.json" \
+    && ok "declined part (MEASURED-LABELS): a conflict claim over one unmet acceptance line with every check passing seals PARTIAL with the line not addressed and the claim disclosed, never VERIFIED" || bad "declined part gave: $IACL"
 ia_run fail "$T/ia-missing.txt"
 IAF="$(ia_facts)"
 case "$IAF" in 'PARTIAL 9 0 0 1 check ["acceptance not reviewed: '*) ok "issue acceptance e2e: a line check that cannot answer (after one retry) caps PARTIAL with one 'acceptance not reviewed' line" ;; *) bad "issue acceptance failed check gave: $IAF" ;; esac
@@ -1793,5 +1804,23 @@ console.log([lines.join(","), fixed.join(","), ns.join(",")].join(" | "));' 2>&1
 [ "$RWU" = '2/plan,1/title/Fix the startup wait,1/title/Fix it,0/plan,2/issue,0/plan,1/title/Fix from the task text,true,1/title/Only a title | 2,plan,2,2,met+unmet | 1,0,0,0,0' ] \
     && ok "RW-02 acceptance lines: with no list the plan lines stand, else the title line from intake; the lines are fixed in the run records (a session editing its own copy changes nothing); a listed text task with no run of Loki's own gets the note, a stand-in line does not" || bad "RW-02 acceptance lines gave: $RWU"
 # ---- end RW-02 ----
+
+# --- setup-py: a module that is only named setup.py is not a package manifest (closed-set-2 hm155462) -----------------------------------------
+# hermes-agent has four ordinary modules named setup.py (a setup wizard, helpers). Each became a package with `python3 -m pip install -e .`, which fails
+# ("Getting requirements to build editable ... ModuleNotFoundError"), so the run carried four "install exited 1" holds and "package hermes_cli defines no
+# test command". A setup.py is a manifest only when it imports setuptools or distutils. Measured on the stored base: 17 packages before, 13 after, the four gone.
+# Plant 33: repo_profile.ts isPackagingSetupPy: `return true` (the wizard directory is a package again).
+SPY="$T/setuppy"; mkdir -p "$SPY/cli" "$SPY/legacy" "$SPY/tests"
+printf '[project]\nname = "app"\nversion = "1"\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n' > "$SPY/pyproject.toml"; printf 'def test_a():\n    assert True\n' > "$SPY/tests/test_a.py"
+printf '"""Interactive setup wizard."""\ndef run_setup():\n    return "setuptools is not imported here"\n' > "$SPY/cli/setup.py"
+printf 'from setuptools import setup\nsetup(name="legacy")\n' > "$SPY/legacy/setup.py"; printf 'def test_b():\n    assert True\n' > "$SPY/legacy/test_b.py"
+git -C "$SPY" init -q -b main && git -C "$SPY" add -A && git -C "$SPY" -c user.name=t -c user.email=t@t commit -qm init
+ASPY="$(cd "$ROOT/loki-ts" && SPY="$SPY" bun --no-env-file --config=/dev/null -e '
+const rp = await import("./src/runner/repo_profile.ts"), g = process.env.SPY, m = rp.manifestModel(g);
+const roots = m && m.packages ? m.packages.map((p) => p.root + "=" + (p.install?.cmd ?? "none")).join(";") : JSON.stringify(m);
+console.log([rp.isPackagingSetupPy(g, "cli/setup.py"), rp.isPackagingSetupPy(g, "legacy/setup.py"), rp.isPackagingSetupPy(g, "missing/setup.py"), roots].join(" | "));' 2>&1)"
+XSPY='false | true | false | .=python3 -m pip install -e .;legacy=python3 -m pip install -e .'
+[ "$ASPY" = "$XSPY" ] && ok "setup-py: a module that is only named setup.py makes no package and plans no install; a setup.py that imports setuptools still does" \
+    || bad "setup-py gave: $ASPY (want: $XSPY)"
 
 finish

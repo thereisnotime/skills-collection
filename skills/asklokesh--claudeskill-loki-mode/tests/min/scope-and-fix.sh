@@ -260,6 +260,13 @@
 # ADSm. proof_rerun.ts realStep: any command with a repo path argument counts, not only a file reader (echo package.json counts).
 # ADSn. proof_rerun.ts realStep: drop the timeout skip (the timeout cells fail). ADSo. compare repoDir as text again (the realpath cells fail).
 # ADSp. proof_rerun.ts inRepo: accept the root itself again (`r === root ||`; the test -d root plants read ALREADY_SATISFIED).
+# G4a. seal.ts verdictOf: return SPEC_CONFLICT on the claim again (`true ||` for `!measuredLabelsOn() ||`; plants 1 and 2, invariance and the replay fail).
+# G4b. seal.ts verdictOf: put claimHeld back (a claim with a red test that has no record reads PARTIAL; the invariance cell fails).
+# G4c. measuredConflictOf: drop the Wall-pass test (no-Wall-pass reads a conflict). G4d. measuredConflictOf: drop named() (another file reads a conflict).
+# G4e. seal.ts verdictOf: skip the empty-diff gate for a claim (the empty-diff row reads PARTIAL; plant 1 and invariance fail).
+# G4f. measuredConflictOf at(): match any substring (a claim naming pkgs/tests/old.test.ts reads a conflict). G4g. measuredConflictOf: drop condition (a),
+#   any failing named check counts (the no-(a) cell reads SPEC_CONFLICT). G4h. seal.ts verdictOf: drop the out-of-repo carve-out (the out-of-repo wiring
+#   cell reads PARTIAL). G4i. measuredConflictOf files(): a full suite reads every failing id, not only fresh_ids (the D3 cell reads SPEC_CONFLICT).
 # 119. exec_spec.ts capSites: return every uncovered site (the passing-mention leg reads PARTIAL).
 # 120. seal.ts specSiteGap: ignore the changed-symbol list (exec spec atoms read gap=Report,Report,-).
 # 124. exec_spec.ts defectSites: count every span of a clause with a defect word again (the comparison, negated-scope and see legs read PARTIAL).
@@ -311,6 +318,28 @@
 # 311. testmap.ts jsImportResolveOn: always true (the JS-RESOLVE =0 leg fails).
 # 252. check_result.ts jsAssertionFailure: drop JS_MISSING_API (the assert-js unit's missing-function case reads true).
 # 253. check_result.ts spawnFailedTool: drop the 6-line bound (the spawn-not-run leg's long ENOENT output reads missing).
+# 253b. check_result.ts resolveTool: drop the UV-ENV-OUTSIDE-CHECKOUT return (the uv-env-outside leg's first cell reads `uv project run -- ruff`).
+# 253c. check_result.ts spawnFailedTool: count uv's setup lines again (drop `&& !UV_PROGRESS.test(l)`; the uv-env-outside leg's first-run cell reads null).
+# 253d. verify.ts: drop the writeCheckFailureTails call (the check-failure-tails leg's wiring fails).
+# 253e. verify.ts writeCheckFailureTails: `const per = WALL_FAILURE_TAIL_CAP` (40 big checks pass the 256 KiB bound; the leg's size cell reads false).
+# 253f. install.ts installDeclared: `return true` first (the declared-installs leg's bare cell reads pass).
+# 253g. base_guard.ts guardEnv: `return run();` first (the env guard lint and tsc legs keep the created dir and lose the N/A note).
+# 253i. install.ts installDeclared: ignore CI files (the declared-installs leg's ci cell reads not_run).
+# 253r. install.ts installDeclared: drop the package.json rule (the npmfresh cell reads not_run).
+# 253s. install.ts prepareDeps: run an unlocked pip install as written instead of through the intake venv's python (the pyreq cell's system flag reads 1).
+# 253t. install.ts installDeclared: ignore repo guides (the guide cell reads not_run).
+# 253u. install.ts pipInVenv: drop the `-m pip --version` probe (the pynopip cell reads fail).
+# 253v. install.ts PIP_INSTALL: `pip3?` in place of `pip[\d.]*` (the pip311 cell reads not_run).
+# 253w. install.ts pythonEnvAt: drop the .venv/venv check (the pyhave cell reads pass).
+# 253x. install.ts pythonEnvAt: drop the VIRTUAL_ENV check (the pyve cell reads pass).
+# 253y. install.ts prepareDeps: drop the intake-only check (the pyverify cell reads pass).
+# 253z. install.ts lokiVenvNotes: return [] (the receipt cell reads false).
+# 253aa. install.ts withLokiVenvs: return created unchanged (the pyfailrec rec cell reads an empty record and .venv files in changedFiles).
+# 253h. check_result.ts ignoreRuleChanges: drop the lokiKeptOwns skip (the env guard move-and-keep unit's kept ignore cell reads 1).
+# 253j..253n. base_guard.ts envMoveRefusal: drop one refusal line each (not alone, existed, link, outside, tracked; that refusal cell reads null).
+# 253o. check_result.ts lokiKeptOwns: return true without the time comparison (the later cell reads false).
+# 253p. base_guard.ts guardEnv: rmSync the path instead of renameSync (the moved cell's dest and ledger read false).
+# 253q. install.ts unusedInstallNotes: undeclared lines go to N/A unconditionally (the undeclared install cap leg's first cell reads na).
 # 254. testmap.ts buildTestMap: ignore pyCfg (the pytest-fallback leg's conftest.py case reads unittest).
 # 255. package_suite.ts runPackageSuites: drop the cwd !== "." guard (the empty-subsuite-na leg's root package reads not applicable).
 # 256. check_result.ts assertionFailure REPORTED-KIND type path: drop the MISSING_API guard (the reported-kind unit's ImportError case reads true).
@@ -642,11 +671,14 @@ run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=conflict # the default (cons
 n="$(fix_sessions)"
 [ "$n" = "1" ] && ok "conflict: one fix session, no retry" || { bad "conflict: $n fix sessions (want 1)"; dump; }
 grep -q -- '-r ' "$ITERS" && bad "conflict: a '-r' retry session started" || ok "conflict: no '-r' retry iteration"
-[ "$(outcome)" = "BLOCKED" ] && ok "conflict: run ends BLOCKED" || bad "conflict: outcome is '$(outcome)', not BLOCKED"
+[ "$(outcome)" = "FAILED" ] && python3 -I -c 'import json,sys; np=json.load(open(sys.argv[1]))["not_proven"]; sys.exit(0 if any(n.startswith("conflict claimed by the session and not measured by Loki") for n in np) and any(n.startswith("conflict claimed by the session; these failing checks label the run FAILED") for n in np) else 1)' "$RUNDIR/receipt.json" \
+    && ok "conflict (MEASURED-LABELS): a fix-round claim Loki did not measure labels nothing: the wrong multiply() fails calc.test.ts and the full suite, so FAILED as with no claim, both lines on the receipt; never BLOCKED on the word alone" || { bad "conflict: outcome is '$(outcome)', not FAILED with the claim lines on the receipt"; dump; }
 rid="$(basename "${RUNDIR:-none}")"
 git -C "$REPO" rev-parse -q --verify "refs/heads/loki/$rid" >/dev/null && ok "conflict: the blocked run keeps its branch loki/$rid" || bad "conflict: the blocked run's branch loki/$rid is gone"
-grep -q 'export function multiply' "$REPO/calc.ts" && ok "conflict: the code the blocked run wrote is on that branch" || { bad "conflict: the blocked run's multiply() is not on a visible branch"; dump; }
+grep -q 'export function multiply' "$REPO/calc.ts" && ok "conflict: the code the stopped run wrote is on that branch" || { bad "conflict: the blocked run's multiply() is not on a visible branch"; dump; }
 [ "$(git -C "$REPO" rev-parse --abbrev-ref HEAD)" = "loki/$rid" ] && [ "$(git -C "$REPO" log -1 --format=%s main)" = "base" ] && ok "conflict: main is untouched; the work sits only on the run branch" || bad "conflict: main moved or the run branch was not checked out"
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=conflict LOKI_E10_MEASURED_LABELS=0
+[ "$(outcome)" = "BLOCKED" ] && ok "conflict, LOKI_E10_MEASURED_LABELS=0: the marker rule is back (BLOCKED)" || bad "conflict =0: outcome is '$(outcome)', not BLOCKED"
 
 # ---------------------------------------------------------------- LOKI_E10_OPUS_CONSULT (off by default under LOKI_E10_LEAN_CALLS, =1 opts in): never-stop plus one tool-less Opus consult
 # consults <n>: stub consult calls this run; ctrig: the recorded triggers; rnp: the receipt NOT PROVEN list; rusd: receipt dollars and child sessions
@@ -670,10 +702,10 @@ run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 LOKI_E10_OPUS_CONSU
 [ "$(consults)" = 0 ] && [ "$(outcome)" = "PARTIAL" ] && ok "consult cap 0: no consult call, never-stop still delivers PARTIAL" || { bad "consult cap 0: $(consults) consults, outcome '$(outcome)'"; dump; }
 # opt-out and the explicit interactive opt-in keep the stop: BLOCKED, no consult, no '-n' resume
 for coff in LOKI_E10_OPUS_CONSULT=0 LOKI_E10_OPUS_CONSULT=; do
-    run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 "$coff"
+    run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 "$coff" LOKI_E10_MEASURED_LABELS=0 # the stop's label; MEASURED-LABELS on is the conflict leg above
     [ "$(outcome)" = "BLOCKED" ] && [ "$(consults)" = 0 ] && ! grep -q -- '-n ' "$ITERS" && ok "consult off: $coff (=0, and unset: the default under LOKI_E10_LEAN_CALLS) ends BLOCKED with no consult and no never-stop resume" || { bad "consult off ($coff): outcome '$(outcome)', $(consults) consults"; dump; }
 done
-run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 LOKI_E10_OPUS_CONSULT=1 LOKI_E10_INTAKE_ASK=1
+run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 LOKI_E10_OPUS_CONSULT=1 LOKI_E10_INTAKE_ASK=1 LOKI_E10_MEASURED_LABELS=0
 [ "$(outcome)" = "BLOCKED" ] && ! grep -q -- '-n ' "$ITERS" && ok "never-stop: the explicit interactive opt-in (LOKI_E10_INTAKE_ASK=1) keeps the stop (BLOCKED)" || { bad "never-stop interactive: outcome '$(outcome)'"; dump; }
 # never-stop on a fix round: round 1 conflicts with the tree unchanged; round 2 gets the never-stop brief and the consult and fixes multiply()
 run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=nsconflict LOKI_E10_OPUS_CONSULT=1
@@ -769,14 +801,15 @@ S1B_DONE_ITERS="$(cut -d' ' -f1-3 "$ITERS" | sed -E 's/e10-[0-9TZ]+-[0-9a-f]+/RU
 # brief; with that one addition removed, today's normalized brief hashes to b055d0660abb4bd7 again. Any other change to a text goal's brief turns this leg red.
 # It moved to de106c6cf947932f with ce0e9c178 (2026-11-17), which adds STASH_RULE ("Never run git stash ...", e10ext/context.ts) to the fixed rules of every
 # session that writes code, on purpose (opencode 63310 lost its change in a stash); the issue-run pin in decompose-and-intake.sh moved with it. Measured: the kept brief with that one line removed hashes to e7dc8ddd3cae1e07 again.
+# The receipt key set gained verified_by with VERIFY-PLAN V7 (2026-11-20): every receipt now says what verified the change; nothing else in the signature moved.
 [ -n "${S1B_KEEP_DIR:-}" ] && { cp "$RUNDIR/implement-brief.txt" "$S1B_KEEP_DIR/brief.txt"; printf '%s\n%s\n' "$REPO" "$(basename "$RUNDIR")" > "$S1B_KEEP_DIR/where.txt"; } # S1B_KEEP_DIR=<dir>: keep the brief and its repo/run for a diff when the pin moves
 S1B_SIG="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$RUNDIR" "$REPO" 2>&1)"
-[ "$S1B_SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,task,time,toolchain,tree,verdict,verification,wall,wall_oracle; implement=already_done_evidence,brief_files,cascade,context_pack,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=de106c6cf947932f" ] \
+[ "$S1B_SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,task,time,toolchain,tree,verdict,verification,verified_by,wall,wall_oracle; implement=already_done_evidence,brief_files,cascade,context_pack,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=de106c6cf947932f" ] \
     && ok "S1b no-loss (text goal): stage order, receipt key set and implement key set equal the base commit's (8c7ae842b); the normalized implement brief is that commit's plus the two not-a-conflict sentences 4fc499ebb added to the pinned-test rule" || bad "S1b no-loss (text goal) differs from the pinned signature: $S1B_SIG"
 run_engine "$TASK" E2E_STUB_MODE=already
 [ "$(kits)" = 0 ] && [ "$(fin)" = none ] && ok "S1b already-done: an already-done reply gets no resume and no finish key ($(outcome))" || { bad "S1b already-done: resumes $(kits), finish '$(fin)'"; dump; }
 run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 # every implement turn answers LOKI_SPEC_CONFLICT (consult off, so no never-stop brief)
-[ "$(kits)" = 0 ] && [ "$(fin)" = none ] && [ "$(outcome)" = BLOCKED ] && ok "S1b spec conflict: a conflict reply gets no resume and still ends BLOCKED" || { bad "S1b spec conflict: resumes $(kits), finish '$(fin)', outcome $(outcome)"; dump; }
+[ "$(kits)" = 0 ] && [ "$(fin)" = none ] && [ "$(outcome)" = FAILED ] && ok "S1b spec conflict: a conflict reply gets no resume; the claim is unmeasured and the diff empty, so it reads FAILED as an empty diff with no claim does (MEASURED-LABELS)" || { bad "S1b spec conflict: resumes $(kits), finish '$(fin)', outcome $(outcome)"; dump; }
 
 # ---------------------------------------------------------------- coverage (L4, LOKI_E10_COVERAGE_RESUME: default fold, =1 the separate turn, =0 neither)
 # SR LOKI_E10_SELF_REVIEW end to end on the stub (run_engine pins it off for the session-count legs; unit legs live in tests/min/context-pack.sh):
@@ -1133,6 +1166,79 @@ res("ADS-REAL fresh-install line: met when the re-run has an answered request el
 res("ADS claim: a failed commit or a verify that did not agree is not an already-done claim", !alreadyDoneClaimed({ ...fl24, commit: { failed: true } } as never) && !alreadyDoneClaimed({ ...fl24, verify: { already_satisfied: false } } as never) && alreadyDoneClaimed({ intake: { already_satisfied: true }, implement: { exit: "done" }, verify: { already_satisfied: true }, commit: {} } as never));
 const sealSrc = readFileSync("$ROOT/loki-ts/src/engine10/stages/seal.ts", "utf8");
 res("ADS wiring: seal re-runs the proof on the unchanged tree, counts it as proof, reuses it for the issue lines and names a held run", sealSrc.includes('const alreadyRun = alreadyDoneClaimed(o) && (!diffOk || diff.stdout === "") ? await rerunProof(ctx.repoDir, ctx.runDir, signal) : null, alreadyLines = alreadyRun ? alreadyRealLines(ruleStatus(issueAsks, alreadyRun, null), alreadyRun) : [], alreadyOk = alreadyDoneShown(o, alreadyRun) && alreadyLinesMet(alreadyLines);') && sealSrc.includes("proof = alreadyOk || (!strictProof") && sealSrc.includes("const proofRun = alreadyRun ?? (") && sealSrc.includes("alreadyDoneShown(o, alreadyRun) ? alreadyLinesNote(alreadyLines) : alreadyDoneNotShownNote(alreadyRun)"));
+
+// MEASURED-LABELS (G4): a label comes from Loki's measurement, never from the session's claim. A conflict claim seals SPEC_CONFLICT only when the last verify
+// shows it (a Wall red on base passes, a check the run did not write fails attributed to the change, the claim names it); with no measurement the run is
+// PARTIAL with the claim disclosed; a measured false claim is FAILED; a measured pre-existing failure is excused. Then the stored runs that sealed SPEC_CONFLICT.
+const g4 = await import("$ROOT/loki-ts/src/engine10/stages/seal.ts"), g4m = await import("$ROOT/loki-ts/src/engine10/machine.ts");
+const why = "tests/old.test.ts fails identically on clean HEAD, so it cannot pass without editing a read-only test", fc = (n: string) => ({ name: n, result: "fail", provenance: "exogenous" }) as never, pc = (n: string) => ({ name: n, result: "pass", provenance: "exogenous" }) as never;
+const cv = (extra: Record<string, unknown> = {}) => ({ checks: [{ name: "vitest:tests/old.test.ts", result: "fail", ids: ["keeps the old title"] }, { name: "vitest:tests/wall_title.test.ts", result: "pass", n: 3 }], target_checks: ["vitest:tests/wall_title.test.ts"], changed_files: ["src/title.ts"], ...extra });
+const co = (v: Record<string, unknown>, o: Record<string, unknown> = {}) => ({ implement: { exit: "spec_conflict", spec_conflict_reason: why }, verify: v, commit: {}, ...o }) as never;
+const cmp1 = { "vitest:tests/old.test.ts": { state: "compared", fresh: 1, names_changed: false, evidence: "the base run passed and the head run fails" } }, wall = { files: [{ path: "/r/tests/wall_title.test.ts", sha256: "x" }] };
+const lab = (o: never, cs: never[] = [fc("vitest:tests/old.test.ts"), pc("vitest:tests/wall_title.test.ts")], empty = false) => verdictOf(o, cs, empty, false, false, true, true);
+const nc = (o: any) => ({ ...o, implement: { exit: "done" } }) as never, notStarted = { "vitest:tests/old.test.ts": { state: "not started", fresh: 0, names_changed: false, evidence: "its base rerun ran none of its tests" } };
+res("G4 plant 1: a claim Loki never measured reads what the same outputs read with no claim: a red test verify could not compare on base PARTIAL (its own 'not started' record), a red test with no record FAILED, an empty diff FAILED", lab(co(cv({ exogenous_attribution: notStarted }))) === "PARTIAL" && lab(co(cv())) === "FAILED" && lab(co({ checks: [], changed_files: [] }), [], true) === "FAILED"
+  && lab(co(cv({ exogenous_attribution: notStarted }))) === lab(nc(co(cv({ exogenous_attribution: notStarted })))) && lab(co(cv())) === lab(nc(co(cv()))));
+res("G4 plant 2: a claim Loki measured false (the test passes on base and fails on head, no Wall shows the issue needs it) is FAILED", lab(co(cv({ exogenous_attribution: cmp1 }))) === "FAILED");
+const preV = cv({ checks: [{ name: "vitest:tests/old.test.ts", result: "fail", ids: ["keeps the old title"] }, { name: "vitest:tests/wall_title.test.ts", result: "pass", n: 3 }], pre_red_checks: ["vitest:tests/old.test.ts"], base_red_checks: ["vitest:tests/old.test.ts"] });
+res("G4 plant 3: a failure Loki measured as pre-existing (red on base by every id) is excused: the fix-round claim is believed (onlyBaseRed), and the run reads what it reads with no claim, never FAILED or SPEC_CONFLICT", g4m.onlyBaseRed({ ...preV, pre_red_checks: [] }) && g4m.PRE_EXISTING_CLAIM.test(why) && lab(co(preV), [pc("vitest:tests/wall_title.test.ts")]) === lab(nc(co(preV)), [pc("vitest:tests/wall_title.test.ts")]) && !["FAILED", "SPEC_CONFLICT"].includes(lab(co(preV), [pc("vitest:tests/wall_title.test.ts")])));
+res("G4 plant 4: a conflict Loki measured (a Wall red on base passes, the named test passes on base and fails on head) keeps SPEC_CONFLICT", lab(co(cv({ exogenous_attribution: cmp1 }), { wall })) === "SPEC_CONFLICT" && g4.measuredConflictOf(co(cv({ exogenous_attribution: cmp1 }), { wall })) === "vitest:tests/old.test.ts");
+res("G4 measured conflict needs all three: no Wall pass, a Wall green on base, a claim that names another file, a failing id red on base (fresh 0), or a stopped verify each leave no measured conflict", [
+  co(cv({ exogenous_attribution: cmp1, checks: [{ name: "vitest:tests/old.test.ts", result: "fail", ids: ["k"] }, { name: "vitest:tests/wall_title.test.ts", result: "fail", n: 3 }] }), { wall }),
+  co(cv({ exogenous_attribution: cmp1 }), { wall: { ...wall, reproduction_green_on_base: true } }),
+  ({ implement: { exit: "spec_conflict", spec_conflict_reason: "tests/other.test.ts pins the old title" }, verify: cv({ exogenous_attribution: cmp1 }), wall, commit: {} }) as never,
+  co(cv({ exogenous_attribution: { "vitest:tests/old.test.ts": { ...cmp1["vitest:tests/old.test.ts"], fresh: 0 } } }), { wall }),
+  co(cv({ exogenous_attribution: cmp1, stopped_at: "limit" }), { wall })].every((o) => g4.measuredConflictOf(o) === null));
+// The invariance table (summary-parse review): with no measured conflict the claim moves no label. Each row is labeled with the claim and with the same
+// outputs and no claim; only a row where measuredConflictOf finds the conflict may differ, and that row must read SPEC_CONFLICT.
+const inv: [string, any, never[], boolean][] = [
+  ["unmeasured red (no record)", co(cv()), [fc("vitest:tests/old.test.ts"), pc("vitest:tests/wall_title.test.ts")], false],
+  ["unmeasured red (not started)", co(cv({ exogenous_attribution: notStarted })), [fc("vitest:tests/old.test.ts"), pc("vitest:tests/wall_title.test.ts")], false],
+  ["measured red, no Wall", co(cv({ exogenous_attribution: cmp1 })), [fc("vitest:tests/old.test.ts"), pc("vitest:tests/wall_title.test.ts")], false],
+  ["red already on base", co(preV), [pc("vitest:tests/wall_title.test.ts")], false],
+  ["empty diff", co({ checks: [], changed_files: [] }), [], true],
+  ["all pass", co(cv({ checks: [{ name: "vitest:tests/old.test.ts", result: "pass", n: 2 }, { name: "vitest:tests/wall_title.test.ts", result: "pass", n: 3 }] })), [pc("vitest:tests/old.test.ts"), pc("vitest:tests/wall_title.test.ts")], false],
+  ["a failing Wall", co(cv({ checks: [{ name: "vitest:tests/wall_title.test.ts", result: "fail", ids: ["t"] }] }), { wall }), [fc("vitest:tests/wall_title.test.ts")], false],
+  ["lint red", co(cv({ checks: [{ name: "lint:eslint", result: "fail", ids: ["x"] }] })), [fc("lint:eslint")], false],
+  ["measured conflict", co(cv({ exogenous_attribution: cmp1 }), { wall }), [fc("vitest:tests/old.test.ts"), pc("vitest:tests/wall_title.test.ts")], false]];
+const invOut = inv.map(([n, o, cs, e]) => { const w = lab(o, cs, e), wo = lab(nc(o), cs, e), m = g4.measuredConflictOf(o) !== null; return { n, ok: m ? w === "SPEC_CONFLICT" : w === wo, s: n + ": " + w + "/" + wo }; });
+res("G4 invariance: with the claim and without it every row reads the same label except the measured conflict, which reads SPEC_CONFLICT (" + invOut.map((r) => r.s).join("; ") + ")", invOut.every((r) => r.ok) && invOut.filter((r) => r.s.startsWith("measured conflict: SPEC_CONFLICT/")).length === 1);
+const offEnv = process.env.LOKI_E10_MEASURED_LABELS; process.env.LOKI_E10_MEASURED_LABELS = "0"; const offLab = lab(co(cv())); if (offEnv === undefined) delete process.env.LOKI_E10_MEASURED_LABELS; else process.env.LOKI_E10_MEASURED_LABELS = offEnv;
+res("G4 each condition off on its own: without (a), the named test not compared on base though a Wall passes, it reads PARTIAL (its no-claim label); with (a) and no passing Wall it reads FAILED; with (a) and (b) and a claim naming another file it is FAILED, not SPEC_CONFLICT", lab(co(cv({ exogenous_attribution: notStarted }), { wall })) === "PARTIAL"
+  && lab(co(cv({ exogenous_attribution: cmp1, checks: [{ name: "vitest:tests/old.test.ts", result: "fail", ids: ["k"] }, { name: "vitest:tests/wall_title.test.ts", result: "fail", n: 3 }] }), { wall }), [fc("vitest:tests/old.test.ts"), fc("vitest:tests/wall_title.test.ts")]) === "FAILED"
+  && lab(({ implement: { exit: "spec_conflict", spec_conflict_reason: "tests/other.test.ts pins the old title" }, verify: cv({ exogenous_attribution: cmp1 }), wall, commit: {} }) as never) === "FAILED"
+  && lab(({ implement: { exit: "spec_conflict", spec_conflict_reason: "pkgs/tests/old.test.ts pins the old title" }, verify: cv({ exogenous_attribution: cmp1 }), wall, commit: {} }) as never) === "FAILED");
+const fsV = cv({ checks: [{ name: "vitest:tests/wall_title.test.ts", result: "pass", n: 3 }, { name: "full suite: vitest", result: "fail", ids: ["tests/old.test.ts > Title > keeps the old title"] }], exogenous_attribution: { "full suite: vitest": { state: "compared", fresh: 1, names_changed: false, evidence: "the base run passed and the head run fails", fresh_ids: ["tests/old.test.ts > Title > keeps the old title"] } } });
+res("G4 full suite: (a) and (c) read a full suite's failing ids, so a full suite that passed on base, fails on head, with a failing id in the named file, measures the conflict; one whose ids name another file does not", lab(co(fsV, { wall }), [pc("vitest:tests/wall_title.test.ts"), fc("full suite: vitest")]) === "SPEC_CONFLICT"
+  && lab(co({ ...fsV, checks: [fsV.checks[0], { ...fsV.checks[1], ids: ["tests/other.test.ts > x"] }], exogenous_attribution: { "full suite: vitest": { ...fsV.exogenous_attribution["full suite: vitest"], fresh_ids: ["tests/other.test.ts > x"] } } }, { wall }), [pc("vitest:tests/wall_title.test.ts"), fc("full suite: vitest")]) === "FAILED");
+// summary-parse D3: (c) reads only the suite's fresh failing ids. Base red at calc.test.ts::x, the change newly breaks other.test.ts::y: a claim naming
+// calc.test.ts names a failure that was already there, so it is not a measured conflict and the run reads its no-claim label.
+const d3V = { checks: [{ name: "vitest:tests/wall_title.test.ts", result: "pass", n: 3 }, { name: "full suite: vitest", result: "fail", ids: ["calc.test.ts::x", "other.test.ts::y"] }], target_checks: ["vitest:tests/wall_title.test.ts"], changed_files: ["src/title.ts"],
+  exogenous_attribution: { "full suite: vitest": { state: "compared", fresh: 1, names_changed: false, evidence: "1 failing id(s) not red on base (first: other.test.ts::y)", fresh_ids: ["other.test.ts::y"] } } };
+const d3o = { implement: { exit: "spec_conflict", spec_conflict_reason: "calc.test.ts:3 pins the old behaviour" }, verify: d3V, wall, commit: {} } as never, d3cs = [pc("vitest:tests/wall_title.test.ts"), fc("full suite: vitest")];
+const d3recIds = (await import("$ROOT/loki-ts/src/runner/repo_profile.ts")).exogenousState.toString().includes("fresh);");
+res("G4 D3: a full suite red on base at calc.test.ts::x that the change newly breaks at other.test.ts::y, with a claim naming calc.test.ts, is no measured conflict and reads its no-claim label (" + lab(d3o, d3cs) + "); a claim naming other.test.ts is; a record with no fresh_ids names no file; exogenousState records the fresh ids",
+  g4.measuredConflictOf(d3o) === null && lab(d3o, d3cs) === lab(nc(d3o), d3cs) && lab(d3o, d3cs) !== "SPEC_CONFLICT"
+  && lab(({ ...(d3o as any), implement: { exit: "spec_conflict", spec_conflict_reason: "other.test.ts:9 pins the old behaviour" } }) as never, d3cs) === "SPEC_CONFLICT"
+  && g4.measuredConflictOf(({ ...(d3o as any), implement: { exit: "spec_conflict", spec_conflict_reason: "other.test.ts:9 pins it" }, verify: { ...d3V, exogenous_attribution: { "full suite: vitest": { state: "compared", fresh: 1, names_changed: false, evidence: "x" } } } }) as never) === null && d3recIds);
+const oor = { plan: { out_of_repo: true, spec_conflict_reason: "out-of-repo: the change belongs in the hosted billing service" }, implement: { exit: "spec_conflict", spec_conflict_reason: "out-of-repo: the change belongs in the hosted billing service", changed_files: [] }, verify: { checks: [] }, commit: {} } as never;
+const machSrc = readFileSync("$ROOT/loki-ts/src/engine10/machine.ts", "utf8");
+res("G4 out-of-repo wiring: the plan's out-of-repo stop is unchanged, it still pins implement.exit spec_conflict and seals SPEC_CONFLICT (a question before any work, outside the measured rule)", lab(oor, [], true) === "SPEC_CONFLICT" && machSrc.includes('if (outputs.plan?.out_of_repo === true && !jumped) {') && machSrc.includes('outputs.implement = { exit: "spec_conflict", spec_conflict_reason: outputs.plan.spec_conflict_reason ?? "out-of-repo", changed_files: [] };'));
+res("G4 opt-out: LOKI_E10_MEASURED_LABELS=0 restores the marker rule (the unmeasured claim reads SPEC_CONFLICT); a failed commit is FAILED under a claim", offLab === "SPEC_CONFLICT" && lab(co(cv(), { commit: { failed: true } })) === "FAILED");
+// The stored runs, trimmed by mkfixture.py: the last output of each stage and the receipt's checks. A fix round's conflict is pinned as machine.ts does it
+// (its collateral and base-red claims would re-run verify, which a replay cannot); the receipt's checks minus verify's pre-existing ones are the live checks.
+const crp = JSON.parse(readFileSync("$ROOT/tests/min/fixtures/replay/claim-label-replays.json", "utf8")), replayOf = (k: string, env?: string) => {
+  const r = crp[k], o: Record<string, any> = { implement: { ...r.implement }, verify: r.verify, wall: r.wall, commit: r.commit, ...(r.fix ? { fix: r.fix } : {}) };
+  if (r.fix?.exit === "spec_conflict") { if (g4m.onlyCollateralRed(r.verify) || (g4m.PRE_EXISTING_CLAIM.test(String(r.fix.spec_conflict_reason ?? "")) && g4m.onlyBaseRed(r.verify))) return "re-verify (not replayable)"; o.implement = { ...o.implement, exit: "spec_conflict", spec_conflict_reason: r.fix.spec_conflict_reason }; }
+  const pre = new Set(r.verify.pre_red_checks ?? []), live = r.receipt_checks.filter((c: any) => !(c.result === "fail" && pre.has(c.name)));
+  if (env === "noclaim") { o.implement = { exit: "done" }; env = undefined; } // the same outputs with no claim
+  const old = process.env.LOKI_E10_MEASURED_LABELS; if (env !== undefined) process.env.LOKI_E10_MEASURED_LABELS = env;
+  try { return verdictOf(o as never, live, false, false, o.wall?.reproduction_green_on_base === true, true, g4.targetProofOf(o.verify)); } finally { if (old === undefined) delete process.env.LOKI_E10_MEASURED_LABELS; else process.env.LOKI_E10_MEASURED_LABELS = old; }
+};
+const rk = ["firelater18", "firelater23", "hm124107_haiku_s2"], before = rk.map((k) => replayOf(k, "0")), after = rk.map((k) => replayOf(k)), noClaim = rk.map((k) => replayOf(k, "noclaim"));
+res("G4 replay: the stored FireLater#18, FireLater#23 and hm124107 Haiku seed 2 runs, each sealed SPEC_CONFLICT on a session's claim, read SPEC_CONFLICT with the rule off (" + before.join(",") + ") and with it what their outputs read with no claim (" + after.join(",") + "; no claim " + noClaim.join(",") + ")", rk.every((k) => crp[k].sealed === "SPEC_CONFLICT") && before.every((v) => v === "SPEC_CONFLICT") && after.join(",") === "FAILED,FAILED,PARTIAL" && after.join(",") === noClaim.join(","));
+const sealSrcG4 = readFileSync("$ROOT/loki-ts/src/engine10/stages/seal.ts", "utf8");
+res("G4 wiring: verdictOf labels a claim only through measuredConflictOf (no claimHeld), and the receipt names the claim and what refuted it", sealSrcG4.includes('if (exit === "spec_conflict" && (!measuredLabelsOn() || o.plan?.out_of_repo === true || measuredConflictOf(o) !== null)) return "SPEC_CONFLICT";') && !sealSrcG4.includes("claimHeld") && sealSrcG4.includes("notProven.add(" + String.fromCharCode(96) + String.fromCharCode(36) + "{CLAIM_NOT_MEASURED}") && sealSrcG4.includes("CLAIM_REFUTED}"));
 
 res("L026 brief: no invitation to run the full suite", !FIXED_RULES.includes("including the package's full suite") && FIXED_RULES.includes("not the package's full suite") && FIXED_RULES.includes("medium or high"));
 const nb = buildImplementBrief("task", null, []);
@@ -2155,7 +2261,7 @@ make_pyw_go_repo() {
     printf 'module example.com/calc\n\ngo 1.20\n' > "$1/go.mod"
     printf 'package calc\n\nfunc Add(a, b int) int {\n\treturn a + b\n}\n\nfunc Double(a int) int {\n\treturn a + a + 1\n}\n' > "$1/calc.go"
     printf 'package calc\n\nimport "testing"\n\nfunc TestAdd(t *testing.T) {\n\tif Add(2, 3) != 5 {\n\t\tt.Fatal("add")\n\t}\n}\n' > "$1/calc_test.go"
-    # the build backend does not exist, so the install fails offline on every machine, also after intake's PEP 668 retry into a .venv (which a plain pyproject passes)
+    # the build backend does not exist, so the install fails offline on every machine; ./install.sh is a tracked script, so intake runs it (G2 DECLARED-INSTALLS)
     printf '[build-system]\nrequires = []\nbuild-backend = "loki_no_such_backend"\n\n[project]\nname = "calc-wrapper"\nversion = "0"\n' > "$1/packaging/pypi/pyproject.toml"
     printf '#!/bin/sh\necho "error: externally-managed-environment" >&2\necho "hint: See PEP 668 for the detailed specification." >&2\nexit 1\n' > "$1/packaging/pypi/install.sh"; chmod +x "$1/packaging/pypi/install.sh"
     return 0
@@ -2275,6 +2381,42 @@ const v = await import("./src/engine10/stages/verify.ts"), d = process.env.SN, s
 const one = async (c) => { const r = await v.runOnce(d + "/bin/" + c, [], d, sig, opts); return `${r.missing}:${r.spawnTool ?? "-"}`; };
 const r = [await one("uvx"), await one("sh127"), await one("longtest")]; process.env.LOKI_E10_SPAWN_NOT_RUN = "0"; r.push(await one("uvx")); console.log(r.join(","));' 2>&1)"
 [ "$SR" = "true:ruff,true:ruff,false:-,false:-" ] && ok "spawn-not-run: a tool that could not start (uv spawn error, shell exit 127) is a missing tool, not a failure; a long test output naming ENOENT and LOKI_E10_SPAWN_NOT_RUN=0 stay failures" || bad "spawn-not-run gave: $SR"
+# UV-ENV-OUTSIDE-CHECKOUT (closed-set-2 hm155462: verify's own `uv run -- ruff check` created the root .venv, 66 runtime packages and no pytest; the receipt then
+# carried "tests ran on python3, outside the project virtualenv", ".venv/.gitignore was added", "an ignored file that can change what verify runs", and the full
+# suite was "not measured on base"). `uv run` creates .venv in the checkout even with --no-sync, so a harness-run `uv run` in a repository with no virtualenv
+# keeps its environment in a directory this process owns (UV_PROJECT_ENVIRONMENT). A repository with its own .venv, a user-set UV_PROJECT_ENVIRONMENT and
+# LOKI_E10_UV_ENV_OUTSIDE=0 keep the old command. uv's setup lines (a first run in a new environment prints five or more) no longer hide a tool that could
+# not be started. Measured on a clone of the stored base: no .venv in the checkout after the lint command, and the missing ruff still reads as not started.
+UVO="$T/uvout"; mkdir -p "$UVO/repo" "$UVO/venvrepo/.venv/bin" "$UVO/bin" "$UVO/scratch"; : > "$UVO/repo/uv.lock"; : > "$UVO/venvrepo/uv.lock"
+printf '#!/bin/sh\nexit 0\n' > "$UVO/bin/uv"; printf '#!/bin/sh\nexit 0\n' > "$UVO/venvrepo/.venv/bin/ruff"; chmod +x "$UVO/bin/uv" "$UVO/venvrepo/.venv/bin/ruff"
+UVR="$(cd "$ROOT/loki-ts" && UVO="$UVO" LOKI_SCRATCH="$UVO/scratch" PATH="$UVO/bin:$PATH" bun --no-env-file --config=/dev/null -e '
+const cr = await import("./src/util/check_result.ts"), d = process.env.UVO, sc = require("node:fs").realpathSync(d + "/scratch"), r = [];
+const show = (repo) => { const [cmd, kind, pre] = cr.resolveTool(d + "/" + repo, "ruff", "ruff"); return [cmd.replace(d, "<t>"), kind, pre.map((x) => x.replace(/=.*\/uv-env\/[0-9a-f]{12}$/, "=<owned>")).join(" ")].join(" "); };
+r.push(show("repo")); const dir = cr.uvEnvDir(d + "/repo"); r.push(String(!!dir && require("node:fs").realpathSync(require("node:path").dirname(require("node:path").dirname(dir))).startsWith(sc) && !dir.startsWith(d + "/repo")));
+r.push(show("venvrepo")); process.env.UV_PROJECT_ENVIRONMENT = "/x/y"; r.push(show("repo")); delete process.env.UV_PROJECT_ENVIRONMENT;
+process.env.LOKI_E10_UV_ENV_OUTSIDE = "0"; r.push(show("repo")); delete process.env.LOKI_E10_UV_ENV_OUTSIDE;
+const first = "Using CPython 3.14.9\nCreating virtual environment at: /t/x\n   Building app @ file:///t\n      Built app @ file:///t\nInstalled 66 packages in 82ms\nerror: Failed to spawn: `ruff`\n  Caused by: No such file or directory (os error 2)\n";
+r.push(String(cr.spawnFailedTool(first, 2)), String(cr.spawnFailedTool(first + "a.py:1:1: F401\nb.py:1:1: F401\nc.py:1:1: F401\nd.py:1:1: F401\ne.py:1:1: F401\n", 2)));
+console.log(r.join(" | "));' 2>&1)"
+XUVR='env project UV_PROJECT_ENVIRONMENT=<owned> uv run -- ruff | true | <t>/venvrepo/.venv/bin/ruff project  | uv project run -- ruff | uv project run -- ruff | ruff | null'
+[ "$UVR" = "$XUVR" ] && ok "uv-env-outside: a harness-run uv run in a repository with no virtualenv keeps its environment in a directory the run owns, never in the checkout; a repository's own .venv, a user-set UV_PROJECT_ENVIRONMENT and LOKI_E10_UV_ENV_OUTSIDE=0 keep the old command; uv's setup lines do not hide a tool that could not start" \
+    || bad "uv-env-outside gave: $UVR (want: $XUVR)"
+# CHECK-FAILURE-TAILS (closed-set-2 hm155462: one test file failed the same 7 tests on base and on head, was not attributed, and both fix rounds chased it until
+# the run STALLED; the base output was kept in base-runs.json and the head output nowhere, so nobody could say why). Verify keeps the redacted tail of every
+# check that is still failing in <run dir>/check-failures.txt: overwritten by each verify, removed when nothing fails, 256 KiB in all and 16 KiB per check,
+# never a held-out or pre-existing check. Diagnostics only; no label reads it.
+CFT="$(cd "$ROOT/loki-ts" && CFD="$T/checkfail" bun --no-env-file --config=/dev/null -e '
+const v = await import("./src/engine10/stages/verify.ts"), fs = require("node:fs"), d = process.env.CFD; fs.mkdirSync(d, { recursive: true }); const f = d + "/" + v.CHECK_FAILURES_FILE, r = [];
+r.push(String(v.writeCheckFailureTails(d, [{ name: "pytest:tests/a.py", out: "FAILED tests/a.py::t - AssertionError: 1 != 2" }, { name: "full suite: x", out: "boom" }])), fs.readFileSync(f, "utf8").replace(/\n/g, "~"));
+const big = "x".repeat(40000) + "END"; v.writeCheckFailureTails(d, Array.from({ length: 40 }, (_, i) => ({ name: "c" + i, out: big }))); const t = fs.readFileSync(f, "utf8"); r.push(String(t.length <= v.CHECK_FAILURES_CAP + 40 * 16), String((t.match(/END/g) ?? []).length), String(t.includes("== c39 ==")));
+v.writeCheckFailureTails(d, [{ name: "one", out: big }]); r.push(String(fs.readFileSync(f, "utf8").length <= 16384 + 16)); r.push(String(v.writeCheckFailureTails(d, [])), String(fs.existsSync(f)));
+r.push(v.wallTailOf("token ghp_" + "a".repeat(36) + " in " + d + "/src/x.py", d).includes("ghp_a") ? "leaks" : "redacted");
+console.log(r.join(" | "));' 2>&1)"
+XCFT='check-failures.txt | == pytest:tests/a.py ==~FAILED tests/a.py::t - AssertionError: 1 != 2~~== full suite: x ==~boom~ | true | 40 | true | true | undefined | false | redacted'
+VCF="$ROOT/loki-ts/src/engine10/stages/verify.ts"
+[ "$CFT" = "$XCFT" ] && grep -q 'if (ctx.runDir) writeCheckFailureTails(ctx.runDir, checks.filter((c) => c.result === "fail" && !isHold(c) && !preRed.names.includes(c.name) && failTails.has(c)).map((c) => ({ name: c.name, out: failTails.get(c)! })));' "$VCF" \
+    && ok "check-failure-tails: verify keeps the redacted tail of each still-failing check in the run dir (never a held-out or pre-existing one), within 256 KiB in all and 16 KiB per check, and removes the file when nothing fails" \
+    || bad "check-failure-tails gave: $CFT (want: $XCFT)"
 # PYTEST-FALLBACK (verify-dev 2026-11-13, Python-Markdown: a unittest repo whose venv has no pytest; every test_*.py ran as pytest and "failed" in 0.05 s with no ids):
 # tests marked pytest only by their test_*.py names run under unittest when the repo's .venv cannot import pytest. A venv that has pytest, a conftest.py,
 # a test file importing pytest, and LOKI_E10_PYTEST_FALLBACK=0 keep pytest. (The .venv python here is a stand-in that answers only `-c "import pytest"`.)
@@ -2541,47 +2683,206 @@ const o = "src/v3/tests/a.test.ts:56:8 - error TS6196: \x27_Cat\x27 is declared 
 console.log([u(o, "packages/zod", new Set(["packages/zod/src/v4/x.ts"]), ["packages/zod/src/v4/x.ts"], o), u(o, "packages/zod", new Set(["packages/zod/src/v3/tests/a.test.ts"]), [], o), u(o + "src/c.ts:1:1 - error TS2322: no\n", "packages/zod", new Set(), [], o), u(o, "packages/zod", new Set(), ["packages/zod/tsconfig.json"], o), u("", ".", new Set(), [], ""), u("error TS6133 unparsed\n", ".", new Set(), [], "error TS6133 unparsed\n")].join(","));' 2>&1)"
 [ "$TU" = "true,false,false,false,false,false" ] && ok "tsc untouched unit: only unused-declaration errors in untouched, unnamed files with no tsconfig edit are excused ($TU)" || bad "tsc untouched unit: '$TU'"
 
-# PEP 668 install (real pip, venv, pytest and ruff; rule 22): a system python that refuses `pip install` as externally managed (a shim stands in for ONLY that refusal, every other
-# call reaches the real python3) must not leave the run on the system interpreter. prepareDeps retries into .venv and adds the runners verify names (pytest, and ruff when the project
-# declares it), so the project's own pytest and ruff run and pass. Plant: venvInstallCmd returns null and the install stays not_run with the PEP 668 line (the leg turns red).
-# Needs network (pip fetches pytest and ruff); skipped cleanly offline or with no python3 venv module.
-if command -v python3 >/dev/null 2>&1 && python3 -c 'import venv, ensurepip' >/dev/null 2>&1 && curl -sfI -m 8 https://pypi.org/simple/pytest/ >/dev/null 2>&1; then
-    PV="$T/pep668"; rm -rf "$PV"; mkdir -p "$PV/bin" "$PV/repo" && REALPY="$(command -v python3)"
-    printf '#!/bin/sh\ncase "$*" in "-m pip install"*) printf "error: externally-managed-environment\\n\\nhint: See PEP 668 for the detailed specification.\\n" >&2; exit 1 ;; esac\nexec "%s" "$@"\n' "$REALPY" > "$PV/bin/python3"; chmod +x "$PV/bin/python3"
-    cd "$PV/repo" && git init -q -b main && git config user.name e2e && git config user.email e2e@example.invalid
-    printf '[project]\nname = "calc"\nversion = "0"\ndependencies = []\n\n[tool.ruff]\nline-length = 100\n\n[build-system]\nrequires = ["setuptools"]\nbuild-backend = "setuptools.build_meta"\n\n[tool.setuptools]\npy-modules = ["calc"]\n' > pyproject.toml
-    printf 'def half(a):\n    return a / 2\n' > calc.py; printf 'import calc\n\n\ndef test_half():\n    assert calc.half(3) == 1.5\n' > test_calc.py
-    git add -- . && git commit -q -m base; cd "$ROOT"
-    PD="$(cd "$ROOT/loki-ts" && PATH="$PV/bin:$PATH" timeout 280 bun -e 'import { prepareDeps } from "./src/project_model/install.ts"; import { spawnSync } from "node:child_process"; import { existsSync } from "node:fs";
-const repo = process.argv[1]; const model = { installFor: () => ({ cmd: "python3 -m pip install -e .", cwd: ".", cite: ["pyproject.toml"] }) } as any;
-const r = await prepareDeps({ repoDir: repo, model, failed: [{ root: ".", harnessOwned: true }], signal: new AbortController().signal, timeoutMs: 280000, opts: { runId: "pep668" } });
-const c = r.checks[0]; const py = repo + "/.venv/bin/"; const t = spawnSync(py + "python", ["-m", "pytest", "-q", "test_calc.py"], { cwd: repo, encoding: "utf8" }); const l = existsSync(py + "ruff") ? spawnSync(py + "ruff", ["check", "."], { cwd: repo, encoding: "utf8" }) : { status: -1 };
-console.log([c?.result, c?.reason ?? "", existsSync(py + "pytest"), t.status, l.status, r.notProven.length].join("|"));' "$PV/repo" 2>&1 | tail -1)"
-    [ "$PD" = "pass||true|0|0|0" ] && ok "pep668 install: the refused system install is retried into .venv and the project's own pytest and ruff pass ($PD)" || bad "pep668 install: got '$PD'"
-    cd "$ROOT"
+# G2 DECLARED-INSTALLS and INTAKE-VENV (rule 22, fake python3, pip3.11, poetry and npm on PATH, no network).
+# A non-pip install runs only when the repository declares it: a guide's setup line (README.md), a cited file holding the command's own text (Makefile), a CI
+# workflow, or a tracked script run by its path (./install.sh). `poetry install` named nowhere is not run, and with no check result to clear it stays NOT PROVEN.
+# A plain `npm install` from a package.json runs on a fresh clone (no node_modules) and not when node_modules is there (lead ruling 2026-11-20).
+# An unlocked pip install (lead ruling 2026-11-20) gets a .venv Loki makes in the checkout at intake, and runs only as `.venv/bin/python -m pip`, never through the
+# machine's Python or a PATH pip:
+#   - pyreq (requirements.txt), pyproj (`pip install -e .`) and pip311 (`pip3.11 install -e .` is pip) get .venv and the install inside it;
+#   - pyhave (an existing .venv) and pyve (VIRTUAL_ENV set) are never replaced or reinstalled;
+#   - pynopip (the made venv has no pip) and pyfail (venv creation fails) are skipped. pyfail's note says requirements.txt was not installed and gives the
+#     virtualenv command;
+#   - pyverify (a call that is not intake) makes no .venv;
+#   - pyfailrec (no .venv in .gitignore, the venv's pip install fails): the .venv stays, is recorded in install_created and is in neither changedFiles nor the commit;
+#   - the receipt line names the Loki-made .venv;
+#   - with intake's baseline recorded after it, as intake.ts does, envChangedSince and the ignore notes do not read it as a change.
+# Plants:
+#   - 253f: installDeclared returns true always (bare runs);
+#   - 253i: ignore CI files (ci reads not_run);
+#   - 253t: ignore guides (guide reads not_run);
+#   - 253r: drop the package.json rule (npmfresh reads not_run);
+#   - 253s: run an unlocked pip as written, not through the venv (pyreq's system ran.flag reads true);
+#   - 253u: pipInVenv skips the `-m pip --version` probe (pynopip reads fail);
+#   - 253v: the pip regex back to `pip3?` (pip311 reads not_run);
+#   - 253w: drop the existing-env check (pyhave reads pass);
+#   - 253x: drop the VIRTUAL_ENV check (pyve reads pass);
+#   - 253y: drop the intake-only check (pyverify reads pass);
+#   - 253z: lokiVenvNotes returns [] (the receipt cell reads false);
+#   - 253aa: withLokiVenvs returns install_created unchanged (the rec cell reads an empty record and .venv files in changedFiles).
+DI="$T/declared-installs"; rm -rf "$DI"; mkdir -p "$DI/bin" "$DI/outside-venv"
+cat > "$DI/bin/python3" <<'PY'
+#!/bin/sh
+if [ "$1 $2" = "-m venv" ]; then
+    [ -n "$G2_VENV_FAIL" ] && exit 1
+    mkdir -p "$3/bin"
+    if [ -n "$G2_VENV_NOPIP" ]; then printf '#!/bin/sh\n[ "$1 $2" = "-m pip" ] && exit 1\nexit 0\n' > "$3/bin/python"
+    else printf '#!/bin/sh\n[ "$3" = --version ] && exit 0\n[ -n "$G2_PIP_FAIL" ] && exit 1\ntouch "$PWD/venv.flag"\nexit 0\n' > "$3/bin/python"; fi
+    chmod +x "$3/bin/python"; printf 'home = /usr/bin\n' > "$3/pyvenv.cfg"; exit 0
+fi
+touch "$PWD/ran.flag"; exit 0
+PY
+chmod +x "$DI/bin/python3"; printf '#!/bin/sh\ntouch "$PWD/ran.flag"\nexit 0\n' > "$DI/bin/poetry"; chmod +x "$DI/bin/poetry"; for b in npm pip pip3 pip3.11; do cp "$DI/bin/poetry" "$DI/bin/$b"; done
+CELLS="guide cite ci script bare off npmfresh npmhave pyreq pyproj pip311 pyhave pyve pynopip pyfail pyverify pyfailrec"
+for k in $CELLS; do
+    mkdir -p "$DI/$k" && printf '[project]\nname = "calc"\nversion = "0"\n' > "$DI/$k/pyproject.toml" && printf 'def f():\n    return 1\n' > "$DI/$k/calc.py" && printf '.venv/\nnode_modules\n' > "$DI/$k/.gitignore"
+    (cd "$DI/$k" && git init -q -b main && git config user.name e2e && git config user.email e2e@example.invalid)
+done
+printf '# calc\n\n## Installation\n\n```\npoetry install\n```\n' > "$DI/guide/README.md"
+printf 'install:\n\tpoetry install\n' > "$DI/cite/Makefile"
+mkdir -p "$DI/ci/.github/workflows" && printf 'jobs:\n  test:\n    steps:\n      - run: poetry install\n' > "$DI/ci/.github/workflows/ci.yml"
+printf '#!/bin/sh\ntouch "$PWD/ran.flag"\n' > "$DI/script/install.sh"; chmod +x "$DI/script/install.sh"
+for k in npmfresh npmhave; do printf '{"name":"c","private":true}\n' > "$DI/$k/package.json"; done; mkdir -p "$DI/npmhave/node_modules/x"
+for k in pyreq pyfail; do printf 'requests\n' > "$DI/$k/requirements.txt"; done
+printf 'node_modules\n' > "$DI/pyfailrec/.gitignore" # no .venv line: an unrecorded Loki-made .venv would land in the change
+mkdir -p "$DI/pyhave/.venv/bin" && printf 'home = /usr/bin\n' > "$DI/pyhave/.venv/pyvenv.cfg" && printf 'mine\n' > "$DI/pyhave/.venv/marker"
+for k in $CELLS; do (cd "$DI/$k" && git add -- . && git commit -q -m base); done
+DI_OUT="$(cd "$ROOT/loki-ts" && env -u VIRTUAL_ENV PATH="$DI/bin:$PATH" timeout 120 bun -e 'import { prepareDeps, unusedInstallNotes, UNDECLARED_INSTALL, lokiVenvNotes, withLokiVenvs, installOwned } from "./src/project_model/install.ts"; import { changedFiles } from "./src/util/check_result.ts"; import { dropSet } from "./src/e10ext/commit_filter.ts"; import { execFileSync } from "node:child_process"; import { envChangedSince, depsListing } from "./src/util/base_guard.ts"; import { ignoreSnapshot, ignoreRuleChanges } from "./src/util/check_result.ts"; import { existsSync, readFileSync } from "node:fs";
+const d = process.argv[1], out: string[] = [];
+const cmdOf: Record<string, string> = { npmfresh: "npm install", npmhave: "npm install", script: "./install.sh", pyreq: "python3 -m pip install -r requirements.txt", pyfail: "python3 -m pip install -r requirements.txt", pyproj: "pip install -e .", pip311: "pip3.11 install -e .", pyhave: "pip install -e .", pyve: "pip install -e .", pynopip: "pip install -e .", pyverify: "pip install -e .", pyfailrec: "pip install -e ." };
+const citeOf: Record<string, string[]> = { cite: ["Makefile"], npmfresh: ["package.json"], npmhave: ["package.json"] };
+for (const k of process.argv[2]!.split(" ")) {
+  const env0 = { ...process.env }; if (k === "off") process.env["LOKI_E10_DECLARED_INSTALLS"] = "0"; if (k === "pyve") process.env["VIRTUAL_ENV"] = d + "/outside-venv"; if (k === "pynopip") process.env["G2_VENV_NOPIP"] = "1"; if (k === "pyfail") process.env["G2_VENV_FAIL"] = "1"; if (k === "pyfailrec") process.env["G2_PIP_FAIL"] = "1";
+  const model = { installFor: () => ({ cmd: cmdOf[k] ?? "poetry install", cwd: ".", cite: citeOf[k] ?? ["pyproject.toml"] }), packages: () => [] } as any;
+  const r = await prepareDeps({ repoDir: d + "/" + k, model, failed: [{ root: ".", harnessOwned: true }], signal: new AbortController().signal, timeoutMs: 60000, opts: { runId: "di-" + k }, intake: k !== "pyverify" });
+  for (const x of ["LOKI_E10_DECLARED_INSTALLS", "VIRTUAL_ENV", "G2_VENV_NOPIP", "G2_VENV_FAIL", "G2_PIP_FAIL"]) { if (env0[x] === undefined) delete process.env[x]; else process.env[x] = env0[x]; }
+  const und = r.notProven.filter((l) => l.startsWith(UNDECLARED_INSTALL)), na = unusedInstallNotes(r.notProven, model, [], [], d + "/" + k);
+  const f = (n: string) => existsSync(d + "/" + k + "/" + n) ? 1 : 0;
+  out.push(`${k}:${r.checks[0]?.result}:${f("ran.flag")}${f("venv.flag")}${f(".venv")}:${und.length}:${na.na.length}/${na.cap.length}`);
+  if (k === "pyfailrec") { // review of 7b196ff16: a made .venv whose install failed is still recorded, so it is in neither changedFiles nor the commit
+    const repo = d + "/pyfailrec", base = execFileSync("git", ["-C", repo, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(), created = withLokiVenvs(null, r.lokiVenvMade);
+    const ch = changedFiles(repo, base, installOwned(repo, created)).filter((f) => f.startsWith(".venv"));
+    execFileSync("git", ["-C", repo, "add", "-A", "--", "."]); const parts = execFileSync("git", ["-C", repo, "diff", "--cached", "--name-status", "--no-renames", "-z", base], { encoding: "utf8" }).split("\0").filter(Boolean);
+    const staged = [] as { st: string; f: string }[]; for (let i = 0; i + 1 < parts.length; i += 2) staged.push({ st: parts[i]!, f: parts[i + 1]! });
+    const dropped = new Set(dropSet(repo, staged, undefined, process.env, created, undefined, base).map((x) => x.f));
+    out.push(`rec:${(created?.dirs ?? []).join("+")}:${ch.length}:${staged.filter((x) => x.f.startsWith(".venv/") && !dropped.has(x.f)).length}`);
+  }
+  if (k === "pyhave") out.push(`keep:${readFileSync(d + "/pyhave/.venv/marker", "utf8").trim()}`);
+  if (k === "pyfail") out.push(`failnote:${und.some((l) => l.includes("requirements.txt present; Loki did not install it") && l.includes("run: python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt") && l.includes("never installs into the machine"))}`);
+  if (k === "pyreq") {
+    out.push(`receipt:${lokiVenvNotes({ loki_venv: r.lokiVenv }).some((n) => n.startsWith("Loki created .venv at intake"))}`);
+    const repo = d + "/pyreq", snap = ignoreSnapshot(repo), deps = { ".venv": depsListing(repo + "/.venv") }, since = Date.now(); // recorded after the install, as intake.ts does
+    out.push(`baseline:${envChangedSince(repo, repo, since, [], deps)},${ignoreRuleChanges(repo, snap).length}`);
+  }
+}
+console.log(out.join(" "));' "$DI" "$CELLS" 2>&1 | tail -1)"
+DI_WANT="guide:pass:100:0:0/0 cite:pass:100:0:0/0 ci:pass:100:0:0/0 script:pass:100:0:0/0 bare:not_run:000:1:0/1 off:pass:100:0:0/0 npmfresh:pass:100:0:0/0 npmhave:not_run:000:1:0/1 pyreq:pass:011:0:0/0 receipt:true baseline:false,0 pyproj:pass:011:0:0/0 pip311:pass:011:0:0/0 pyhave:not_run:001:1:0/1 keep:mine pyve:not_run:000:1:0/1 pynopip:not_run:001:1:0/1 pyfail:not_run:000:1:0/1 failnote:true pyverify:not_run:000:1:0/1 pyfailrec:not_run:001:0:0/1 rec:.venv/:0:0"
+[ "$DI_OUT" = "$DI_WANT" ] && ok "declared installs and intake venv: declared non-pip installs run, an invented one does not; an unlocked pip install gets a Loki-made .venv at intake and runs only through its python -m pip; an existing .venv or VIRTUAL_ENV is never replaced; no pip or a failed venv is skipped with the note; never outside intake; the receipt names it and it is the baseline ($DI_OUT)" || bad "declared installs and intake venv: got '$DI_OUT' want '$DI_WANT'"
+
+# G2 ENV-GUARD, lint (rule 22, real pytest, fake uv on PATH): a uv project (uv.lock) whose uv ignores UV_PROJECT_ENVIRONMENT, so the lint Loki chose (`uv run -- ruff`) creates a
+# .venv in the checkout, as `uv run ruff` did on hm155462; the tests run through the same uv on the real pytest. The .venv is Loki's own change: the guard removes it, the receipt carries "Loki's own command changed the environment" under N/A, no hold, and the Python fix stays VERIFIED. Plant 253g: guardEnv returns run() unguarded
+# (the .venv stays, the note is gone and the ignored pyvenv.cfg caps the run).
+make_g2_py_repo() { make_py_repo "$1"; printf '.venv/\n' > "$1/.gitignore"; printf '[project]\nname = "calc"\nversion = "0"\ndependencies = []\n' > "$1/pyproject.toml"; printf 'version = 1\n' > "$1/uv.lock"; }
+G2BIN="$T/g2bin"; rm -rf "$G2BIN"; mkdir -p "$G2BIN/py"
+cat > "$G2BIN/py/uv" <<'UV'
+#!/bin/sh
+# a uv that ignores UV_PROJECT_ENVIRONMENT: `run -- ruff` makes .venv in the checkout; python and pytest reach the real interpreter; sync does nothing
+[ "$1" = run ] || exit 0
+shift; [ "$1" = -- ] && shift
+b="$1"; shift
+case "$b" in
+    ruff) mkdir -p .venv/lib && printf 'home = /usr/bin\n' > .venv/pyvenv.cfg; exit 0 ;;
+    pytest) exec python3 -m pytest "$@" ;;
+    python|python3) exec python3 "$@" ;;
+esac
+exec "$b" "$@"
+UV
+chmod +x "$G2BIN/py/uv"
+g2rec() { [ -n "$RUNDIR" ] && python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); na=r.get("not_applicable") or []; print(r.get("verdict"), "held_by" in r, sum(sys.argv[2] in n for n in na))' "$RUNDIR/receipt.json" "$1" 2>/dev/null; }
+if python3 -I -c 'import pytest' >/dev/null 2>&1; then
+    MAKE_REPO=make_g2_py_repo run_engine "add a multiply(a, b) function to calc.py" E2E_STUB_MODE=stack E2E_STUB_TARGET=calc.py \
+        E2E_STUB_SNIPPET=$'def multiply(a, b):\n    return a * b\n' LOKI_E10_PLAN=auto LOKI_E10_SMALL_MAX_CHARS=10 PATH="$G2BIN/py:$FIX/bin:$PATH"
+    g="$(g2rec "Loki's own command changed the environment: \`lint:ruff\` created .venv; moved .venv to .loki/runs/")"
+    [ "$g" = "VERIFIED False 1" ] && [ ! -e "$REPO/.venv" ] && [ -f "$RUNDIR/env-moved/.venv/pyvenv.cfg" ] && grep -q "	moved	.venv	" "$RUNDIR/env-moved/LEDGER.txt" && [ "$(outcome)" = "VERIFIED" ] && ok "env guard lint: the .venv a Loki-chosen lint created is moved into the run folder with a ledger line, disclosed under N/A, no hold, VERIFIED ($g)" || { bad "env guard lint: receipt '$g', .venv $([ -e "$REPO/.venv" ] && echo present || echo absent), outcome $(outcome)"; dump; }
 else
-    echo "  SKIP: pep668 install: needs python3 with venv and network (pypi.org)"
+    if [ "${LOKI_STACKS_REQUIRE:-0}" = 1 ]; then bad "env guard lint: pytest is not installed (LOKI_STACKS_REQUIRE=1: this leg must run here)"; else echo "  SKIP: env guard lint: pytest is not installed"; fi
 fi
 
-# PEP 668 retry that FAILS after creating .venv (rule 22, real venv and pip, no network needed): the repo has no .gitignore and the venv has no .gitignore of its own (Python 3.12 and older write none),
-# so a failed install records nothing as install-created; the commit stage's stage list (git add -A, then dropSet) must still hold zero .venv paths, and the check must not claim "installed into .venv".
+# G2 ENV-GUARD, typecheck (rule 22, fake tsc in node_modules/.bin): a typecheck Loki chose that writes a new package into node_modules is removed the same way; the dependency
+# listing intake recorded is unchanged afterwards and the receipt names it. Plant 253g turns this red too.
+mkdir -p "$T/seed-g2tsc/node_modules/.bin" && printf 'node_modules\n' > "$T/seed-g2tsc/.gitignore" && printf '{"compilerOptions":{"strict":true,"noEmit":true}}\n' > "$T/seed-g2tsc/tsconfig.json"
+printf '#!/bin/sh\nmkdir -p node_modules/loki-g2-typegen && printf "export {};\\n" > node_modules/loki-g2-typegen/index.d.ts\nexit 0\n' > "$T/seed-g2tsc/node_modules/.bin/tsc"; chmod +x "$T/seed-g2tsc/node_modules/.bin/tsc"
+SEED="$T/seed-g2tsc" run_engine "$TASK" E2E_STUB_MODE=done LOKI_SESSION_MODEL=haiku
+g="$(g2rec "\`lint:tsc\` created node_modules/loki-g2-typegen; moved node_modules/loki-g2-typegen to .loki/runs/")"
+[ "$g" = "VERIFIED False 1" ] && [ ! -e "$REPO/node_modules/loki-g2-typegen" ] && [ -f "$RUNDIR/env-moved/node_modules/loki-g2-typegen/index.d.ts" ] && [ -x "$REPO/node_modules/.bin/tsc" ] && ok "env guard tsc: the package a Loki-chosen typecheck wrote into node_modules is moved into the run folder, the repo's own entries stay, disclosed under N/A, VERIFIED ($g)" || { bad "env guard tsc: receipt '$g', typegen $([ -e "$REPO/node_modules/loki-g2-typegen" ] && echo present || echo absent), outcome $(outcome)"; dump; }
+
+# G2 ENV-GUARD, kept and moved (unit, no tools). Nothing is ever deleted. A created path the guard may take is moved into <run dir>/env-moved/<path> with a ledger line.
+# A path it may not take stays in place, and the readers subtract it only as it was when the guard finished.
+# Cells:
+#  - moved: a lone command's new .venv is moved, the ledger names it, the source is gone.
+#  - kept: with another harness command in flight it stays; the ignore notes and envChangedSince leave it out, while the same .venv made by the change is still reported.
+#  - refusals (review B3): envMoveRefusal names why for each condition:
+#      not alone; existed before; a link; resolves outside the checkout (node_modules linked elsewhere); tracked.
+#    The integration cell shows the outside entry is still in its real dir after guardEnv.
+#  - later (review B2): a kept node_modules entry, then a file written into it after the guard, and then a new package after the guard: envChangedSince reads true both times.
+# Plants:
+#  - 253g: guardEnv returns run() unguarded.
+#  - 253h: drop the lokiKeptOwns skip in ignoreRuleChanges.
+#  - 253j..253n: drop one refusal line each (not alone, existed, link, outside, tracked).
+#  - 253o: lokiKeptOwns ignores the time (the later cell reads false).
+#  - 253p: guardEnv rmSync instead of renameSync (the moved cell's ledger and dest read false).
+GK="$T/env-guard-kept"; rm -rf "$GK"; mkdir -p "$GK/a" "$GK/b" "$GK/c" "$GK/outside/newpkg"
+for k in a b c; do (cd "$GK/$k" && git init -q -b main && git config user.name e2e && git config user.email e2e@example.invalid && printf '.venv/\nnode_modules\n.loki/\n' > .gitignore && printf 'x = 1\n' > m.py && mkdir -p trk && printf 't\n' > trk/a.txt && git add -- . && git commit -q -m base && mkdir -p .loki/runs/r); done
+mkdir -p "$GK/c/node_modules/dep" && ln -s "$GK/outside" "$GK/c/linked" && ln -s /nonexistent-loki-g2 "$GK/c/.venv2"
+GK_OUT="$(cd "$ROOT/loki-ts" && timeout 60 bun -e 'import { guardEnv, harnessCmdBegin, envChangedSince, envMoveRefusal, depsListing } from "./src/util/base_guard.ts"; import { ignoreSnapshot, ignoreRuleChanges, lokiEnvNotes, lokiEnvKept } from "./src/util/check_result.ts"; import { mkdirSync, writeFileSync, existsSync, readFileSync, symlinkSync } from "node:fs";
+const [a, b, c, outside] = process.argv.slice(1); const out: string[] = []; const rd = (d: string) => d + "/.loki/runs/r";
+const mk = (d: string) => { mkdirSync(d + "/.venv/bin", { recursive: true }); writeFileSync(d + "/.venv/pyvenv.cfg", "home = /usr/bin\n"); };
+// moved
+await guardEnv(c, "lint:ruff", async () => { mk(c); }, rd(c));
+const led = (() => { try { return readFileSync(rd(c) + "/env-moved/LEDGER.txt", "utf8"); } catch { return ""; } })();
+out.push("moved:" + [!existsSync(c + "/.venv"), existsSync(rd(c) + "/env-moved/.venv/pyvenv.cfg"), /\tmoved\t\.venv\t.*\tcreated by lint:ruff/.test(led), lokiEnvNotes(c).some((n) => n.includes("moved .venv to .loki/runs/r/env-moved"))].join(","));
+// kept
+const sa = ignoreSnapshot(a), sb = ignoreSnapshot(b), t0 = Date.now() - 1000;
+const other = harnessCmdBegin(); await guardEnv(a, "lint:ruff", async () => { mk(a); }, rd(a)); other();
+mk(b);
+out.push("kept:" + [existsSync(a + "/.venv"), lokiEnvKept(a).map((k) => k.rel).join("+"), lokiEnvNotes(a).some((n) => n.includes("left .venv in place (another harness command was running)") && n.includes("not counted against the change")), ignoreRuleChanges(a, sa).length, ignoreRuleChanges(b, sb).length > 0, envChangedSince(a, a, t0, [], {}), envChangedSince(b, b, t0, [], {})].join(","));
+// refusals
+const no = () => false;
+out.push("refuse:" + [envMoveRefusal(c, "trk2", no, false), envMoveRefusal(c, "m.py", () => true, true), envMoveRefusal(c, ".venv2", no, true), envMoveRefusal(c, "linked/newpkg", no, true), envMoveRefusal(c, "trk", no, true)].map((x) => x ?? "null").join("|"));
+// integration: a node_modules linked outside the checkout; the entry its command adds lives outside and is never moved
+symlinkSync(outside, b + "/node_modules");
+await guardEnv(b, "lint:tsc", async () => { mkdirSync(outside + "/added", { recursive: true }); writeFileSync(outside + "/added/x.js", "1\n"); }, rd(b));
+out.push("outside-kept:" + [existsSync(outside + "/added/x.js"), lokiEnvKept(b).some((k) => k.rel === "node_modules/added"), lokiEnvNotes(b).some((n) => n.includes("it resolves outside the checkout"))].join(","));
+// later (B2): node_modules exists at intake; a kept entry, then real changes after the guard
+mkdirSync(a + "/node_modules/dep", { recursive: true }); writeFileSync(a + "/node_modules/dep/index.js", "1\n");
+await new Promise((r) => setTimeout(r, 30)); const deps = { node_modules: depsListing(a + "/node_modules") }, t1 = Date.now();
+const o2 = harnessCmdBegin(); await guardEnv(a, "lint:tsc", async () => { mkdirSync(a + "/node_modules/typegen", { recursive: true }); writeFileSync(a + "/node_modules/typegen/index.d.ts", "export {};\n"); }, rd(a)); o2();
+const quiet = envChangedSince(a, a, t1, [], deps);
+const keptThere = existsSync(a + "/node_modules/typegen/index.d.ts"); await new Promise((r) => setTimeout(r, 30)); mkdirSync(a + "/node_modules/typegen", { recursive: true }); writeFileSync(a + "/node_modules/typegen/later.js", "2\n"); const later = envChangedSince(a, a, t1, [], deps);
+const { rmSync } = await import("node:fs"); rmSync(a + "/node_modules/typegen/later.js"); await new Promise((r) => setTimeout(r, 30)); mkdirSync(a + "/node_modules/realpkg"); writeFileSync(a + "/node_modules/realpkg/i.js", "3\n");
+out.push("later:" + [keptThere, quiet, later, envChangedSince(a, a, t1, [], deps)].join(","));
+console.log(out.join(" "));' "$GK/a" "$GK/b" "$GK/c" "$GK/outside" 2>&1 | tail -1)"
+GK_WANT="moved:true,true,true,true kept:true,.venv,true,0,true,false,true refuse:another harness command was running|it existed before the command|it is a link|it resolves outside the checkout|git tracks it outside-kept:true,true,true later:true,false,true,true"
+[ "$GK_OUT" = "$GK_WANT" ] && ok "env guard move and keep: a lone command's .venv is moved to the run folder with a ledger line; a kept one is subtracted only as it was; each refusal is named; nothing outside is touched; a later install into a kept dir still counts ($GK_OUT)" || bad "env guard move and keep: got '$GK_OUT'"
+
+# G2 undeclared install and the cap (review B4, unit): an install Loki did not run is N/A only when nothing depends on it, or every non-lint check of its ecosystem passed.
+# A failing check (even one excused as red on base, maybe for want of the very dependencies) keeps it on NOT PROVEN, and so does a used package with no check at all.
+# Plant 253q: undeclared lines go to N/A unconditionally (the fail cell reads na).
+UB="$T/undeclared-cap"; rm -rf "$UB"; mkdir -p "$UB/repo/sub" && printf '[project]\nname = "x"\n' > "$UB/repo/pyproject.toml" && printf '[project]\nname = "s"\n' > "$UB/repo/sub/pyproject.toml"
+UB_OUT="$(cd "$ROOT/loki-ts" && timeout 60 bun -e 'import { unusedInstallNotes, UNDECLARED_INSTALL } from "./src/project_model/install.ts";
+const repo = process.argv[1]; const line = (r: string) => `${UNDECLARED_INSTALL} for this package (x); to install the dependencies yourself, run: pip install -e . (install:${r}; harness-owned)`;
+const pk = (root: string) => ({ name: root, root, commands: { test: null, lint: null, build: null, start: null } });
+const model = { packages: () => [pk("."), pk("sub")], packageOf: () => null, installFor: () => ({ cmd: "pip install -e .", cwd: ".", cite: [] }) } as any;
+const k = (r: string, res: { name: string; result: string }[]) => { const n = unusedInstallNotes([line(r)], model, [], res.map((c) => c.name), repo, res); return n.na.length ? "na" : n.cap.length ? "cap" : "none"; };
+console.log([k(".", [{ name: "pytest:test_a.py", result: "fail" }]), k(".", [{ name: "pytest:test_a.py", result: "pass" }, { name: "lint:ruff", result: "fail" }]), k(".", []), k("sub", [])].join(","));' "$UB/repo" 2>&1 | tail -1)"
+[ "$UB_OUT" = "cap,na,cap,na" ] && ok "undeclared install cap: a failing test of its ecosystem or no check at all keeps it on NOT PROVEN; all passing, or a package nothing uses, is N/A ($UB_OUT)" || bad "undeclared install cap: got '$UB_OUT'"
+
+# .venv output in the commit (rule 22, real venv, no network needed): the repo has no .gitignore and the venv has no .gitignore of its own (Python 3.12 and older write none), so the
+# commit stage's stage list (git add -A, then dropSet with nothing recorded as install-created) must still hold zero .venv paths.
 # Plant: drop the .venv entry from OUTPUT_DIRS (lock_ecosystems.ts) and hundreds of .venv files are kept for the commit (the leg turns red).
-if command -v python3 >/dev/null 2>&1 && python3 -c 'import venv, ensurepip' >/dev/null 2>&1; then
-    PF="$T/pep668-fail"; rm -rf "$PF"; mkdir -p "$PF/bin" "$PF/repo" && REALPY="$(command -v python3)"
-    printf '#!/bin/sh\ncase "$*" in "-m pip install"*) if [ -z "$VIRTUAL_ENV" ] && [ "$1 $2" = "-m pip" ]; then printf "error: externally-managed-environment\\n\\nhint: See PEP 668 for the detailed specification.\\n" >&2; exit 1; fi ;; esac\nexec "%s" "$@"\n' "$REALPY" > "$PF/bin/python3"; chmod +x "$PF/bin/python3"
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import venv' >/dev/null 2>&1; then
+    PF="$T/venv-commit"; rm -rf "$PF"; mkdir -p "$PF/repo"
     cd "$PF/repo" && git init -q -b main && git config user.name e2e && git config user.email e2e@example.invalid
-    printf 'nonexistent-loki-pkg-xyz==9.9.9\n' > requirements.txt; printf 'def f():\n    return 1\n' > calc.py; git add -- . && git commit -q -m base; BASE="$(git rev-parse HEAD)"; cd "$ROOT"
-    PF_OUT="$(cd "$ROOT/loki-ts" && PATH="$PF/bin:$PATH" PIP_NO_INDEX=1 timeout 280 bun -e 'import { prepareDeps } from "./src/project_model/install.ts"; import { dropSet } from "./src/e10ext/commit_filter.ts"; import { execFileSync } from "node:child_process"; import { rmSync, existsSync } from "node:fs";
-const [repo, base] = process.argv.slice(1); const model = { installFor: () => ({ cmd: "python3 -m pip install -r requirements.txt", cwd: ".", cite: ["requirements.txt"] }) } as any;
-const r = await prepareDeps({ repoDir: repo, model, failed: [{ root: ".", harnessOwned: true }], signal: new AbortController().signal, timeoutMs: 280000, opts: { runId: "pep668fail" } });
-rmSync(repo + "/.venv/.gitignore", { force: true });
+    printf 'def f():\n    return 1\n' > calc.py; git add -- . && git commit -q -m base; BASE="$(git rev-parse HEAD)"; python3 -m venv --without-pip .venv; rm -f .venv/.gitignore; cd "$ROOT"
+    PF_OUT="$(cd "$ROOT/loki-ts" && timeout 120 bun -e 'import { dropSet } from "./src/e10ext/commit_filter.ts"; import { execFileSync } from "node:child_process"; import { existsSync } from "node:fs";
+const [repo, base] = process.argv.slice(1);
 execFileSync("git", ["-C", repo, "add", "-A", "--", "."]);
 const parts = execFileSync("git", ["-C", repo, "diff", "--cached", "--name-status", "--no-renames", "-z", base], { encoding: "utf8" }).split("\0").filter(Boolean); const staged = [] as { st: string; f: string }[]; for (let i = 0; i + 1 < parts.length; i += 2) staged.push({ st: parts[i]!, f: parts[i + 1]! });
 const dropped = new Set(dropSet(repo, staged, undefined, process.env, null, undefined, base).map((d) => d.f)); const kept = staged.filter((s) => !dropped.has(s.f) && s.f.startsWith(".venv/")).length;
-const c = r.checks[0]; console.log([existsSync(repo + "/.venv/pyvenv.cfg"), c?.result, String(c?.lock_note ?? "").includes("installed into .venv"), kept].join("|"));' "$PF/repo" "$BASE" 2>&1 | tail -1)"
-    [ "$PF_OUT" = "true|not_run|false|0" ] && ok "pep668 failed retry: .venv exists, the check is not_run, no 'installed into .venv' note, zero .venv paths kept for the commit ($PF_OUT)" || bad "pep668 failed retry: got '$PF_OUT'"
+console.log([existsSync(repo + "/.venv/pyvenv.cfg"), staged.some((s) => s.f.startsWith(".venv/")), kept].join("|"));' "$PF/repo" "$BASE" 2>&1 | tail -1)"
+    [ "$PF_OUT" = "true|true|0" ] && ok "venv commit: .venv exists and is staged by git add -A, zero .venv paths kept for the commit ($PF_OUT)" || bad "venv commit: got '$PF_OUT'"
 else
-    echo "  SKIP: pep668 failed retry: needs python3 with venv"
+    echo "  SKIP: venv commit: needs python3 with venv"
 fi
 
 # setuptools install output (rule 22, real venv and pip): `pip install -e .` writes <name>.egg-info/ (with PKG-INFO) into the repo. The commit stage's stage list (git add -A, then dropSet with
@@ -4468,5 +4769,165 @@ while IFS= read -r line; do
     case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
 done <<< "$out"
 grep -q '^NO ' <<< "$out" && printf '%s\n' "$out" | grep -v '^OK ' | tail -8 | sed 's/^/    | /'
+
+# ---------------------------------------------------------------- G5 LINE-FALLBACK (hm124107: both test files the change edited were not_run in all 6 Loki seeds,
+# "executed count unmeasured (Loki could not parse the runner summary)", so Loki measured nothing of its own change). A test file the change edited or added
+# is measured from the exit code plus per-test result lines when the summary cannot be parsed; the receipt count says so. Planted defects (each reverted):
+#   G5-1. stages/verify.ts runCheck: drop the LINE-FALLBACK line: the changed-file pass reads not_run.
+#   G5-2. util/check_result.ts lineVerdict: ignore FAIL lines: the exit-0 failing run reads passing.
+#   G5-12. util/check_result.ts lineVerdict same(): also accept any path ending in the basename: the superstring and other-directory cases read passing.
+#   G5-13. util/check_result.ts lineVerdict same(): drop the t.includes("/") test on the file-suffix clause: the mixed bare-name output reads passing.
+#   G5-7. util/check_result.ts lineVerdict: count any check-mark, TAP ok or PASS line, naming the file or not: the three never-ran cases read passing.
+cat > "$T/g5-lf.ts" <<'TS'
+import { mkdtempSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+const root = process.argv[2]!;
+const vf = await import(root + "/loki-ts/src/engine10/stages/verify.ts"), cr = await import(root + "/loki-ts/src/util/check_result.ts");
+const res = (name: string, pass: boolean) => console.log((pass ? "OK " : "NO ") + name);
+const d = mkdtempSync(join(tmpdir(), "lf-"));
+try {
+  const runner = (name: string, body: string) => { const p = join(d, name); writeFileSync(p, "#!/bin/sh\n" + body + "\n"); chmodSync(p, 0o755); return p; };
+  const pass = runner("pass.sh", 'echo "tests/test_x.py::test_a PASSED"; echo "tests/test_x.py::test_b PASSED"; echo "done (summary in a format no parser knows)"; exit 0');
+  const failz = runner("fail0.sh", 'echo "tests/test_x.py::test_a PASSED"; echo "FAILED tests/test_x.py::test_b - assert 1 == 2"; echo "wrapper swallowed the exit code"; exit 0');
+  const fail1 = runner("fail1.sh", 'echo "FAILED tests/test_x.py::test_b - assert 1 == 2"; exit 1');
+  const blank = runner("blank.sh", 'echo "nothing a parser or the fallback can read"; exit 0');
+  const built = runner("built.sh", 'printf "\\342\\234\\223 Compiled successfully in 1.2s\\nno tests found for tests/test_x.py\\n"; exit 0'), tapx = runner("tapx.sh", 'echo "ok 1 - prebuild"; echo "runner: unknown output"; exit 0'), other = runner("other.sh", 'printf " \\342\\234\\223 src/other.test.ts (2 tests) 5ms\\n"; exit 0');
+  const longer = runner("longer.sh", 'echo "tests/super_test_x.py::test_a PASSED"; exit 0'), elsewhere = runner("elsewhere.sh", 'echo "tests/integration/test_x.py::test_a PASSED"; exit 0');
+  const mixed = runner("mixed.sh", 'printf "tests/integration/test_x.py::test_a PASSED\\ntest_x.py::test_b PASSED\\n"; exit 0');
+  const ctx = { repoDir: d, baseSha: "", outputs: () => ({}), emit: () => {} } as never, sig = new AbortController().signal;
+  const one = async (cmd: string, changedTest: boolean) => { const checks: unknown[] = []; return await vf.runCheck(ctx, "pytest:tests/test_x.py", cmd, [], sig, checks as never, { changedTest, path: process.env.PATH }) as { result: string; reason?: string; n?: number; count?: string }; };
+  const p1 = await one(pass, true), p0 = await one(pass, false), f0 = await one(failz, true), f1 = await one(fail1, true), b1 = await one(blank, true);
+  res("G5 LINE-FALLBACK a changed test file whose runner summary cannot be parsed passes from its per-test PASS lines (n=2) and the receipt count says how it was measured", p1.result === "pass" && p1.n === 2 && p1.count === cr.LINE_FALLBACK_COUNT);
+  res("G5 LINE-FALLBACK a test file the change did not touch keeps the unmeasured not_run (unchanged)", p0.result === "not_run" && p0.reason === cr.UNMEASURED_REASON);
+  res("G5 LINE-FALLBACK a changed test file reads failing from a FAIL line even when the runner exits 0, and failing on a non-zero exit", f0.result === "fail" && f1.result === "fail");
+  res("G5 LINE-FALLBACK a changed test file with no line the fallback can read stays not_run (never a pass from nothing)", b1.result === "not_run");
+  const n1 = await one(built, true), n2 = await one(tapx, true), n3 = await one(other, true);
+  res("G5 LINE-FALLBACK (summary-parse review) a check mark from a build step, a TAP ok from another program and a pass line for a different file never pass the changed test; each stays not_run", n1.result === "not_run" && n2.result === "not_run" && n3.result === "not_run");
+  const n4 = await one(longer, true), n5 = await one(elsewhere, true), n6 = await one(mixed, true);
+  res("G5 LINE-FALLBACK (summary-parse review) a file whose name only ends in the check's basename, and the same basename in another directory, never pass it; both stay not_run", n4.result === "not_run" && n5.result === "not_run");
+  res("G5 LINE-FALLBACK (summary-parse review 36df705bb) a bare basename line does not count once another test line prints a directory path; stays not_run", n6.result === "not_run");
+} finally { rmSync(d, { recursive: true, force: true }); }
+TS
+out="$(cd "$ROOT/loki-ts" && bun "$T/g5-lf.ts" "$ROOT" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$out" || { bad "G5 line-fallback unit script crashed or exited non-zero"; printf '%s\n' "$out" | tail -6 | sed 's/^/    | /'; }
+[ "$(printf '%s\n' "$out" | grep -c '^OK ')" = 7 ] || bad "G5 line-fallback unit script produced $(printf '%s\n' "$out" | grep -c '^OK ') passing legs, want 7"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$out"
+
+# ---------------------------------------------------------------- VERIFY-PLAN V5 STRUCTURED-RESULTS (LOKI_E10_STRUCTURED_RESULTS, off by default; observe never moves the label).
+# A per-file pytest, bun, vitest or jest check also writes the runner's own report; verify compares it with the text parse. Planted defects (each reverted):
+#   V5-1. util/test_report.ts reportArgs: return null for bun: T1 bun cell and T4 agree cell fail.
+#   V5-2. readReport junit: count skipped as run: T2 fails.
+#   V5-3. stages/verify.ts runCheck: build cmdStr from the extended args: T4 cmd cell fails.
+#   V5-4. runCheck: never remove the report dir: T4 cleanup cell fails.
+#   V5-5. test_report.ts structuredResultsMode: default observe: T4 unset cell fails.
+#   V5-6. runCheck: drop the fallback: T5 reads fail.
+#   V5-7. runCheck: the fallback runs once without the flaky retry: T5b reads fail.
+#   V5-8. runCheck: the fallback fires on a cut run: T5c counter reads 2.
+#   V5-9. util/python.ts scanJunitCases: the testcase regex not quote-aware (<testcase\b([^>]*?)): T2b reads the id "t.m > ".
+cat > "$T/v5.ts" <<'TS'
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, chmodSync, existsSync } from "node:fs";
+import { join } from "node:path";
+const root = process.argv[2]!, base = process.argv[3]!;
+const tr = await import(root + "/loki-ts/src/util/test_report.ts"), vf = await import(root + "/loki-ts/src/engine10/stages/verify.ts");
+const res = (name: string, pass: boolean, got?: unknown) => console.log((pass ? "OK " : "NO ") + name + (pass || got === undefined ? "" : ` (got ${JSON.stringify(got)})`));
+const F = "/r/report.xml";
+res("V5 T1 reportArgs: pytest gets --junitxml with xunit1", JSON.stringify(tr.reportArgs("python3", ["-m", "pytest", "-q", "t.py"], F)) === JSON.stringify(["--junitxml=" + F, "-o", "junit_family=xunit1"]));
+res("V5 T1 reportArgs: bun test gets the junit reporter and its outfile", JSON.stringify(tr.reportArgs("bun", ["test", "a.test.ts"], F)) === JSON.stringify(["--reporter=junit", "--reporter-outfile=" + F]));
+res("V5 T1 reportArgs: vitest run gets default plus junit with outputFile.junit", JSON.stringify(tr.reportArgs("npx", ["--no-install", "vitest", "run", "a.test.ts"], F)) === JSON.stringify(["--reporter=default", "--reporter=junit", "--outputFile.junit=" + F]));
+res("V5 T1 reportArgs: jest gets --json and --outputFile", JSON.stringify(tr.reportArgs("npx", ["--no-install", "jest", "a.test.ts"], F)) === JSON.stringify(["--json", "--outputFile=" + F]));
+res("V5 T1 reportArgs: go test -json, bash -c and python -m unittest get none", tr.reportArgs("go", ["test", "-json", "./x"], F) === null && tr.reportArgs("bash", ["-c", "x"], F) === null && tr.reportArgs("python3", ["-m", "unittest", "t.py"], F) === null);
+const d = mkdtempSync(join(base, "v5-"));
+const w = (n: string, t: string) => { const p = join(d, n); writeFileSync(p, t); return p; };
+const x1 = w("x1.xml", '<?xml version="1.0"?><testsuites><testsuite name="pytest" tests="3"><testcase classname="tests.test_x.TestC" name="test_y" file="tests/test_x.py" time="0"><failure message="boom">x</failure></testcase><testcase classname="tests.test_x" name="test_ok" file="tests/test_x.py"/><testcase classname="tests.test_x" name="test_skip" file="tests/test_x.py"><skipped message="s"/></testcase></testsuite></testsuites>');
+const r1 = tr.readReport(x1, "junit");
+res("V5 T2 readReport junit: 3 testcases, one failure in class TestC, one skipped: run 2, failed 1, skipped 1, id file::class::name", r1?.run === 2 && r1?.failed === 1 && r1?.skipped === 1 && JSON.stringify(r1?.failedIds) === JSON.stringify(["tests/test_x.py::TestC::test_y"]), r1);
+const x2 = w("x2.xml", '<testsuites><testsuite><testcase classname="C" name="a &amp; b &#62; c"><error/></testcase></testsuite></testsuites>');
+res("V5 T2 readReport junit: an entity in a name decodes", JSON.stringify(tr.readReport(x2, "junit")?.failedIds) === JSON.stringify(["C > a & b > c"]), tr.readReport(x2, "junit"));
+res("V5 T2 readReport junit: a truncated file and an empty file read null", tr.readReport(w("x3.xml", '<testsuites><testsuite><testcase name="a"/>'), "junit") === null && tr.readReport(w("x4.xml", ""), "junit") === null && tr.readReport(join(d, "missing.xml"), "junit") === null);
+const x5 = w("x5.xml", '<testsuites><testsuite><testcase classname="t.m" name="test_cmp[a>b]"><failure/></testcase><testcase classname="t.m" name="test_xf"><skipped type="pytest.xfail" message="r"/></testcase><testcase classname="t.m" name="test_ok"/></testsuite></testsuites>');
+const r5x = tr.readReport(x5, "junit");
+res("V5 T2b readReport junit (the shared python.ts scanJunitCases): a raw > inside a quoted name keeps the whole id, and an xfail counts as skipped", r5x?.run === 2 && r5x?.failed === 1 && r5x?.skipped === 1 && JSON.stringify(r5x?.failedIds) === JSON.stringify(["t.m > test_cmp[a>b]"]), r5x);
+const j1 = w("j.json", JSON.stringify({ testResults: [{ assertionResults: [{ status: "passed", fullName: "a" }, { status: "passed", fullName: "b" }, { status: "failed", fullName: "s c" }, { status: "pending", fullName: "d" }] }] }));
+const r3 = tr.readReport(j1, "jest-json");
+res("V5 T3 readReport jest-json: 2 passed, 1 failed, 1 pending: run 3, failed 1, skipped 1, id fullName", r3?.run === 3 && r3?.failed === 1 && r3?.skipped === 1 && JSON.stringify(r3?.failedIds) === JSON.stringify(["s c"]), r3);
+// T4 and T5: runCheck on a real bun and on fake runners; the report dir lives under TMPDIR, pointed at a fresh dir per cell.
+const repo = join(d, "repo"); mkdirSync(repo);
+writeFileSync(join(repo, "two.test.ts"), 'import { expect, test } from "bun:test";\ntest("one", () => { expect(1).toBe(1); });\ntest("two", () => { expect(1).toBe(2); });\n');
+const sig = new AbortController().signal, ctx = { repoDir: repo, baseSha: "", runDir: join(d, "run"), outputs: () => ({}), emit: () => {} } as never;
+const tmpd = (n: string) => { const t = join(d, "tmp-" + n); mkdirSync(t); process.env.TMPDIR = t; return t; };
+const run = async (cmd: string, args: string[], o: Record<string, unknown> = {}) => { const checks: unknown[] = []; const c = await vf.runCheck(ctx, "bun:two.test.ts", cmd, args, sig, checks as never, o as never) as { result: string; cmd: string }; return { c, s: vf.structuredSummary(checks as never) }; };
+process.env.LOKI_E10_STRUCTURED_RESULTS = "observe";
+let t = tmpd("t4");
+const a = await run("bun", ["test", "./two.test.ts"]);
+res("V5 T4 real bun with observe: the report agrees with the text parse (2 run, 1 failed)", a.c.result === "fail" && a.s.read === 1 && a.s.agree === 1, { r: a.c.result, s: a.s });
+res("V5 T4 the check's cmd is the original command, with no reporter text", a.c.cmd === "bun test ./two.test.ts", a.c.cmd);
+res("V5 T4 the temp report dir is gone afterwards", readdirSync(t).filter((n) => n.startsWith("loki-report-")).length === 0, readdirSync(t));
+const fake = join(d, "fake"); mkdirSync(fake); const argv = join(d, "argv.log"), ctr = join(d, "ctr");
+const fakeBun = (body: string) => { writeFileSync(join(fake, "bun"), "#!/bin/bash\nprintf '%s\\n' \"$*\" >> " + argv + "\n" + body + "\n"); chmodSync(join(fake, "bun"), 0o755); };
+const PASS = 'printf "1 pass\\n0 fail\\nRan 1 tests across 1 files.\\n"; exit 0', FAIL = 'printf "0 pass\\n1 fail\\nRan 1 tests across 1 files.\\n"; exit 1';
+const path = fake + ":" + (process.env.PATH ?? "");
+delete process.env.LOKI_E10_STRUCTURED_RESULTS; fakeBun(PASS); rmSync(argv, { force: true }); t = tmpd("t4u");
+const u = await run("bun", ["test", "./two.test.ts"], { path });
+res("V5 T4 knob unset: the runner sees exactly today's arguments and no report dir is made", readFileSync(argv, "utf8") === "test ./two.test.ts\n" && readdirSync(t).filter((n) => n.startsWith("loki-report-")).length === 0 && u.s.read === 0 && u.s.unsupported === 0, readFileSync(argv, "utf8"));
+process.env.LOKI_E10_STRUCTURED_RESULTS = "observe";
+fakeBun('case "$*" in *--reporter=junit*) exit 2 ;; esac\n' + PASS); rmSync(argv, { force: true }); tmpd("t5");
+const r5 = await run("bun", ["test", "./two.test.ts"], { path });
+res("V5 T5 a runner that rejects the report flag: run again without it, pass, cmd unchanged, report_unsupported", r5.c.result === "pass" && r5.c.cmd === "bun test ./two.test.ts" && r5.s.unsupported === 1, { r: r5.c.result, s: r5.s });
+fakeBun('case "$*" in *--reporter=junit*) exit 2 ;; esac\nn=$(cat ' + ctr + ' 2>/dev/null || echo 0); echo $((n + 1)) > ' + ctr + '\nif [ "$n" = 0 ]; then ' + FAIL + '; fi\n' + PASS); rmSync(ctr, { force: true }); tmpd("t5b");
+const r5b = await run("bun", ["test", "./two.test.ts"], { path });
+res("V5 T5b the fallback keeps the flaky retry: fail then pass without the flag reads flaky", r5b.c.result === "flaky", r5b.c.result);
+fakeBun('n=$(cat ' + ctr + ' 2>/dev/null || echo 0); echo $((n + 1)) > ' + ctr + '\nsleep 3\n' + PASS); rmSync(ctr, { force: true }); tmpd("t5c");
+const r5c = await run("bun", ["test", "./two.test.ts"], { path, timeoutMs: 400 });
+res("V5 T5c a cut run never falls back: not_run and the runner ran once", r5c.c.result === "not_run" && readFileSync(ctr, "utf8").trim() === "1", { r: r5c.c.result, n: existsSync(ctr) ? readFileSync(ctr, "utf8").trim() : "none" });
+rmSync(d, { recursive: true, force: true });
+TS
+v5out="$(cd "$ROOT/loki-ts" && env -u LOKI_E10_STRUCTURED_RESULTS bun "$T/v5.ts" "$ROOT" "$T" 2>&1; echo "EXIT $?")"
+grep -q '^EXIT 0$' <<< "$v5out" || { bad "V5 unit script crashed or exited non-zero"; printf '%s\n' "$v5out" | tail -6 | sed 's/^/    | /'; }
+[ "$(printf '%s\n' "$v5out" | grep -c '^OK ')" = 17 ] || bad "V5 unit script produced $(printf '%s\n' "$v5out" | grep -c '^OK ') passing legs, want 17"
+while IFS= read -r line; do
+    case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
+done <<< "$v5out"
+
+# ---------------------------------------------------------------- VERIFY-PLAN V3 W5 steer staleness with an observed Wall (util/steer.ts staleAtSeal). An observed Wall froze nothing
+# the label reads, so a steer consumed after its author started does not stale the seal; an enforce record still does, and so does wallSealed (the P12-13c race rule).
+# Planted defect (reverted): drop the observe test in steer.ts (the observe cell returns the revision).
+W5D="$(mktemp -d "$T/w5.XXXXXX")"
+W5="$(cd "$ROOT/loki-ts" && bun -e '
+import { staleAtSeal } from "./src/util/steer.ts";
+const dir = process.argv[1]!, rev = () => [{ rev: 1, source: null, actor: null, sha: "x", at: 2000 }], tl = [{ stage: "wall", startMs: 1000 }];
+const n = (outputs: () => object, wallSealed: boolean) => staleAtSeal(dir, { intentRevisions: rev() as never, timeline: tl, outputs: outputs as never, wallSealed }).length;
+console.log("W5", n(() => ({ wall: { observe: true } }), false), n(() => ({ wall: { files: [] } }), false), n(() => ({ wall: { observe: true } }), true));
+' "$W5D" 2>&1)"
+has "V3 W5: staleAtSeal: an observed Wall stales nothing, an enforce Wall record does, and wallSealed still does" "$W5" "W5 0 1 1"
+
+# ---------------------------------------------------------------- VERIFY-PLAN V4 E2E-BOOT (LOKI_E10_E2E_BOOT, off by default): verify boots the app on the change and on the base tree
+# before the seal with the post-seal app runner. E1 to E5 are pure cells on bootOutcome; E6 reads seal.ts: the outcome's observe entry goes only to the observe
+# list and its disclosure only to NOT PROVEN, never a label input. Plants (each reverted): compare head only (E5 holds); enforce without the base-pass test
+# (E5 check set); observe sets the check (E2 check set); seal pushes the disclosure into the label path (E6).
+EB="$(cd "$ROOT/loki-ts" && bun -e '
+import { bootOutcome } from "./src/engine10/stages/verify.ts";
+const s = (boot: string, http = "pass", reason: string | null = null) => ({ boot, http, reason });
+const f = (o: ReturnType<typeof bootOutcome>) => [o.hold, o.check ? o.check.name : "nocheck", o.observe ? o.observe.would_label : "noentry", o.disclosure ?? "nodisc"].join("|");
+console.log("E1", f(bootOutcome(s("fail"), s("pass"), "off")));
+console.log("E2", f(bootOutcome(s("fail"), s("pass"), "observe")));
+console.log("E3", f(bootOutcome(s("fail"), s("pass"), "enforce")));
+console.log("E4", f(bootOutcome(s("n/a", "n/a", "no app detected"), null, "enforce")));
+console.log("E5", f(bootOutcome(s("pass"), s("fail"), "enforce")), "/", f(bootOutcome(s("pass"), s("pass"), "observe")));
+' 2>&1)"
+has "V4 E1: mode off gives nothing" "$EB" "E1 false|nocheck|noentry|nodisc"
+has "V4 E2: observe, the app boots on base and not with the change: an observe entry FAILED and no check" "$EB" "E2 true|nocheck|FAILED|ran end to end: head boot fail, base boot pass (disclosed, does not cap)"
+has "V4 E3: enforce, the same: a failing app boot check and no entry" "$EB" "E3 true|app boot|noentry|ran end to end: head boot fail, base boot pass (disclosed, does not cap)"
+has "V4 E4: no app: the not run end to end disclosure, no entry, no check" "$EB" "E4 false|nocheck|noentry|not run end to end: no app detected (disclosed, does not cap)"
+has "V4 E5: a change that fixed the boot holds nothing; both booting reads ran end to end" "$EB" "E5 false|nocheck|noentry|ran end to end: head boot pass, base boot fail (disclosed, does not cap) / false|nocheck|noentry|ran end to end: the app booted and answered (head and base) (disclosed, does not cap)"
+python3 -I - "$ROOT/loki-ts/src/engine10/stages/seal.ts" <<'PY' && ok "V4 E6: seal puts the boot outcome's observe entry only in the observe list and its disclosure only in NOT PROVEN (never a label input)" || bad "V4 E6: seal reads the boot outcome beyond its observe entry and disclosure"
+import re, sys
+s = re.sub(r"//[^\n]*", "", open(sys.argv[1]).read())
+uses = re.findall(r"\be2e\b[^;\n]{0,40}", s)
+want = ["e2e = ((o.verify?.end_to_end ?? {}) as { ou", "e2e?.observe) observed.push(e2e.observe)", "e2e?.disclosure) notProven.add(e2e.disclosu"]
+sys.exit(0 if sorted(uses) == sorted(want) else 1)
+PY
 
 finish

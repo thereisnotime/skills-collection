@@ -8,6 +8,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 
+## v11.174.0 (2026-11-20)
+
+### A Python project's build requirements no longer stop a passing change from reading VERIFIED
+
+- When tests run on the machine's own Python, Loki holds the label unless the repo declares no Python dependencies, because a system interpreter may not match the project's. It read the `requires` line under `[build-system]` in pyproject.toml as a declared environment. That line lists what builds a wheel (setuptools, flit_core), not what the code imports, so every pure-Python library looked like it had dependencies, and its passing fixes stayed PARTIAL.
+- Now only runtime dependencies count: a non-empty `[project] dependencies` list, optional dependencies, `install_requires`, or a poetry, pdm, uv or dependency-groups table. A project that declares any of these is still held as before.
+- Measured on the V1 calibration tuning set (the 8 fixes the bug was found on, so not an independent score): merged fixes VERIFIED went from 1 of 8 to 5 of 8, all cases right from 24 of 32 to 28 of 32, false VERIFIED stayed 0. Report: benchmarks/h2h/results/calibration-2026-11-20-build-requires.json.
+
+### Held-out result (the number that counts)
+
+- Scored on a second calibration set of 8 merged upstream fixes chosen by a pre-registered rule and never used to find the bug (benchmarks/h2h/replay/HELDOUT-CAL-2.md, results/calibration-heldout2-2026-11-20.json): 26 of 32 cases right, 0 false VERIFIED, merged fixes VERIFIED 2 of 8 (both Go; 0 of 5 Python).
+- The tuning gain did not carry over. The system-interpreter hold still fired on 4 of the 5 held-out Python fixes: on python-rsa, annotated-types and async-timeout because they declare dependencies (the rule as intended), and on tenacity because a `setup.py` with an empty `install_requires =` still counts as a declared environment. That last one is the same class of misreading as the one fixed here and is left for a later release, to be scored on a fresh set rather than this one. bracex, the one fix the hold now correctly skips (its note reads as informational), is held by other holds: no fail-then-pass test found, and a changed symbol not referenced. The change is safe: 0 false VERIFIED on 64 cases across both sets.
+- Limits of the held-out set: tasks had to be importable in the scored environment (homebrew site-packages only), which favours projects the system interpreter can run; one Go task (xstrings) was taken out of turn where go-cmp #142 qualified first, recorded and not swapped after scoring; only python-rsa has runtime dependencies active on Python 3.14.
+
+Gate: tests/min/engine10-e2e-stub.sh, the file that owns the change, on the built dist, plus the release script's fast checks; and both calibration sets above, run through the real engine with no model.
+
+## v11.173.0 (2026-11-20)
+
+### Loki's label is measured on fixed good and bad changes
+
+- `benchmarks/h2h/run.sh --suite replay --configs loki-cal-merged,loki-cal-nofix,loki-cal-plant,loki-cal-inert` replays 8 merged upstream fixes four ways (the fix with its tests, its tests without the fix, the fix with a planted break, and an unused function with no tests) through the real engine with no model, and reports how often Loki's label is right, every hold that fired on a good change, and what each observe-mode rule would have said.
+- `scripts/release.sh --ship` refuses a release that changes one of Loki's label files unless a calibration result was committed since the last release, and refuses one whose calibration has more false VERIFIED labels or fewer right labels than the previous one.
+
+### Every receipt says how the change was verified
+
+- Every receipt now carries `verified_by`: what Loki ran before the label and the one thing that proved the change, or `none`. A new label rule can run in observe mode first: it writes what it would have decided to the receipt's `observe` list and never changes the label.
+
+### Test results can be read from the runner's own report
+
+- With `LOKI_E10_STRUCTURED_RESULTS=observe`, a per-file pytest, bun, vitest or jest run also writes the runner's machine-readable report (JUnit XML or jest JSON), and verify records how often that report and Loki's reading of the printed output agree on how many tests ran and failed. A runner that rejects the report options is run again without them and its result is read as before. The label does not change. Off by default; not measured on any run in this release.
+
+### Each failure is sorted into introduced, pre-existing or unknown
+
+- Every receipt with a failing check now lists each one as introduced by the change, pre-existing (a test file that fails on the base commit too, by every failing test id and the same error), or unknown (no base comparison could be made, or the error differs from the base run). The label does not change: the receipt's observe list shows each run where dropping pre-existing failures and holding unknown ones would have given another label. `LOKI_E10_INTRODUCED=0` turns it off; `enforce` is accepted and behaves as observe in this release.
+
+### The Wall can run in observe mode
+
+- `LOKI_E10_WALL=observe` runs the Wall author as usual (tests written from the issue by a session that never sees the code, sealed and run on the base commit) but keeps its tests out of the checkout, the fix rounds and the label. A complete verify runs them at the end and the receipt records how they did and what label they would have given. The default is unchanged (the Wall stays off).
+
+### A stalled fix loop can re-plan once
+
+- With `LOKI_E10_REPLAN=1`, when the fix rounds stop making progress Loki runs one more round in a fresh session that is shown the earlier rounds' own summaries, told to take a different approach, and asked to fix the whole class of each failure. If that round makes progress the run is labeled from its result instead of ending stalled. It never runs after a spec conflict, a Wall-only or full-suite-only stop, or a limit. Off by default until a scored run measures it; `LOKI_E10_REPLAN_MAX` sets how many such rounds a run gets (default 1, 0 for none).
+
+### A test that flips on the original code too can be quarantined
+
+- With `LOKI_E10_FLAKY_QUARANTINE=observe`, when a test the change did not touch fails and then passes, Loki runs it three times on the base commit. If it flips there too it is put on this repository's quarantine list (kept in Loki's per-repo cache, never by editing the test) and taken off after three verifies in a row where it passed on the first try; the receipt shows what the label would have been. `enforce` leaves a quarantined test out of the label and discloses it. Off by default.
+
+### A repository can teach Loki a check that fires on matching changes
+
+- A tracked `.loki-checklist.json` at the repository root lists checks that run only when a change matches their trigger (a path pattern, optionally an added-line pattern), each with the run that taught it. Loki reads the file from the base commit only, never from the change. In this release a failing item is reported on the receipt and does not change the label. Items that forbid an added line are checked by default, and every line of a file the change creates counts as added; items that run a command run only with `LOKI_E10_CHECKLIST` set, and a command that also fails on the base commit is not counted against the change. `LOKI_E10_CHECKLIST=enforce` makes a failing item a failing check.
+
+### Loki can boot the change before it labels it
+
+- With `LOKI_E10_E2E_BOOT=observe`, a complete verify boots the app on the change and on the original code with the same app runner the post-PR check uses, and the receipt says whether it booted and answered on each, or why it could not run end to end. `enforce` makes an app that boots on the original code and not on the change a failing check. Off by default; driving the issue's own steps against the running app stays with the prove stage.
+
+### The cascade can also start on an introduced failure
+
+- With cascade v0 on, `LOKI_E10_CASCADE_INTRODUCED=1` also starts the next model when verify shows a failure the change introduced, and hands it that failure's output. Off by default, like the cascade itself, until the calibrated verify is measured and the cascade is scored against spend.
+
+### The changed-symbol hold can be turned into a note
+
+- `LOKI_E10_LEAN_SYMBOL_HOLD=observe` or `=0` makes 'no passing check references a changed symbol' a disclosed note instead of a hold (231 such holds sat on one correct change). The default is unchanged (the hold stays on); the calibration report counts how often it fired on the fixed good and bad changes.
+
+### What this release measures, and what it leaves for later
+
+- New: a no-model calibration eval (V1). Loki's label on 8 real merged upstream fixes, each replayed four ways (the fix, the tests without the fix, the fix with a planted break, a change that does nothing): 24 of 32 right, 0 false VERIFIED, and only 1 of the 8 good fixes reads VERIFIED. The hold that keeps 6 of the 8 good fixes below VERIFIED is "tests ran on the system interpreter". Report: benchmarks/h2h/results/calibration-seed-2026-11-20.md.
+- Every new label rule (V2, V3, V5, V8, V10) ships in observe mode or off: it writes what it would have done to the receipt and changes no label. V4, V6 and V11 ship wired and off. Defaults move only on measured evidence.
+- Release gate: a release that changes a label file now needs a calibration result committed since the last tag.
+- Deferred: V9 property and differential tests (2.5% reach), R2, R3, V2 and V5 enforce, the R1 and R4 default switches, V4's acceptance-flow driving.
+- Two end-to-end legs written before G6 (11.172.0) now pin the old low-tier rule, and a new leg shows a low-tier run with a new full-suite failure seals FAILED at the seal.
+
+Gate: the full hermetic local gate on the merged tree (30 files green; engine10-e2e-stub rerun after the leg fix: 360 passed, its one failing assertion corrected to what that run measured). Every commit was reviewed cold at its exact SHA.
+
+## v11.172.0 (2026-11-20)
+
+### A low-risk run checks the full test suite before it can say VERIFIED
+
+- At low risk tier, verify used to run only the tests closest to the change before sealing. The repo's full test suite ran only after the label, in the deep check of a pull request, so a change that broke another part of the repo could seal VERIFIED and show only as a failed status afterwards.
+- Now every tier runs the repo's full test command before the seal, through the same base comparison as medium and high tier. Low-tier runs take longer on repos with large suites.
+- `LOKI_E10_LOW_TIER_FULL_SUITE=0` restores the old rule.
+- Not measured: no test or run was done on this change (founder's call for this release).
+
+Gate: the release script's fast checks (syntax, typecheck, version consistency, release notes, dist freshness) only. No test file was run on this change.
+
+## v11.171.0 (2026-11-20)
+
+### A session's conflict claim no longer labels the run; only what Loki measured does
+
+- A run whose session stopped with LOKI_SPEC_CONFLICT (at implement or in a fix round) used to seal SPEC_CONFLICT on that word alone, before any check result was read. FireLater#18 (11.164.0), FireLater#23 (11.165.0) and hermes-agent 124107 on Haiku (seed 2, 11.158.0) sealed SPEC_CONFLICT this way: the first two on a fix round saying the failing frontend tests "fail identically on clean HEAD", which no base run had compared, the third on a gate verify never ran.
+- Now a claimed conflict seals SPEC_CONFLICT only when the last verify shows it: a Wall test that was red on base passes, a check the run did not write fails and verify attributes it to the change (its base run passed, or a failing id is not red on base), and the claim names that check's file (for a full suite, the file of one of its failing ids that is not red on base; verify's base record now lists those ids). On such a conflict the user gets the same answer path as before: a draft PR leading with the question and `loki answer`, BLOCKED, exit 4. Otherwise the claim moves no label: it is printed on the receipt, and the run is labeled exactly as the same outputs with no claim would be (a failing check the change owns or Loki could not excuse is FAILED, an empty diff is FAILED, a check verify could not compare on base holds PARTIAL by its own record).
+- A session that declines part of the issue with a claim while every check passes can no longer reach VERIFIED on the claim's silence: the claim labels nothing, and the issue's acceptance lines still hold it (an unmet line caps the run at PARTIAL, as for any run). With the claim and all checks passing and Loki's proof, the label is what the run earns without the claim, VERIFIED included.
+- Unchanged: a failure verify measured as red on base is excused as before (a fix round's "pre-existing" stop is believed only then), and an "already done" claim needs Loki's own proof re-run.
+- On the stored outputs of the three runs above, with no base run repeated: FireLater#18 and #23 read FAILED (their verifies predate the per-check base records, so nothing excused the failing frontend tests; a run on this release compares them on base first), and hermes-agent 124107 reads PARTIAL (checks that never ran). Each is the label the same outputs read with no claim.
+- `LOKI_E10_MEASURED_LABELS=0` restores the marker rule.
+- Not changed: the plan stage's out-of-repo stop still seals SPEC_CONFLICT. It is a question asked before any work, not a label on finished work. Next, an out-of-repo stop must name paths Loki confirms are absent, otherwise the run implements.
+- Known limit: the acceptance lines are what hold a session that declines part of the work with a claim. A text or PRD task with no acceptance lines, whose session declines part of it with a claim and passes every check, can still seal VERIFIED. Next, such a claim must hold the run below VERIFIED when the task has no acceptance lines.
+- Measured: unit legs for each case, an invariance table (every row reads the same label with and without the claim, except a measured conflict), nine planted defects, an end-to-end run of a measured conflict on the default path, and the replay above. Not yet measured in a live run.
+
+### Tests that were already failing no longer count against your change
+
+- To tell a failure your change caused from one that was already there, Loki runs the same tests without your change and compares. Two things made that comparison refuse failures that were plainly old, so runs ended FAILED or PARTIAL on correct work. On two real repositories (opencode and hermes-agent), every failing test of every suite also failed before the change, and Loki still counted five of the six suites against it.
+- Some test runners name a failing test without printing a message Loki can attach to it. Loki used to treat every such test as a new failure. Now a test that failed before and after with no message on either side is the same failure when the output says nothing new about your change: every line that names a file or symbol you changed was also printed before, and no more tests fail than before. A test with a message on one side only, or a different message, is still counted against the change, and so is every such test when the captured output may have been cut. Known limit: a change that breaks an already-failing test in a new way without printing anything about itself is not told apart; such tests are compared by their names and the failed count. The receipt says how many tests were compared this way. `LOKI_E10_SILENT_IDS=0` opts out.
+- A test in a suite that fails once on your change and passes when the same command is run again is no longer counted against the change. Loki reruns the suite once for such tests and lists them with the flaky tests. A test is only dropped when the rerun shows it ran and passed; a rerun that stopped early or whose output was cut changes nothing. `LOKI_E10_HEAD_RERUN=0` opts out.
+- A bun suite that prints the same test name twice no longer loses all its test ids.
+- Measured: the six stored before and after outputs of those two repositories read "same failures" with this build (one of six did before). Not yet measured: a full run on a real issue.
+
+### The change's own test is the proof for any tool, and a check that cannot run on either side no longer blocks
+
+- VERIFIED's proof is the change's own test failing before the change and passing after it, for any language or tool (`LOKI_E10_OWN_PROOF`, on by default). Until now that proof was read only through a runner Loki knows, and a failure on the base commit counted only where Loki can read an assertion (pytest and vitest), so a change proved through any other tool read "no tests executed". Loki now also runs the kept proof script in a copy of the checkout with the change's non-test files put back to the base commit, and in an untouched copy as a control: a step that ran repository code, passes on the change and in the control, and fails without the change is the proof, unless that failure is a start failure (exit 126 or 127, or a message that a file, module, command or symbol does not exist): a test of something the base lacks is never proof, the same bar as the runner-read proof. Files the change added stay in that copy. Beside either proof, "no passing check references a changed symbol" is a disclosed note and no longer a hold. Limits: only issue runs keep a proof script; a change that only adds files has no proof of this kind; a step that fails without the change and prints nothing (a pipe into a quiet grep hides the reason) never counts, so a proof script has to let its steps print why they fail; the start-failure reading sees the last three lines a step printed.
+- A check that cannot run on the base commit or on the change does not block VERIFIED (`LOKI_E10_UNRUNNABLE_CHECK`, on by default), when all four hold: the change's own proof is fail-before, pass-after; no changed file is in the check's package or named in its output; the start failure is the same on both sides and no test ran (no passed test, no assertion, no parsed id); the receipt lists it as "could not run here, on the original code either". The check keeps its failed result and is never excused. One relaxation of the package condition: a changed test file inside the check's package does not block when it is itself a test the proof showed failing before the change and passing after it (matched by its path in the proving step's command, never by its bare file name); a changed non-test file there always blocks. An install step counts too when its own tool is not on this machine (exit 127 or a spawn that found no such program, the tool is a word of the install command, and it is still not on PATH): the base run and the run on the change share the machine.
+- Limits of the two changes above. A suite that prints no test ids and no failed count cannot show a regression whose error text is identical to a start failure already on the base commit; the rule refuses a suite in which any test passed, any assertion printed or any id parsed, and does not see that case. The effect is not measured on closed-set-2 pw43305: its replay with no model cannot rebuild the product after the stored change, so the proof script fails there on the change itself, and in that replay the suite ran in part (a passed test on the base commit), which the rule refuses; the label there is PARTIAL before and after. Not measured in a live run.
+
+### Verify never changes the environment it judges
+
+- A lint or typecheck Loki chose that creates something in the checkout (a `.venv`, a new entry in `node_modules`) is now treated as Loki's own change. Nothing is deleted: when it is provably safe the path is moved into `.loki/runs/<run>/env-moved/` with a ledger line, so it can be put back; otherwise it stays and only what it held at that moment is left out of the environment checks (a later install into it still counts). The receipt says "Loki's own command changed the environment" under N/A. It is never counted against the change.
+- Intake runs only installs the repository declares: a committed lockfile, a tracked install script, the command in a cited file, a guide or a CI workflow, or a plain npm, pnpm or yarn install from a package.json on a fresh clone (no node_modules). An install Loki would have to invent is not run. Its note is N/A only when nothing depends on it or every check of its ecosystem passed; otherwise it stays on NOT PROVEN.
+- A Python project with no environment in the checkout (no `.venv`, `venv` or `VIRTUAL_ENV`) gets a `.venv` that Loki makes in the checkout at intake, before any baseline, and its requirements.txt or pyproject is installed there with `.venv/bin/python -m pip`. Loki never installs into the machine's own Python, never replaces or reinstalls an existing environment, and never makes a `.venv` during verify. The receipt names the `.venv` under N/A, and it is part of intake's baseline, so it is not a dependency change. Every `.venv` Loki makes is recorded as install output whatever the install did, so it never becomes part of the change, the commit or the PR, and it stays in place for the next run. If the `.venv` cannot be made, or has no pip, the install is skipped with a note that names the virtualenv command to run (and says when a requirements.txt was present). This replaces the PEP 668 retry and covers pip, pip3, pip3.11 and `python3 -m pip`.
+- Knobs: `LOKI_E10_ENV_GUARD=0`, `LOKI_E10_DECLARED_INSTALLS=0`.
+
+### The output of a check that stays red is kept in the run folder
+
+- When a test or lint check that verify ran itself is still failing, its output tail is now kept in `.loki/runs/<run>/check-failures.txt` (secrets redacted, 16 KiB per check, 256 KiB in all). A held-out check and a failure already shown to exist on the base are left out. The file is replaced by each verify and removed when nothing fails.
+- Why: on hermes-agent one test file failed the same 7 tests before and after the change, Loki did not attribute it, and two fix rounds chased it until the run stalled. The base output was kept; the head output was not, so the two could not be compared afterwards. A full suite's output is already kept in the receipt as an excerpt.
+- No label reads this file.
+
+### Loki's own `uv run` no longer creates a `.venv` in your checkout
+
+- In a repository with a `uv.lock` and no virtualenv, Loki runs Python tools through `uv run`. `uv run` creates `.venv` in the project, even with `--no-sync`. On hermes-agent, Loki's own lint (`uv run -- ruff check`) created a root `.venv` with the runtime packages and no pytest. The receipt then said the tests ran outside the project virtualenv, listed the `.venv` files as ignored files created during the run, and could not compare the full suite with the base because the environment had changed. Each of those kept the run below VERIFIED.
+- Loki's `uv run` now keeps its environment in a directory the run owns. A repository's own `.venv`, and a `UV_PROJECT_ENVIRONMENT` you set, are used as before. `LOKI_E10_UV_ENV_OUTSIDE=0` opts out.
+- A tool that `uv run` could not start is still reported as not started when uv prints its first-run setup lines before the error.
+- Measured on a clone of the stored hermes-agent base: after the lint command the checkout has no `.venv` and the missing ruff reads as not started. Not yet measured in a full run.
+
+### A Python module that is only named setup.py is not installed as a package
+
+- Loki treated every tracked `setup.py` as a package manifest and planned `python3 -m pip install -e .` in its directory. In hermes-agent four ordinary modules are named `setup.py` (a setup wizard and helpers), so a run carried four "install exited 1" notes and "package hermes_cli defines no test command", each of which kept the run below VERIFIED.
+- A `setup.py` is now a manifest only when it imports `setuptools` or `distutils`.
+- Measured on the stored hermes-agent base with the package model itself: 17 packages before, 13 after; the four directories and their install commands are gone and the rest is unchanged. Not yet measured in a full run.
+
+### Limits stated by review (read before relying on this release)
+
+- Known-good and known-bad behaviour is shown by unit legs, planted defects and replays of stored runs with no model. None of the five changes has been measured in a live run yet; the next step is one full ten-issue test.
+- Already-failing tests (G1): a change that breaks an already-red test in a new way without printing anything about itself is compared by test ids and the failed count only. Per-file output is recognised as cut by size (64 KiB less a margin); a runner that forces colour codes can slip under it.
+- Proof (G3): a step that fails without the change only because the new code is absent, or fails silently (for example a pipe into `grep -q`), never counts as proof, so a change that only adds new files gets no proof of this kind. The stored pw43305 proof script is made of such steps.
+- Labels (G4): a text or PRD task with no acceptance lines can still seal VERIFIED when the session declines part of the work with a claim and every check passes. The plan stage's out-of-repo stop is unchanged.
+- Environment (G2): Loki now installs a Python project's declared dependencies only into a `.venv` inside the checkout, and makes one at intake when none exists; it never installs into the machine's Python. A `.venv` folder with neither `pyvenv.cfg` nor `bin/python` is not recognised as an environment. No test covers a half-made folder left by a failed `python3 -m venv`.
+- Not in this release: at low risk tier the full suite runs only after the seal, in the post-PR deep check, so a low-tier VERIFIED on a pull request should be read with that in mind (backlog G6).
+
+Gate: the full hermetic local gate (31 of the 32 tests/min files; scratch-real-services is excluded) on the merged tree. Every change was reviewed cold at its exact commit; the merge joins were checked by the release lead.
+
 ## v11.170.0 (2026-11-20)
 
 ### A typecheck's build info inside node_modules no longer stops the base comparison
