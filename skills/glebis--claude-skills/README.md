@@ -29,6 +29,8 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 
 | Added | Skill | What it does |
 | --- | --- | --- |
+| 2026-11 | [sops-mesh](./sops-mesh/) | Share SOPS + age secrets across macOS, Linux, Windows and CI: one key per machine in Secure Enclave / Keychain / Credential Manager / libsecret, public keys over Syncthing or git with human approval, agent-safe injection, plaintext-secret scan, 25-check self-test |
+| 2026-11 | [research-catalogue](./research-catalogue/) | Research any collection (opportunities, products, studies, sources) against your question and build a standalone catalogue: cards, comparison table, facets, any dates and numbers, per-item verification status, light/dark |
 | 2026-11 | [bridgework](./bridgework/) | Consent-gated, names-only audit of your stack, then a local canvas for practising what two tools could do together, with an agent prompt at every step |
 | 2026-11 | [luma-event](./luma-event/) | AGENCY event on Lu.ma: generated cover, Zoom meeting, event page, contact invites, announcement draft |
 | 2026-11 | [research-to-integration](./research-to-integration/) | Research → bounded experiment → reusable implementation; configurable questions, autonomy and execution budgets |
@@ -58,9 +60,9 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 | --- | --- | --- |
 | <img src="./app-map/screenshot.png" alt="App map on its Test next tab: ranked screens with Copy prompt and Add to brief buttons" width="280"> | <img src="./synthetic-session-generator/screenshot.png" alt="Generated case page for a fictional client, marked synthetic" width="280"> | <img src="./gpt-image-2/screenshot.png" alt="Banner of sample images made with the skill" width="280"> |
 | Test next, from the made-up Tally example | Case page for a fictional persona | Sample image styles |
-| [luma-event](./luma-event/) | [bridgework](./bridgework/) | |
-| <img src="./luma-event/screenshot.png" alt="Event cover with a wireframe terrain and a wave crest, for a made-up 2030 meetup" width="280"> | <img src="./bridgework/screenshot.png" alt="Bridgework chain of three parts from a made-up stack, with an empty Your idea first box above example ideas" width="280"> | |
-| Cover for a made-up event | Chain on the synthetic demo stack | |
+| [luma-event](./luma-event/) | [bridgework](./bridgework/) | [research-catalogue](./research-catalogue/) |
+| <img src="./luma-event/screenshot.png" alt="Event cover with a wireframe terrain and a wave crest, for a made-up 2030 meetup" width="280"> | <img src="./bridgework/screenshot.png" alt="Bridgework chain of three parts from a made-up stack, with an empty Your idea first box above example ideas" width="280"> | <img src="./research-catalogue/screenshot.png" alt="Research catalogue demo of made-up photography open calls: serif heading, deadline timeline, and three image cards with days left, deadline and fee" width="280"> |
+| Cover for a made-up event | Chain on the synthetic demo stack | Demo catalogue of fictional open calls |
 
 ## Meetings & transcripts
 
@@ -93,6 +95,7 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 | [temple-generator](./temple-generator/) | Turn a vault into a 3D interactive knowledge map with generative audio |
 | [daydream](./daydream/) | Multi-agent mining of non-obvious connections between vault notes |
 | [insight-extractor](./insight-extractor/) | Parse `/insights` output into trackable markdown action items |
+| [research-catalogue](./research-catalogue/) | Verified research on any collection → one standalone HTML catalogue, shaped by a per-project `catalogue.json`: facets, dates of any kind (deadlines, events, publications), numeric measures, verification badges; general research method; synthetic open-calls, product and literature-review demos |
 | [weekly-digest](./weekly-digest/) | Research, score, and publish a weekly industry digest on any topic |
 | [wow-digest](./wow-digest/) | Daily digest of genuinely surprising items, scored for epistemic friction |
 | [rag-eval](./rag-eval/) | Tune RAG pipelines with structured evals instead of eyeballing |
@@ -197,6 +200,7 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 
 | Skill | What it does |
 | --- | --- |
+| [sops-mesh](./sops-mesh/) | Per-machine age keys + SOPS secrets across macOS/Linux/Windows, Syncthing or git, agents get secrets without seeing keys |
 | [ecosystem](./ecosystem/) | Audit skill health, project pulse, CLAUDE.md drift, service status |
 | [retrospective](./retrospective/) | Extract learnings from one session or all of today's, update skills and memory |
 | [skill-studio](https://github.com/glebis/skill-studio) | Interview-driven skill/automation design; analyze sessions into new skills |

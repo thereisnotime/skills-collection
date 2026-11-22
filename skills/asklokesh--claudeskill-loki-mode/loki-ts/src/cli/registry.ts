@@ -117,7 +117,7 @@ export const REGISTRY: readonly CmdSpec[] = [
       sub("list", "All learnings", { flags: [bool("--json", "Print the learnings summary as JSON")] }),
       sub("index", "Show or rebuild the memory index", { positionals: [{ name: "action", type: "enum", values: ["rebuild"] }] }),
       sub("learn", "Learn lessons from a merged PR's review comments", { positionals: [{ name: "pr", type: "string" }] }),
-      sub("lessons", "List PR review lessons with uses and outcomes", { flags: [bool("--json", "Print the lessons as JSON")] }),
+      sub("lessons", "List PR review lessons with approval state, uses and outcomes; approve <id> or apply <id> (same as loki lessons)", { flags: [bool("--json", "Print the lessons as JSON")] }),
       sub("brief", "Print the lessons and learnings block an engine10 run injects", { flags: [str("--task", "text", "Task text used to pick relevant lessons")] }),
       sub("show", "Show one learning"),
       sub("search", "Search learnings"),
@@ -125,6 +125,12 @@ export const REGISTRY: readonly CmdSpec[] = [
       sub("consolidate", "Episodic-to-semantic pipeline"),
       sub("compound", "Compound learnings"),
     ],
+  }),
+  cmd("lessons", "HIDE", "bun", "Review lessons learned from merged PRs: list them, approve one so later runs read it, or write its proposed guidance edit", "R3 approved learning; the same subtree as loki memory lessons", {
+    flags: [json], subcommands: [
+      sub("approve", "Approve one lesson so later runs read it (local to this checkout)", { positionals: [{ name: "id", type: "string" }] }),
+      sub("apply", "Write the lesson's proposed AGENTS.md line or .loki-checklist.json item into the working tree for you to commit", { positionals: [{ name: "id", type: "string" }] }),
+    ], example: "loki lessons approve prl-0123456789ab",
   }),
   cmd("knowledge", "HIDE", "bun", "What Loki has verified about this repository (the repo card); export writes it for a team to commit", "Shown by doctor --repo; the visible command list stays at 11", {
     flags: [json], subcommands: [sub("show", "Print the repo card"), sub("export", "Write .github/loki-repo-card.md")], example: "loki knowledge export",
@@ -200,7 +206,8 @@ export const REGISTRY: readonly CmdSpec[] = [
     })],
   }),
   cmd("undo", "KEEP", "bun", "Plan or apply an undo of a run", "UNDO-1/2: --plan is read-only, apply behind LOKI_UNDO=1", { flags: [bool("--plan", "Read-only plan"), bool("--list", "List runs that can be undone"), bool("--dry-run", "Report what would be undone; change nothing"), bool("--json", "JSON plan (with --plan)"), bool("--allow-unsigned", "Accept an unsigned receipt (with --plan)"), bool("--yes", "Skip the confirm prompt"), bool("--close-pr", "Also close the PR")], positionals: [{ name: "run", type: "dynamic", dynamic: "runs" }] }),
-  cmd("verify-pr", "FOLD", "bun", "Verify a PR against its linked issue in a sandbox", "VPR-2: fail-to-pass check, LOKI_VERIFY_PR=1", { migrate: "loki verify <PR url>", flags: [{ name: "--out", type: "path", desc: "Result directory" }, bool("--json", "Print the verdict object on stdout")], positionals: [{ name: "pr", type: "string" }], subcommands: [sub("respond", "Fix open review comments on the PR branch, one commit each, reply with the sha", { positionals: [{ name: "pr", type: "string" }] })] }),
+  cmd("verify-pr", "FOLD", "bun", "Verify a PR against its linked issue in a sandbox", "VPR-2: fail-to-pass check, LOKI_VERIFY_PR=1", { migrate: "loki verify <PR url>", flags: [{ name: "--out", type: "path", desc: "Result directory" }, bool("--json", "Print the verdict object on stdout")], positionals: [{ name: "pr", type: "string" }], subcommands: [sub("respond", "Same as loki address: answer review comments on a Loki PR (--post pushes and replies)", { positionals: [{ name: "pr", type: "string" }] })] }),
+  cmd("address", "HIDE", "bun", "Answer review comments on a Loki pull request", "R1 PR review loop: one verified run per comment; --post pushes and replies", { flags: [bool("--post", "Push the branch and post one reply per comment")], positionals: [{ name: "pr", type: "string" }] }),
   cmd("answer", "FOLD", "bun", "Answer a BLOCKED run; it continues under the same run id", "v10 blocked-run flow", { migrate: "loki start --answer \"<text>\"", flags: [bool("--text", "Answer text inline")], positionals: [{ name: "run", type: "dynamic", dynamic: "runs" }] }),
   cmd("engine10", "HIDE", "bun", "v10 engine router", "The v10 engine", {
     subcommands: [sub("run", "Run the v10 engine"), sub("status", "v10 status"), sub("verify", "v10 verify"), sub("keys", "v10 keys"), sub("dashboard", "v10 dashboard"), sub("modernize", "v10 modernize")],

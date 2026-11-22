@@ -45,6 +45,42 @@
 #   6. loki-ts/src/engine10/stages/seal.ts: sysInfo always null (the no-manifest leg reads PARTIAL).
 #   7. loki-ts/src/util/python.ts: declaresPythonEnv always false (the requirements.txt leg reads VERIFIED).
 #   7b. loki-ts/src/util/python.ts: pyprojectDeclaresDeps counts [build-system] requires again (the BUILD-REQUIRES cell reads true for build_only).
+#   7c. loki-ts/src/util/python.ts: declaresPythonEnv's MANIFEST counts setup.py with LOKI_E10_SETUP_DEPS on (drop the `!on &&`; the SETUP-DEPS tenacity-repo cell reads true before requirements.txt).
+#   7d. loki-ts/src/util/python.ts: setupCfgDeclaresDeps back to the key-only regex /^\s*install_requires\s*=/m (the SETUP-DEPS tenacity cfg cell reads true).
+#   7e. loki-ts/src/util/python.ts: setupPyDeclaresDeps reads a non-literal install_requires as empty (the install_requires=reqs cell reads false: false VERIFIED direction),
+#       or drops the `(?:[,)}]|$)` tail of the empty-literal test (the `[] + reqs` and `[] if x else` cells read false).
+#   7f. loki-ts/src/engine10/stages/verify.ts fullSuiteKey: build the key from paths only, no content hash (the G6 relief unit's changed-content cell reads the same key:
+#       a stale pass would be reused after a fix round edits a file).
+#   7g. verify.ts deferFullSuite: defer at low tier whatever is red (drop the keep/changed test; the unit's lint-only cell reads true and K5 reads PARTIAL instead of FAILED).
+#   7h. verify.ts: drop the `if (deferSuite) notProven.push(FULL_SUITE_DEFERRED_NOTE)` line (K2's first-verify assertion fails; a deferred verify could back VERIFIED).
+#   7i. verify.ts reusableRun: drop the pass-or-fail test (the unit's not_run record cell is reused: a timed-out suite would never run again).
+#   7i2. deep.ts runFullSuite: add a reuse line to notProven instead of relying on the check's reused field (the unit's runFullSuite cell reads np.size 1: every reused run held).
+#   7j. loki-ts/src/engine10/machine.ts syseditBroke: drop the suiteUnmeasured term (the sysedit cell's first case reads both base-red suite ids: a correct zero-model repair is undone).
+#   7j. loki-ts/src/util/python.ts PY_SATISFIES: every entry counted as met (markers and versions ignored); the SYSTEM-PROVIDES-DEPS ">=9999" cell reads true.
+#   7k. loki-ts/src/util/python.ts declaredRuntimeRequirements: requirements and lock files not checked (PY_MANIFEST); the SYSTEM-PROVIDES-DEPS requirements.txt cell reads true.
+#   7l. loki-ts/src/util/python.ts setupPyRuntimeRequirements: drop the (?=\s*[,)]) end-of-argument check; the `+ extra` and conditional reader cells read ["a"] (false VERIFIED).
+#   7m. loki-ts/src/engine10/stages/seal.ts sysProvided: return true always (rebuild dist); the pip>=9999 python leg reads VERIFIED.
+#   7n. loki-ts/src/util/python.ts interpreterSatisfies: spawn with cwd: tmpdir() again; the SYSTEM-PROVIDES-DEPS .python-version shim cell reads true (the probe asks another interpreter than the tests).
+#   7o. loki-ts/src/util/python.ts PY_SATISFIES: read only sys.path (md.version(r.name)); the PYTHONPATH pip 0.0.1 cell reads true (the tests import that copy).
+#   7p. loki-ts/src/util/python.ts setupPyRuntimeRequirements: drop the `**` unpacking test; the SPR setup(**kw) cell reads [].
+#   7q. setupPyRuntimeRequirements: drop the distutils `requires=` test; the SPR setup(requires=["a"]) cell reads [].
+#   7r. pyprojectRuntimeRequirements: drop the [tool.flit.metadata] requires and [tool.pdm] dependencies test; the SPR flit and pdm cells read [].
+#   7s. setupCfgRuntimeRequirements: drop the file:/attr: test; the SPR file: and attr: cells read the directive as a requirement.
+#   7t. setupCfgRuntimeRequirements: drop the `%(` test; the SPR interpolation cell reads ["a%(x)s"].
+#   7u. PY_SATISFIES: drop the `r.url or r.extras` test; the SYSTEM-PROVIDES-DEPS extras and URL cells read true.
+#   7v. declaredRuntimeRequirements: drop the requirements/ directory test; the SPR requirements/ cell reads ["pip>=1"] and the reqdir interpreter cell reads true.
+#   7w. setupCfgRuntimeRequirements: match only the exact key install_requires again; the SPR install-requires, Install_Requires and two-manifest cells
+#       read [] and ["pip>=1"] (the reader sees nothing, so a met second manifest lifts unchecked, and setupCfgDeclaresDeps, derived from the reader, reads no environment).
+#   7x. python.ts stripPyComments: not triple-quote aware; the SPR triple-quote cell reads [] (a `#` in a URL then hides install_requires).
+#   7o2. loki-ts/src/util/python.ts PY_SATISFIES: drop the user-site term from path; the SYSTEM-PROVIDES-DEPS PYTHONUSERBASE pip 0.0.1 cell reads true.
+#   7o3. PY_SATISFIES: drop the `[os.getcwd()]` term from path; the SYSTEM-PROVIDES-DEPS repo-root pip 0.0.1 cell reads true (the tests import that copy).
+#   7o4. PY_SATISFIES: `path[1:]` back to `path` in the existence test; the SYSTEM-PROVIDES-DEPS root-only lokiabsentdist cell reads true (a dist-info
+#       in the repo root is not an installed distribution).
+#   7y. python.ts setupPyDeclaresDeps or setupPyRuntimeRequirements: drop `(` or `{` from the class after `**` ([A-Za-z_({]); the SETUP-DEPS
+#       setup(**(cfg)) or setup(**{k: v ...}) cell reads false, or the same SPR cell reads [] (a met second manifest then lifts unchecked).
+#   7z. python.ts setupCfgRuntimeRequirements: skip only indented comment lines (/^\s+[#;]/), so a column-0 comment ends the key; the SETUP-DEPS
+#       column-0 comment cell reads false (sysCase "none": the hold lifts with no check).
+#   7z2. python.ts setupCfgDeclaresDeps: drop the `r === null ||` half; the SETUP-DEPS `file: r.txt` cell reads false.
 #   8. loki-ts/src/engine10/stages/seal.ts: drop leanHold from verdictOf (the never-calls-multiply leg reads VERIFIED).
 #   9. loki-ts/src/util/check_result.ts: changedSymbols counts any removed line as removed code (the
 #      never-calls-multiply leg reads VERIFIED: the replaced comment credits add()).
@@ -293,6 +329,153 @@ epv() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.ar
 [ "$(epv tri)" = "false,true,null" ] && ok "EMPTY-PUSH diffAgainstBase: unchanged, changed, and unknown for a ref git cannot read" || bad "EMPTY-PUSH diffAgainstBase: got $(epv tri) ($EP)"
 grep -q 'const ch = diffAgainstBase(opts.repoDir, base, "HEAD", workerEnv);' "$ROOT/loki-ts/src/engine10/supervisor.ts" && grep -q 'hasDiff = ch !== false;' "$ROOT/loki-ts/src/engine10/supervisor.ts" && ! grep -q 'any failure counts as a diff' "$ROOT/loki-ts/src/engine10/supervisor.ts" && ok "EMPTY-PUSH wiring: the supervisor's P1 gate uses the tri-state helper" || bad "EMPTY-PUSH wiring: the supervisor's P1 gate does not use diffAgainstBase"
 
+# R1 PR review loop (`loki address`, util/pr_lessons.ts respondToReview): a fake gh (one JSON answer per endpoint), a fake fixer that commits
+# on its own loki/e10-fixN branch and writes that run's receipt, an injected receipt check, an injected push. No network, no model.
+# Cells: A1 a non-Loki head branch refuses before any fix; A2 no receipt comment refuses; A3 a receipt comment from someone other than the PR
+# author refuses; A4 a comment from a read-only author is skipped (denied), the write author's thread and review summary are fixed and the
+# branch fast-forwards to the receipt's head commit; A5 the addressed reply names the sha, the run, the receipt sha and the marker, the review
+# reply carries the review marker; A6 a receipt measured from another commit is held and the branch does not move; A7 an intact signed
+# receipt whose own verdict is PARTIAL is held (verifyReceipt VERIFIED is integrity only), and the held reply names .loki/runs/<run>, not a
+# branch; A8 without --post nothing is pushed or posted and replies.json is written; A9 with --post one push, one reply per item, a held
+# reply carries the held marker at the pushed tip and goes to the right endpoint; A10 a rerun without --post on the addressed checkout says
+# how to publish; A11 --post on it publishes the saved result with no new fix run; A12 a held reply at the current PR head settles its item
+# (no new run), one at an older head does not. One cell per accept guard, each built so only that guard can hold it: A13 a receipt of
+# another run; A14 a receipt verifyReceipt reads UNSIGNED; A15 a run whose own result line is not VERIFIED; A16 a receipt that is not the
+# one the run sealed; A17 a receipt with push_refused; A18 a head commit that is not on the run's branch; A19 a commit that changes nothing.
+# Post guards: A20 the PR head moved after proof; A21 origin changed during the fix; A22 defaultRespondPush hands LOKI_PR_FORK=0 and the
+# pinned origin to the push script even when the caller set LOKI_PR_FORK=1, and a "created" answer throws. Stops (B3): A23 a fix run that
+# leaves the tree dirty holds its item and stops, the accepted item before it is saved and --post still publishes it; A24 a fix run that
+# moves the PR branch holds its item, and --post refuses to push a tip no receipt accepted. A25 a reply POST that fails after the push:
+# the rerun posts only the reply that did not go out, with no new run and no push.
+# Plants: R1a pr_lessons.ts respondToReview drop the lokiRunOfBranch refusal (A1 red); R1b hasLokiReceipt drop the PR-author test (A3 red);
+# R1c canWrite return true when the permission is unreadable or read (A4 red); R1d acceptAddressRun drop the base_sha === pre test (A6 red);
+# R1e respondToReview push when post is false (A8 red); R1f respondToReview drop the saved-result path (A11 red); R1g openReviewComments
+# drop the heldMark test from settles (A12 red: the item held at this head runs again); R1n acceptAddressRun drop the receipt verdict
+# check (A7 red); R1o drop the receipt run_id check (A13 red); R1p drop the verifyReceipt VERIFIED check (A14 red); R1q drop the outcome
+# check (A15 red); R1r drop the sealed-sha check (A16 red); R1s drop the push_refused check (A17 red); R1t drop the merge-base ancestor
+# check (A18 red); R1u drop the diffAgainstBase no-change check (A19 red); R1v respondToReview drop the head-moved-after-proof check (A20
+# red); R1w drop the origin re-read check (A21 red); R1x defaultRespondPush drop LOKI_PR_FORK: "0" (A22 red); R1y make the dirty-tree stop
+# throw again (A23 red); R1z drop the tip === landed push guard (A24 red); R1aa drop `if (e.posted) continue` (A25 red: both replies post
+# again); R1ab held replies marked at proofHead instead of landed (A9 red); R1ac renderAddressReply names loki/<run> again (A7 red).
+cat > "$T/address.ts" <<'TS'
+const SRC = process.env.AD_SRC!, root = process.argv[2]!;
+const m = await import(`${SRC}/util/pr_lessons.ts`);
+const { execFileSync } = await import("node:child_process"), { mkdirSync, writeFileSync, existsSync, readFileSync } = await import("node:fs");
+const g = (d: string, a: string[]) => execFileSync("git", ["-C", d, ...a], { encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.invalid", GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" } }).trim();
+const mkrepo = (name: string): { dir: string; h0: string } => {
+  const dir = `${root}/${name}`; mkdirSync(dir, { recursive: true }); g(dir, ["init", "-q", "-b", "main"]); writeFileSync(`${dir}/a.ts`, "export const a = 1;\n"); g(dir, ["add", "a.ts"]); g(dir, ["commit", "-q", "-m", "base"]);
+  g(dir, ["checkout", "-q", "-b", "loki/e10-orig"]); writeFileSync(`${dir}/b.ts`, "export const x = 2;\n"); g(dir, ["add", "b.ts"]); g(dir, ["commit", "-q", "-m", "run"]); g(dir, ["remote", "add", "origin", "https://github.com/acme/calc.git"]);
+  return { dir, h0: g(dir, ["rev-parse", "HEAD"]) };
+};
+type Mode = "ok" | "wrongbase" | "partial" | "nullreview" | "otherrun" | "unsigned" | "outcome" | "sha" | "refused" | "offbranch" | "empty" | "dirty2" | "moved2";
+type O = { ref?: string; receiptBy?: string | null; mode?: Mode; heldAt?: (h0: string) => string; prHead?: () => string; headMovesAfter?: boolean; failPost?: number; originFlip?: boolean };
+async function scenario(name: string, o: O, post: boolean, repo?: { dir: string; h0: string }) {
+  const r = repo ?? mkrepo(name), calls: string[] = [], posts: string[] = [], pushes: string[] = []; let fixes = 0, reads = 0, nPost = 0, origins = 0;
+  const gh = async (args: string[]) => {
+    const a = args.join(" "); calls.push(a);
+    const J = (v: unknown) => ({ code: 0, stdout: JSON.stringify(v), stderr: "" });
+    if (args.includes("POST")) { nPost++; if (o.failPost === nPost) return { code: 1, stdout: "", stderr: "HTTP 502" }; posts.push(a); return J({}); }
+    if (a === "api repos/acme/calc/pulls/5") { reads++; return J({ head: { ref: o.ref ?? "loki/e10-orig", sha: o.headMovesAfter && reads > 1 ? "e".repeat(40) : o.prHead ? o.prHead() : r.h0 }, state: "open", user: { login: "lokibot" } }); }
+    if (a === "api --paginate repos/acme/calc/issues/5/comments") return J(o.receiptBy === null ? [] : [{ user: { login: o.receiptBy ?? "lokibot" }, body: "<!-- loki-receipt -->\n## Loki receipt\n- Verify: `loki verify e10-orig`\n" }]);
+    if (a === "api --paginate repos/acme/calc/pulls/5/comments") return J([...(o.heldAt ? [{ id: 98, in_reply_to_id: 11, body: `Not changed yet.\n<!-- loki-respond-held:${o.heldAt(r.h0)} -->`, user: { login: "lokibot" } }] : []), { id: 11, body: "rename x to y", path: "b.ts", line: 1, user: { login: "alice" }, diff_hunk: "@@ -0,0 +1 @@\n+export const x = 2;", html_url: "https://github.com/acme/calc/pull/5#discussion_r11" }, { id: 12, body: "drive-by", path: "b.ts", line: 1, user: { login: "mallory" } }]);
+    if (a.startsWith("api graphql")) return J({ data: { repository: { pullRequest: { reviewThreads: { nodes: [] } } } } });
+    if (a === "api --paginate repos/acme/calc/pulls/5/reviews") return J([{ id: 21, state: "CHANGES_REQUESTED", body: "also add a note", user: { login: "alice" }, html_url: "https://github.com/acme/calc/pull/5#pullrequestreview-21" }]);
+    if (a === "api repos/acme/calc/collaborators/alice/permission") return J({ permission: "write" });
+    if (a === "api repos/acme/calc/collaborators/mallory/permission") return J({ permission: "read" });
+    return { code: 1, stdout: "", stderr: `unexpected: ${a}` };
+  };
+  const fix = async (c: { kind: string }, headRef: string) => {
+    fixes++; if (o.mode === "nullreview" && c.kind === "review") return null;
+    const id = `e10-fix${fixes}`, pre = g(r.dir, ["rev-parse", "HEAD"]), second = c.kind === "review", rs = `${"a".repeat(63)}${fixes}`;
+    const moved = o.mode === "moved2" && second, dirty = o.mode === "dirty2" && second; // moved2: commits on the PR branch itself; dirty2: leaves an untracked file on its run branch
+    if (!moved) g(r.dir, ["checkout", "-q", "-b", o.mode === "offbranch" ? `loki/side${fixes}` : `loki/${id}`]);
+    if (o.mode === "empty") g(r.dir, ["commit", "-q", "--allow-empty", "-m", `fix ${fixes}`]);
+    else { writeFileSync(`${r.dir}/f${fixes}.ts`, `export const f${fixes} = ${fixes};\n`); g(r.dir, ["add", `f${fixes}.ts`]); g(r.dir, ["commit", "-q", "-m", `fix ${fixes}`]); }
+    const head = g(r.dir, ["rev-parse", "HEAD"]);
+    if (dirty) writeFileSync(`${r.dir}/junk.txt`, "left behind\n"); else if (!moved) g(r.dir, ["checkout", "-q", headRef]);
+    mkdirSync(`${r.dir}/.loki/runs/${id}`, { recursive: true });
+    writeFileSync(`${r.dir}/.loki/runs/${id}/receipt.json`, JSON.stringify({ schema: "loki.v10.receipt/1", run_id: o.mode === "otherrun" ? "e10-other" : id, base_sha: o.mode === "wrongbase" ? "0".repeat(40) : pre, head_sha: head, receipt_sha256: rs, verdict: o.mode === "partial" ? "PARTIAL" : "VERIFIED", ...(o.mode === "refused" ? { push_refused: ["a secret in the diff"] } : {}) }));
+    return { runId: id, outcome: o.mode === "outcome" ? "PARTIAL" : "VERIFIED", receiptSha256: o.mode === "sha" ? "b".repeat(64) : rs };
+  };
+  const verify = async (p: string) => ({ verdict: o.mode === "unsigned" ? "UNSIGNED" : "VERIFIED", reasons: [], receiptSha256: (JSON.parse(readFileSync(p, "utf8")) as { receipt_sha256: string }).receipt_sha256 });
+  let res: any = null, err = "";
+  const originUrl = () => (o.originFlip && ++origins > 1 ? "https://github.com/evil/calc.git" : "https://github.com/acme/calc.git");
+  try { res = await m.respondToReview(r.dir, "acme/calc#5", { gh, fix, verify, post, push: (h: string) => { pushes.push(h); }, originUrl }); } catch (e) { err = String((e as Error).message); }
+  const file = `${r.dir}/.loki/address/acme-calc-5/replies.json`, state = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
+  return { r, res, err, fixes, posts, pushes, tip: g(r.dir, ["rev-parse", "HEAD"]), saved: state !== null, state };
+}
+const out: Record<string, string> = {};
+{ const s = await scenario("a1", { ref: "feature-x" }, false); out.a1 = [/not a Loki pull request/.test(s.err), s.fixes].join(","); }
+{ const s = await scenario("a2", { receiptBy: null }, false); out.a2 = [/carries no Loki receipt/.test(s.err), s.fixes].join(","); }
+{ const s = await scenario("a3", { receiptBy: "mallory" }, false); out.a3 = [/carries no Loki receipt/.test(s.err), s.fixes].join(","); }
+const a4 = await scenario("a4", { mode: "ok" }, false);
+{ const e = a4.res?.entries ?? []; out.a4 = [a4.err, a4.res?.fixed, a4.res?.denied, a4.fixes, e.map((x: any) => `${x.kind}:${x.id}:${x.status}`).join("+"), a4.tip === e[1]?.sha].join(",");
+  const t = e[0]?.reply ?? "", v = e[1]?.reply ?? "";
+  out.a5 = [t.includes(`Addressed in ${String(e[0]?.sha).slice(0, 12)}`), t.includes("Loki run e10-fix1"), t.includes(`receipt sha256:${"a".repeat(63)}1`), t.includes("<!-- loki-respond -->"), v.includes("<!-- loki-respond-review:21 -->"), v.startsWith("Re: https://github.com/acme/calc/pull/5#pullrequestreview-21")].join(",");
+  out.a8 = [a4.pushes.length, a4.posts.length, a4.saved, a4.res?.posted].join(","); }
+{ const s = await scenario("a6", { mode: "wrongbase" }, false); out.a6 = [s.res?.fixed, s.res?.held, /measures from 000000000000/.test(s.res?.entries?.[0]?.reason ?? ""), s.tip === s.r.h0].join(","); }
+const held = async (name: string, mode: Mode, re: RegExp, extra?: (s: any) => unknown) => { const s = await scenario(name, { mode }, false); return [s.res?.fixed, s.res?.held, re.test(s.res?.entries?.[0]?.reason ?? ""), s.tip === s.r.h0, ...(extra ? [extra(s)] : [])].join(","); };
+out.a7 = await held("a7", "partial", /^its receipt records the run as PARTIAL, not VERIFIED$/, (s) => { const t = String(s.res?.entries?.[0]?.reply ?? ""); return t.includes("kept under .loki/runs/e10-fix1 where Loki ran") && !t.includes("local branch"); });
+out.a13 = await held("a13", "otherrun", /^its receipt belongs to run e10-other, not e10-fix1$/);
+out.a14 = await held("a14", "unsigned", /^its receipt reads UNSIGNED$/);
+out.a15 = await held("a15", "outcome", /^the fix run ended PARTIAL$/);
+out.a16 = await held("a16", "sha", /^its receipt is not the one the run sealed$/);
+out.a17 = await held("a17", "refused", /security scan refused the push/);
+out.a18 = await held("a18", "offbranch", /is not on loki\/e10-fix1 on top of the branch tip/);
+out.a19 = await held("a19", "empty", /^the run changed nothing against the branch tip$/);
+{ const s = await scenario("a9", { mode: "nullreview" }, true), p = s.posts;
+  out.a9 = [s.err, s.pushes.join(" "), p.length, p.some((x) => x.includes("repos/acme/calc/pulls/5/comments/11/replies") && x.includes("<!-- loki-respond -->")), p.some((x) => x.includes("repos/acme/calc/issues/5/comments") && x.includes(`<!-- loki-respond-held-review:21:${s.tip} -->`) && !x.includes("<!-- loki-respond -->")), s.res?.posted, s.tip !== s.r.h0].join(","); }
+{ const s = await scenario("a10", { mode: "ok" }, false, a4.r); out.a10 = [/publish it with: loki address acme\/calc#5 --post/.test(s.err), s.fixes].join(","); }
+{ const s = await scenario("a11", { mode: "ok" }, true, a4.r); out.a11 = [s.err, s.fixes, s.pushes.length, s.posts.length, s.res?.fixed].join(","); }
+{ const now = await scenario("a12now", { mode: "ok", heldAt: (h) => h }, false), old = await scenario("a12old", { mode: "ok", heldAt: () => "f".repeat(40) }, false);
+  out.a12 = [now.fixes, now.res?.entries?.map((x: any) => x.id).join("+"), old.fixes].join(","); }
+{ const s = await scenario("a20", { mode: "ok", headMovesAfter: true }, true); out.a20 = [/^head moved after proof/.test(s.err), s.pushes.length, s.posts.length].join(","); }
+{ const s = await scenario("a21", { mode: "ok", originFlip: true }, true); out.a21 = [/^origin changed during the fix/.test(s.err), s.pushes.length, s.posts.length].join(","); }
+{ const dir = `${root}/a22`; mkdirSync(dir, { recursive: true }); const sh = `${dir}/push.sh`, rec = `${dir}/env.txt`;
+  writeFileSync(sh, 'printf "%s|%s|%s\\n" "${LOKI_PR_FORK:-unset}" "${_LOKI_PINNED_ORIGIN:-unset}" "$1" > "$PUSH_REC"\nprintf "%s\\n" "${FAKE_PR_STATE:-reused}" "https://github.com/acme/calc/pull/5"\n');
+  process.env.LOKI_PR_FORK = "1"; process.env.PUSH_REC = rec;
+  let e1 = "", e2 = ""; try { m.defaultRespondPush(dir, "loki/e10-orig", sh, "https://github.com/acme/calc.git", 20000); } catch (e) { e1 = String((e as Error).message); }
+  const seen = existsSync(rec) ? readFileSync(rec, "utf8").trim() : "none";
+  process.env.FAKE_PR_STATE = "created"; try { m.defaultRespondPush(dir, "loki/e10-orig", sh, "https://github.com/acme/calc.git", 20000); } catch (e) { e2 = String((e as Error).message); }
+  delete process.env.FAKE_PR_STATE; delete process.env.LOKI_PR_FORK; delete process.env.PUSH_REC;
+  out.a22 = [e1, seen, /a NEW PR was opened/.test(e2)].join(","); }
+{ const s = await scenario("a23", { mode: "dirty2" }, true), e = s.res?.entries ?? [];
+  out.a23 = [s.err, s.pushes.length, s.posts.length, e.map((x: any) => `${x.kind}:${x.status}`).join("+"), /^the fix run left uncommitted changes/.test(e[1]?.reason ?? ""), s.state?.entries?.length, s.state?.head === e[0]?.sha].join(","); }
+{ const s = await scenario("a24", { mode: "moved2" }, true), e = s.state?.entries ?? [];
+  out.a24 = [/its last accepted commit is/.test(s.err), s.pushes.length, s.posts.length, e.map((x: any) => `${x.kind}:${x.status}`).join("+"), /moved during the fix run/.test(e[1]?.reason ?? "")].join(","); }
+{ const a = await scenario("a25", { mode: "ok", failPost: 2 }, true), tip = String(a.state?.head ?? "");
+  const b = await scenario("a25b", { mode: "ok", prHead: () => tip }, true, a.r);
+  out.a25 = [/HTTP 502/.test(a.err), a.pushes.length, a.posts.length, b.err, b.fixes, b.pushes.length, b.posts.length, b.posts.every((x) => x.includes("repos/acme/calc/issues/5/comments")), b.state?.posted].join(","); }
+console.log(JSON.stringify(out));
+TS
+AD="$(cd "$ROOT/loki-ts" && AD_SRC="$ROOT/loki-ts/src" bun "$T/address.ts" "$T/address" 2>&1 | tail -1)"
+adv() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2]))' "$AD" "$1" 2>/dev/null; }
+[ "$(adv a1)" = "true,0" ] && ok "R1 address A1: a head branch that is not loki/<run> refuses before any fix run" || bad "R1 A1: got $(adv a1) ($AD)"
+[ "$(adv a2)" = "true,0" ] && ok "R1 address A2: no local receipt and no receipt comment refuses" || bad "R1 A2: got $(adv a2)"
+[ "$(adv a3)" = "true,0" ] && ok "R1 address A3: a receipt comment from someone other than the PR author is not a receipt" || bad "R1 A3: got $(adv a3)"
+[ "$(adv a4)" = ",2,1,2,thread:11:addressed+review:21:addressed,true" ] && ok "R1 address A4: the read-only author is skipped, the thread and the review summary are fixed, the branch is at the last receipt's head" || bad "R1 A4: got $(adv a4)"
+[ "$(adv a5)" = "true,true,true,true,true,true" ] && ok "R1 address A5: the reply names the sha, the run, the receipt sha and the marker; the review reply carries the review marker" || bad "R1 A5: got $(adv a5)"
+[ "$(adv a6)" = "0,2,true,true" ] && ok "R1 address A6: a receipt measured from another commit is held and the branch does not move" || bad "R1 A6: got $(adv a6)"
+[ "$(adv a7)" = "0,2,true,true,true" ] && ok "R1 address A7: an intact signed receipt whose own verdict is PARTIAL is held; the held reply names .loki/runs/<run>, not a branch" || bad "R1 A7: got $(adv a7)"
+[ "$(adv a8)" = "0,0,true,false" ] && ok "R1 address A8: without --post nothing is pushed or posted; replies.json is written" || bad "R1 A8: got $(adv a8)"
+[ "$(adv a9)" = ",loki/e10-orig,2,true,true,true,true" ] && ok "R1 address A9: --post pushes once and posts one reply per item; the held review reply has the held marker at the pushed tip on the issue thread" || bad "R1 A9: got $(adv a9)"
+[ "$(adv a10)" = "true,0" ] && ok "R1 address A10: a rerun without --post on the addressed checkout says how to publish and runs nothing" || bad "R1 A10: got $(adv a10)"
+[ "$(adv a11)" = ",0,1,2,2" ] && ok "R1 address A11: --post on the addressed checkout publishes the saved result with no new fix run" || bad "R1 A11: got $(adv a11)"
+[ "$(adv a12)" = "1,21,2" ] && ok "R1 address A12: a held reply at the current PR head settles its item; one at an older head does not" || bad "R1 A12: got $(adv a12)"
+[ "$(adv a13)" = "0,2,true,true" ] && ok "R1 address A13: a receipt of another run is held" || bad "R1 A13: got $(adv a13)"
+[ "$(adv a14)" = "0,2,true,true" ] && ok "R1 address A14: a receipt verifyReceipt reads UNSIGNED is held" || bad "R1 A14: got $(adv a14)"
+[ "$(adv a15)" = "0,2,true,true" ] && ok "R1 address A15: a run whose result line is not VERIFIED is held, though its receipt reads VERIFIED" || bad "R1 A15: got $(adv a15)"
+[ "$(adv a16)" = "0,2,true,true" ] && ok "R1 address A16: a receipt that is not the one the run sealed is held" || bad "R1 A16: got $(adv a16)"
+[ "$(adv a17)" = "0,2,true,true" ] && ok "R1 address A17: a receipt whose security scan refused the push is held" || bad "R1 A17: got $(adv a17)"
+[ "$(adv a18)" = "0,2,true,true" ] && ok "R1 address A18: a head commit on top of the tip but not on the run's own branch is held" || bad "R1 A18: got $(adv a18)"
+[ "$(adv a19)" = "0,2,true,true" ] && ok "R1 address A19: a run commit that changes nothing is held" || bad "R1 A19: got $(adv a19)"
+[ "$(adv a20)" = "true,0,0" ] && ok "R1 address A20: --post refuses when the PR head moved after proof; nothing pushed or posted" || bad "R1 A20: got $(adv a20)"
+[ "$(adv a21)" = "true,0,0" ] && ok "R1 address A21: --post refuses when origin changed during the fix; nothing pushed or posted" || bad "R1 A21: got $(adv a21)"
+[ "$(adv a22)" = ",0|https://github.com/acme/calc.git|push-pr,true" ] && ok "R1 address A22: the push gets LOKI_PR_FORK=0 and the pinned origin even under LOKI_PR_FORK=1; a created PR throws" || bad "R1 A22: got $(adv a22)"
+[ "$(adv a23)" = ",1,2,thread:addressed+review:held,true,2,true" ] && ok "R1 address A23: a fix run that leaves the tree dirty holds its item and stops; the accepted item is saved and --post publishes it" || bad "R1 A23: got $(adv a23)"
+[ "$(adv a24)" = "true,0,0,thread:addressed+review:held,true" ] && ok "R1 address A24: a fix run that moves the PR branch is held, and --post refuses a tip no receipt accepted" || bad "R1 A24: got $(adv a24)"
+[ "$(adv a25)" = "true,1,1,,0,0,1,true,true" ] && ok "R1 address A25: after a reply POST fails past the push, the rerun posts only the missing reply, with no run and no push" || bad "R1 A25: got $(adv a25)"
+
 echo "TEST: engine10 end to end on the stub provider"
 
 FIX="$ROOT/tests/min/fixtures/e2e"
@@ -515,6 +698,115 @@ const c = ["[build-system]\nrequires = [\"setuptools\"]\n[project]\nname = \"x\"
   "[project]\ndependencies = [\"requests\"]\n", "[project]\ndependencies = [\n  \"attrs\",\n]\n", "[project.optional-dependencies]\ntest = [\"pytest\"]\n", "[tool.poetry.dependencies]\npython = \"3\"\n", "[dependency-groups]\ndev = [\"pytest\"]\n"];
 console.log(c.map(f).join(" "));' 2>&1)"
 [ "$BR" = "false false false true true true true true" ] && ok "BUILD-REQUIRES: build-system requires and an empty dependencies list do not count as a Python environment; real dependencies do" || bad "BUILD-REQUIRES unit gave: $BR"
+# SETUP-DEPS (util/python.ts setupPyDeclaresDeps, setupCfgDeclaresDeps, declaresPythonEnv): a setup.py counts only with an install_requires that is
+# not an empty literal (computed values count, fail closed; setup_requires never counts), a setup.cfg only with a non-empty [options] install_requires.
+# hc2 tenacity has both triggers: setup.py with only setup_requires and setup.cfg with an empty `install_requires =`. Plants 7c, 7d, 7e, 7y
+# (`setup(**(cfg))` and `setup(**{...})` count), 7z (a column-0 comment inside the value does not end the key, as configparser reads it) and 7z2 (a `file:` value counts).
+SD="$(cd "$ROOT/loki-ts" && SD_DIR="$T/setup-deps" bun --no-env-file --config=/dev/null -e '
+const { setupPyDeclaresDeps: py, setupCfgDeclaresDeps: cfg, declaresPythonEnv } = await import("./src/util/python.ts");
+const { mkdirSync, writeFileSync } = await import("node:fs"); const { spawnSync } = await import("node:child_process");
+const ten = "#!/usr/bin/env python\n# Licensed under the Apache License\nimport setuptools\n\nsetuptools.setup(\n    setup_requires=[\"setuptools_scm\"],\n    use_scm_version=True,\n)\n";
+const pyc = [ten, "from setuptools import setup\nsetup()\n", "setup(name=\"x\", install_requires=[])\n", "setup(install_requires=[\"a>=1\"])\n",
+  "setup(install_requires=reqs)\n", "setup(install_requires=open(\"r.txt\").read().splitlines())\n", "setup(name=\"x\")  # install_requires=[\"a\"]\n",
+  "setup(install_requires=[] + reqs)\n", "setup(install_requires=[] if x else [\"a\"])\n", "setup(\n    install_requires=[],\n)\n", "setup(**(cfg))\n",
+  "setup(**{k: v for k, v in c})\n"];
+const tenCfg = "[metadata]\nname = tenacity\n\n[options]\ninstall_requires =\npython_requires = >=3.10\npackages = find:\n\n[options.extras_require]\ntest =\n    pytest\n    tornado>=4.5\n    typeguard\n";
+const cfc = [tenCfg, "[options]\ninstall_requires =\n    a>=1\n", "[options]\ninstall_requires = a\n", "[options]\ninstall_requires =\n    # none\n", "[options.extras_require]\ninstall_requires = a\n",
+  "[options]\ninstall_requires =\n# core\n    requests>=9999\n", "[options]\ninstall_requires = file: r.txt\n"];
+const d = process.env.SD_DIR; mkdirSync(d, { recursive: true });
+const git = (...a) => spawnSync("git", ["-C", d, ...a], { encoding: "utf8" });
+git("init", "-q", "-b", "main"); git("config", "user.name", "e2e"); git("config", "user.email", "e2e@example.invalid");
+writeFileSync(d + "/setup.py", ten); writeFileSync(d + "/setup.cfg", tenCfg);
+writeFileSync(d + "/pyproject.toml", "[build-system]\nrequires = [\"setuptools\", \"setuptools_scm[toml]>=3.4\"]\n\n[tool.ruff]\nline-length = 88\n");
+git("add", "-A", "."); git("commit", "-q", "-m", "base"); const before = declaresPythonEnv(d, "HEAD");
+writeFileSync(d + "/requirements.txt", "tornado\n"); git("add", "requirements.txt"); git("commit", "-q", "-m", "reqs");
+console.log(pyc.map(py).join(" ") + " | " + cfc.map(cfg).join(" ") + " | " + before + " " + declaresPythonEnv(d, "HEAD"));' 2>&1)"
+[ "$SD" = "false false false true true true false true true false true true | false true true false false true true | false true" ] && ok "SETUP-DEPS: a setup.py or setup.cfg counts as a Python environment only with runtime requirements (tenacity's reads false, a requirements.txt makes it true)" || bad "SETUP-DEPS unit gave: $SD"
+# SYSTEM-PROVIDES-DEPS (util/python.ts systemProvidesDeclared, seal.ts sysInfo): a repo that declares runtime requirements reads the
+# system-interpreter note as informational only when the interpreter that ran the tests meets every one. Readers first (no interpreter): poetry
+# caret and tilde bounds as PEP 440 (^0.x is the lift-direction trap), a computed setup.py list unreadable, [project] dynamic dependencies unreadable;
+# one value per fail-closed guard (plants 7p to 7t, 7v to 7y): `**`, distutils requires=, flit and pdm tables, file:, attr:, `%(`, a requirements/ file,
+# both setup.cfg key spellings, a triple-quoted string before a URL fragment, two manifests whose second needs the key match (control: docs/base.txt),
+# and `**` before a parenthesis or a brace.
+SPR="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const m = await import("./src/util/python.ts");
+const j = (v) => JSON.stringify(v);
+const pp = "[project]\ndependencies = [\"pip>=1\"]\n", rd = (other) => (f) => (f === "pyproject.toml" ? pp : other);
+console.log([m.poetryConstraintToPep440("^1.2.3"), m.poetryConstraintToPep440("^0.2.3"), m.poetryConstraintToPep440("^0.0.3"), m.poetryConstraintToPep440("~1.2.3"), j(m.poetryConstraintToPep440("1.0||2.0")),
+  j(m.pyprojectRuntimeRequirements("[tool.poetry.dependencies]\npython = \"^3.8\"\npyasn1 = \">=0.1.3\"\n")), j(m.pyprojectRuntimeRequirements("[project]\ndynamic = [\"dependencies\"]\n")),
+  j(m.pyprojectRuntimeRequirements("[tool.poetry.dependencies]\nx = { git = \"https://example.invalid/x\" }\n")), j(m.setupPyRuntimeRequirements("setup(install_requires=reqs)")),
+  j(m.setupPyRuntimeRequirements("setup(install_requires=[\"a>=1\"], setup_requires=[\"s\"])")), j(m.setupCfgRuntimeRequirements("[options]\ninstall_requires =\npython_requires = >=3.10\n")),
+  j(m.setupPyRuntimeRequirements("setup(install_requires=[\"a\"] + extra)")), j(m.setupPyRuntimeRequirements("setup(install_requires=[\"a\"] if x else [\"b\"])")),
+  j(m.setupPyRuntimeRequirements("setup(**kw)")), j(m.setupPyRuntimeRequirements("setup(requires=[\"a\"])")), j(m.pyprojectRuntimeRequirements("[tool.flit.metadata]\nrequires = [\"a\"]\n")),
+  j(m.pyprojectRuntimeRequirements("[tool.pdm]\ndependencies = [\"a\"]\n")), j(m.setupCfgRuntimeRequirements("[options]\ninstall_requires = file: r.txt\n")),
+  j(m.setupCfgRuntimeRequirements("[options]\ninstall_requires = attr: pkg.REQS\n")), j(m.setupCfgRuntimeRequirements("[options]\ninstall_requires =\n    a%(x)s\n")),
+  j(m.declaredRuntimeRequirements(["pyproject.toml", "requirements/base.txt"], rd("pip\n"))), j(m.declaredRuntimeRequirements(["pyproject.toml", "docs/base.txt"], rd("pip\n"))),
+  j(m.setupCfgRuntimeRequirements("[options]\ninstall-requires = zzz\n")), j(m.setupCfgRuntimeRequirements("[options]\nInstall_Requires = zzz\n")),
+  j(m.setupPyRuntimeRequirements("\"\"\"5\" disk\"\"\"\nsetup(url=\"https://x/#r\", install_requires=[\"zzz\"])")),
+  j(m.declaredRuntimeRequirements(["pyproject.toml", "setup.cfg"], rd("[options]\nInstall_Requires = zzz\n"))), j(m.setupPyRuntimeRequirements("setup(**(cfg))")),
+  j(m.setupPyRuntimeRequirements("setup(**{k: v for k, v in c})"))].join(" "));' 2>&1)"
+SPR_WANT='>=1.2.3,<2.0.0 >=0.2.3,<0.3.0 >=0.0.3,<0.0.4 >=1.2.3,<1.3 null ["pyasn1>=0.1.3"] null null null ["a>=1"] [] null null null null null null null null null null ["pip>=1"] ["zzz"] ["zzz"] ["zzz"] ["pip>=1","zzz"] null null'
+[ "$SPR" = "$SPR_WANT" ] && ok "SYSTEM-PROVIDES-DEPS readers: caret and tilde bounds translate, computed, dynamic and git requirements are unreadable" || bad "SYSTEM-PROVIDES-DEPS readers gave: $SPR"
+# Interpreter cells, on scratch repos, against a distribution this python3 really has (pip, version probed, never hardcoded). Plants:
+#   7j. util/python.ts PY_SATISFIES: append every entry as met (skip the marker and specifier checks); the ">=9999" cell reads true (false VERIFIED).
+#   7k. util/python.ts declaredRuntimeRequirements: drop the PY_MANIFEST check; the requirements.txt cell reads true (false VERIFIED).
+#   7n. interpreterSatisfies back to cwd: tmpdir(): the pyver cell (a shim that picks its interpreter by .python-version in the working directory, as pyenv,
+#       asdf and mise do) reads true; nopyver is its control (no .python-version, the shim's other interpreter has the requirement: true either way).
+#   7o. PY_SATISFIES reads only sys.path: the PYTHONPATH pip 0.0.1 cell reads true; a PYTHONPATH pip 99.0 copy is its control (true).
+#       Both get the caller's whole environment with only PYTHONPATH set, so they differ from the rsa cell by that one variable.
+#   7u. no url/extras test: the extras and URL cells read true. 7v. no requirements/ directory test: the reqdir cell reads true.
+#   7o2. no user-site term: the PYTHONUSERBASE pip 0.0.1 cell reads true (its control sets PYTHONNOUSERSITE=1: true). The user site directory is
+#       the one this python3 prints for that PYTHONUSERBASE, never hardcoded (a framework build uses lib/python/site-packages).
+#   7o3. no cwd term: the rootlow cell (pip-0.0.1.dist-info in the repo root) reads true. 7o4. `path[1:]` back to `path`: the absent cell (a root-only
+#       lokiabsentdist-1.0.dist-info, no such distribution installed) reads true. The working directory may refute, never satisfy.
+if python3 -I -c 'import importlib.metadata as m; m.version("pip")
+try:
+    import packaging.requirements
+except Exception:
+    import pip._vendor.packaging.requirements' >/dev/null 2>&1; then
+    spd_repo() { # $1 name, then path=content pairs
+        local r="$T/spd-$1"; shift; mkdir -p "$r"
+        while [ $# -gt 0 ]; do mkdir -p "$(dirname "$r/${1%%=*}")"; printf '%b' "${1#*=}" > "$r/${1%%=*}"; shift; done
+        git -C "$r" init -q -b main; git -C "$r" config user.name e2e; git -C "$r" config user.email e2e@example.invalid; git -C "$r" add -A .; git -C "$r" commit -q -m base
+    }
+    spd_repo rsa 'pyproject.toml=[tool.poetry.dependencies]\npython = "^3.8"\npip = ">=1"\n'
+    spd_repo high 'pyproject.toml=[tool.poetry.dependencies]\npython = "^3.8"\npip = ">=9999"\n'
+    spd_repo marker 'pyproject.toml=[project]\nname = "x"\ndependencies = ["nosuchdist-loki-xyz; python_version < \\"2\\"", "pip>=1"]\n'
+    spd_repo computed 'setup.py=from setuptools import setup\nsetup(install_requires=reqs)\n'
+    spd_repo reqtxt 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip>=1"]\n' 'requirements.txt=pip\n'
+    spd_repo tooling 'pyproject.toml=[project]\nname = "x"\n[project.optional-dependencies]\ntest = ["pytest"]\n'
+    spd_repo extras 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip[x]>=1"]\n'
+    spd_repo url 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip @ https://example.invalid/pip.whl"]\n'
+    spd_repo reqdir 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip>=1"]\n' 'requirements/base.txt=pip\n'
+    spd_repo pyver 'pyproject.toml=[project]\nname = "x"\ndependencies = ["lokifakespd>=1"]\n' '.python-version=system\n'
+    spd_repo nopyver 'pyproject.toml=[project]\nname = "x"\ndependencies = ["lokifakespd>=1"]\n'
+    spd_repo absent 'pyproject.toml=[project]\nname = "x"\ndependencies = ["lokiabsentdist>=1"]\n' 'lokiabsentdist-1.0.dist-info/METADATA=Metadata-Version: 2.1\nName: lokiabsentdist\nVersion: 1.0\n'
+    spd_repo rootlow 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip>=1"]\n' 'pip-0.0.1.dist-info/METADATA=Metadata-Version: 2.1\nName: pip\nVersion: 0.0.1\n'
+    spd_us="$(PYTHONUSERBASE="$T/spd-ub" python3 -c 'import site; print(site.getusersitepackages())')"
+    mkdir -p "$spd_us/pip-0.0.1.dist-info"; printf 'Metadata-Version: 2.1\nName: pip\nVersion: 0.0.1\n' > "$spd_us/pip-0.0.1.dist-info/METADATA"; unset spd_us
+    for d in spd-fake/lokifakespd-1.0 spd-pp-low/pip-0.0.1 spd-pp-high/pip-99.0; do # dist-info copies: name and version from the directory
+        mkdir -p "$T/$d.dist-info"; n="${d#*/}"; printf 'Metadata-Version: 2.1\nName: %s\nVersion: %s\n' "${n%-*}" "${n##*-}" > "$T/$d.dist-info/METADATA"
+    done; unset d n
+    printf '#!/bin/sh\n# picks its interpreter by working directory, as a pyenv shim does: with .python-version here the real python3, elsewhere one that also sees %s\nif [ -f .python-version ]; then exec python3 "$@"; fi\nexec python3 -I -c "import sys; sys.path.insert(0, \\"%s\\"); exec(sys.argv[1])" "$3"\n' "$T/spd-fake" "$T/spd-fake" > "$T/spd-cwd-python"; chmod +x "$T/spd-cwd-python"
+    printf '#!/bin/sh\n# a python3 whose packaging and pip cannot be imported; argv is -I -c <script>\nexec python3 -I -c "import sys; sys.modules[\\"packaging\\"] = None; sys.modules[\\"pip\\"] = None; exec(sys.argv[1])" "$3"\n' > "$T/spd-nopkg-python"; chmod +x "$T/spd-nopkg-python"
+    SPD="$(cd "$ROOT/loki-ts" && T="$T" bun --no-env-file --config=/dev/null -e '
+const { systemProvidesDeclared: f } = await import("./src/util/python.ts");
+const T = process.env.T, { PYTHONNOUSERSITE: _nus, ...us } = process.env;
+console.log([f(`${T}/spd-rsa`, "HEAD", "python3"), f(`${T}/spd-high`, "HEAD", "python3"), f(`${T}/spd-marker`, "HEAD", "python3"), f(`${T}/spd-computed`, "HEAD", "python3"),
+  f(`${T}/spd-reqtxt`, "HEAD", "python3"), f(`${T}/spd-rsa`, "HEAD", `${T}/spd-nopkg-python`), f(`${T}/spd-tooling`, "HEAD", "python3"),
+  f(`${T}/spd-extras`, "HEAD", "python3"), f(`${T}/spd-url`, "HEAD", "python3"), f(`${T}/spd-reqdir`, "HEAD", "python3"),
+  f(`${T}/spd-pyver`, "HEAD", `${T}/spd-cwd-python`), f(`${T}/spd-nopyver`, "HEAD", `${T}/spd-cwd-python`),
+  f(`${T}/spd-rsa`, "HEAD", "python3", { ...process.env, PYTHONPATH: `${T}/spd-pp-low` }),
+  f(`${T}/spd-rsa`, "HEAD", "python3", { ...process.env, PYTHONPATH: `${T}/spd-pp-high` }),
+  f(`${T}/spd-rsa`, "HEAD", "python3", { ...us, PYTHONUSERBASE: `${T}/spd-ub` }), f(`${T}/spd-rsa`, "HEAD", "python3", { ...us, PYTHONUSERBASE: `${T}/spd-ub`, PYTHONNOUSERSITE: "1" }),
+  f(`${T}/spd-absent`, "HEAD", "python3"), f(`${T}/spd-rootlow`, "HEAD", "python3")].join(" "));' 2>&1)"
+    SPD_WANT="true false true false false false false false false false false true false true false true false false"
+    [ "$SPD" = "$SPD_WANT" ] && ok "SYSTEM-PROVIDES-DEPS: a met poetry requirement and a marker-false entry lift; an unmet version, a computed list, a requirements.txt, no packaging, no runtime requirement, an extra, a URL, a requirements/ file, an interpreter chosen by the repo's .python-version, a failing PYTHONPATH, user-site or repo-root copy and a repo-root-only copy keep the hold" || bad "SYSTEM-PROVIDES-DEPS unit gave: $SPD (want: $SPD_WANT)"
+elif [ "${CI:-}" = "true" ]; then
+    bad "SYSTEM-PROVIDES-DEPS: python3 has no pip distribution or packaging (required in CI)"
+else
+    echo "SKIP: SYSTEM-PROVIDES-DEPS interpreter cells (python3 has no pip distribution or packaging)"
+fi
 # High tier through the BUNDLE (LOKI_TS_ENTRY is dist/loki.js): the security scan must find its script from the package
 # root. A path relative to the bundle file points outside the package and reads "secret-scan.sh not found" (PARTIAL).
 LOKI_RISK_TIER=high LOKI_SESSION_MODEL=haiku E2E_STUB_ARGV_LOG="$T/high-argv.log" run_engine done
@@ -530,6 +822,21 @@ if python3 -m pytest --version >/dev/null 2>&1; then
     py_engine calc.py requirements.txt
     [ "$(outcome)" = "PARTIAL" ] && ok "python, requirements.txt declared: still capped at PARTIAL" || bad "python, requirements.txt declared: outcome '$(outcome)', not PARTIAL"
     grep -qx "$SYS" <<< "$NOTES" && ok "python, requirements.txt declared: system-interpreter note caps (no suffix)" || bad "python, requirements.txt declared: note missing or marked informational"
+    # SYSTEM-PROVIDES-DEPS seal wiring (seal.ts sysCase): a pyproject whose one runtime requirement this python3 meets reads VERIFIED with the
+    # provided suffix; an unmet one keeps the plain capping note (plant 7m). Needs the pip distribution on python3 (the stub legs' interpreter).
+    if python3 -I -c 'import importlib.metadata as m; m.version("pip")' >/dev/null 2>&1; then
+        spd_met() { printf '[project]\nname = "calc"\nversion = "0"\ndependencies = ["pip>=1"]\n' > "$REPO/pyproject.toml"; }
+        spd_unmet() { printf '[project]\nname = "calc"\nversion = "0"\ndependencies = ["pip>=9999"]\n' > "$REPO/pyproject.toml"; }
+        PY_PREP=spd_met py_engine calc.py
+        [ "$(outcome)" = "VERIFIED" ] && ok "python, pyproject requirement met on this interpreter: VERIFIED" || { bad "python, pyproject requirement met: outcome '$(outcome)', not VERIFIED"; printf '%s\n' "$NOTES" | sed 's/^/    np | /'; }
+        grep -qF "$SYS (this interpreter has every runtime requirement the repo declares; informational, does not cap)" <<< "$NOTES" && ok "python, pyproject requirement met: note carries the provided suffix" || bad "python, pyproject requirement met: provided suffix missing"
+        PY_PREP=spd_unmet py_engine calc.py
+        [ "$(outcome)" = "PARTIAL" ] && ok "python, pyproject requirement unmet (pip>=9999): still capped at PARTIAL" || bad "python, pyproject requirement unmet: outcome '$(outcome)', not PARTIAL"
+        grep -qx "$SYS" <<< "$NOTES" && ok "python, pyproject requirement unmet: system-interpreter note caps (no suffix)" || bad "python, pyproject requirement unmet: note missing or marked informational"
+        PY_PREP=spd_met LOKI_E10_SYSTEM_PROVIDES_DEPS=0 py_engine calc.py
+        [ "$(outcome)" = "PARTIAL" ] && ok "python, LOKI_E10_SYSTEM_PROVIDES_DEPS=0: a met requirement is held again" || bad "python, LOKI_E10_SYSTEM_PROVIDES_DEPS=0: outcome '$(outcome)', not PARTIAL"
+        unset -f spd_met spd_unmet
+    fi
     py_engine extra.py
     [ -n "$(outcome)" ] && [ "$(outcome)" != "VERIFIED" ] && ok "python, change no test imports: not VERIFIED ($(outcome))" || { bad "python, change no test imports: outcome '$(outcome)'"; printf '%s\n' "$NOTES" | sed 's/^/    np | /'; }
     PY_UNTESTED=1 py_engine calc.py
@@ -667,6 +974,82 @@ f="$(pr_facts)"; set -- $f
 run_pr new-g6 new
 f="$(pr_facts)"; set -- $f
 [ "$6" = FAILED ] && ok "G6: a low-tier run with a new full-suite failure seals FAILED at the seal, not VERIFIED with a later deep-worker failure (the work still goes out as a draft PR)" || bad "G6: low-tier new failure gave verdict $6 ($f)"
+# K5: the G6 leg above (a break only the full suite sees) must still read FAILED with FULL-SUITE-FINAL-ONLY and FULL-SUITE-REUSE on (both default on).
+# G6 RELIEF unit (verify.ts fullSuiteKey, depStamp, deferFullSuite, reusableRun, nextSuiteRuns; deep.ts runFullSuite reuse). K1: the key moves with a changed
+# file's content, an added untracked file, a deleted file and a dependency entry, and (a deliberate deviation from the spec's per-package scope) with a changed
+# file in another package too: a package suite reads its dependencies' sources and a relative import across packages declares nothing, so every changed
+# path is in every suite's key. depStamp ignores a runner cache and moves with an added or reinstalled package. deferFullSuite defers at low tier only on a
+# red that feeds the fix round. reusableRun (K3, K3b, 7i): equal key and a pass or fail record reuses, marked on the check; another key, a stopped
+# previous verify or a not_run record never does; a quick verify carries the record forward; the reused check is a copy. runFullSuite pushes a reused
+# result without running the suite and adds no NOT PROVEN line (7i2). Seal's label rule caps a verify that carries the deferred line (7h).
+G6R="$(cd "$ROOT/loki-ts" && G6R_DIR="$T/g6r" bun --no-env-file --config=/dev/null -e '
+const v = await import("./src/engine10/stages/verify.ts"), se = await import("./src/engine10/stages/seal.ts"), dp = await import("./src/engine10/stages/deep.ts");
+const { mkdirSync, writeFileSync } = await import("node:fs"); const { spawnSync } = await import("node:child_process");
+const H = { "calc.ts": "a1", "calc.test.ts": "b1" }, B = { baseSha: "s0", name: "full suite: bun", cmd: "bun test", cwd: ".", hashes: H, deps: ["node_modules/x=pkg:10:1"] }, K = (o) => v.fullSuiteKey({ ...B, ...o }), k0 = K({});
+const PA = { cwd: "packages/a", name: "full suite: a" };
+const k1 = [K({}) === k0, K({ hashes: { ...H, "calc.ts": "a2" } }) !== k0, K({ hashes: { ...H, "new.ts": "c1" } }) !== k0, K({ hashes: { ...H, "calc.ts": "-" } }) !== k0, K({ deps: [...B.deps, "node_modules/y=pkg:3:1"] }) !== k0,
+  K({ ...PA, hashes: { ...H, "packages/b/x.ts": "d1" } }) !== K(PA), K({ ...PA, hashes: { ...H, "root.ts": "r1" } }) !== K(PA), K({ hashes: { "calc.test.ts": "b1", "calc.ts": "a1" } }) === k0].every(Boolean);
+const d = process.env.G6R_DIR; mkdirSync(d + "/node_modules/foo", { recursive: true }); writeFileSync(d + "/node_modules/foo/package.json", "{\"version\":\"1.0.0\"}");
+const s1 = v.depStamp(d, "."); mkdirSync(d + "/node_modules/.vite", { recursive: true }); writeFileSync(d + "/node_modules/.vite/dep.json", "{}"); const s2 = v.depStamp(d, ".");
+mkdirSync(d + "/node_modules/bar", { recursive: true }); writeFileSync(d + "/node_modules/bar/package.json", "{}"); const s3 = v.depStamp(d, ".");
+writeFileSync(d + "/node_modules/foo/package.json", "{\"version\":\"1.10.0\"}"); const s4 = v.depStamp(d, ".");
+const ds = [JSON.stringify(s1) === JSON.stringify(s2), JSON.stringify(s2) !== JSON.stringify(s3), JSON.stringify(s3) !== JSON.stringify(s4)].join(",");
+const lowIn = (o) => ({ tier: "low", ntf: false, settle: false, checks: [{ name: "bun:calc.test.ts", result: "fail" }], touchedRed: new Set(), keep: new Set(["bun:calc.test.ts"]), changed: ["calc.ts"], ...o });
+const df = [v.deferFullSuite(lowIn({})), v.deferFullSuite(lowIn({ checks: [{ name: "lint:eslint", result: "fail" }] })), v.deferFullSuite(lowIn({ keep: new Set(), checks: [{ name: "bun:t/x.test.ts", result: "fail" }], changed: ["calc.ts", "t/x.test.ts"] })),
+  v.deferFullSuite(lowIn({ touchedRed: new Set(["bun:calc.test.ts"]) })), v.deferFullSuite(lowIn({ tier: "medium" })), v.deferFullSuite(lowIn({ ntf: true })), v.deferFullSuite(lowIn({ settle: true })),
+  v.deferFullSuite(lowIn({}), { LOKI_E10_FULL_SUITE_FINAL_ONLY: "0" }), v.deferFullSuite(lowIn({ checks: [{ name: "bun:calc.test.ts", result: "pass" }] }))].join(",");
+const S = { name: B.name, cmd: B.cmd, cwd: "." }, rec = (key, result) => ({ ...S, key, check: { name: B.name, cmd: B.cmd, result, duration_s: 40, ...(result === "fail" ? { ids: ["t > a"] } : {}) } });
+const r0 = v.reusableRun({ full_suite_runs: [rec(k0, "pass")] }, S, k0), rf = v.reusableRun({ full_suite_runs: [rec(k0, "fail")] }, S, k0);
+const carried = v.nextSuiteRuns([rec(k0, "pass")], []), replaced = v.nextSuiteRuns([rec(k0, "pass")], [rec("k9", "fail")]);
+if (rf) rf.ids.push("t > b"); const orig = rec(k0, "fail"), again = v.reusableRun({ full_suite_runs: [orig] }, S, k0); if (again) again.ids.push("t > c");
+const ru = [r0?.reused === true && r0?.reused_key === k0 && r0?.result === "pass", rf?.result === "fail", v.reusableRun({ full_suite_runs: [rec(k0, "pass")] }, S, "other") === null, v.reusableRun({ stopped_at: "limit", full_suite_runs: [rec(k0, "pass")] }, S, k0) === null,
+  v.reusableRun({ full_suite_runs: [rec(k0, "not_run")] }, S, k0) === null, v.reusableRun({ full_suite_runs: [rec(k0, "pass")] }, { ...S, cwd: "packages/a" }, k0) === null, v.reusableRun(undefined, S, k0) === null,
+  carried.length === 1 && v.reusableRun({ full_suite_runs: carried }, S, k0)?.reused === true, replaced.length === 1 && replaced[0].key === "k9", orig.check.ids.length === 1].join(",");
+const g = d + "/repo"; mkdirSync(g, { recursive: true }); spawnSync("git", ["-C", g, "init", "-q", "-b", "main"]); writeFileSync(g + "/a.txt", "x\n"); spawnSync("git", ["-C", g, "add", "a.txt"]); spawnSync("git", ["-C", g, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "b"]);
+const asked = [], ctx = { repoDir: g, baseSha: "HEAD", outputs: () => ({}), tests: { detect: async () => ({ runners: ["bun"], tests: [] }) } }, full = [], np = new Set();
+await dp.runFullSuite(ctx, new AbortController().signal, { reuse: (s) => { asked.push(s.cwd); return v.reusableRun({ full_suite_runs: [{ ...rec(k0, "pass"), name: s.name, cmd: s.cmd }] }, s, k0); } }, full, np);
+const rf2 = [full.length === 1 && full[0].reused === true && full[0].result === "pass", np.size === 0, asked.join(",") === "."].join(",");
+const o = { implement: { exit: "done" }, verify: { checks: [{ name: "bun:calc.test.ts", result: "pass", n: 2 }], verify_scope: "complete", full_suite_deferred: true, not_proven: [v.FULL_SUITE_DEFERRED_NOTE] } };
+const lab = se.verdictOf(o, [{ name: "bun:calc.test.ts", cmd: "bun test calc.test.ts", result: "pass", duration_s: 1, provenance: "agent_authored", n: 2 }], false, o.verify.not_proven.length > 0, false, true);
+console.log([k1, ds, df, ru, rf2, lab].join(" | "));' 2>&1)"
+[ "$G6R" = "true | true,true,true | true,false,true,false,false,false,false,false,false | true,true,true,true,true,true,true,true,true,true | true,true,true | PARTIAL" ] \
+    && ok "G6 relief unit: the reuse key moves with any changed content, file, deletion or dependency entry (every changed path in every suite's key); a runner cache does not move the stamp; the suite is deferred at low tier only on a red that feeds the fix round; a result is reused only on an equal key, from a pass or fail, after an unstopped verify, as a copy marked on the check, and a quick verify carries it; runFullSuite pushes it without a NOT PROVEN line; a deferred verify caps the label" \
+    || bad "G6 relief unit gave: $G6R"
+# G6 RELIEF sysedit cell (machine.ts syseditBroke, plant 7j): with FULL-SUITE-FINAL-ONLY the first low-tier verify ran no suite, so the sysedit re-verify is the
+# suite's first run. A suite failing only on base-red ids (pre_red) is not broken by the completion (none); one new id counts every suite id (undo, the
+# fail-safe direction); a first verify that was not deferred compares as before (the base-red id it never saw counts).
+SXB="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const m = await import("./src/engine10/machine.ts");
+const own = (r) => ({ name: "bun:calc.test.ts", result: r }), suite = (ids) => ({ name: "full suite: bun", result: "fail", ids });
+const first = { full_suite_deferred: true, checks: [own("fail")] }, now = (ids) => ({ checks: [own("pass"), suite(ids)], pre_red: ["t > base1", "t > base2"] });
+const show = (a) => (a.length ? a.join(",") : "none");
+console.log([show(m.syseditBroke(first, now(["t > base1", "t > base2"]))), show(m.syseditBroke(first, now(["t > base1", "t > new"]))), show(m.syseditBroke({ checks: [own("fail")] }, now(["t > base1"])))].join(" | "));' 2>&1)"
+[ "$SXB" = "none | full suite: bun t > base1,full suite: bun t > new | full suite: bun t > base1" ] \
+    && ok "G6 relief sysedit: after a deferred first verify a suite red only on base keeps the zero-model repair, a new suite id still undoes it, and a non-deferred first verify compares as before" \
+    || bad "G6 relief sysedit cell gave: $SXB"
+# K2 (engine, low tier): implement leaves the task's test red (wrong), the fix round makes it green (fixit). With FULL-SUITE-FINAL-ONLY on the suite runs once
+# (on the final candidate), with it off twice; the first verify's not_proven names the deferred line and the receipt does not. Plant 7h (no deferred line)
+# fails the first-verify assertion; plant 7g (defer whatever is red) turns K5 above.
+g6r_facts() { python3 -I - "$RUNDIR/events.jsonl" "$RUNDIR/receipt.json" <<'PY'
+import json, sys
+ev = [json.loads(l) for l in open(sys.argv[1])]
+runs = [e for e in ev if e.get("type") == "test.result" and str((e.get("data") or {}).get("name", "")).startswith("full suite") and not (e.get("data") or {}).get("reused")]
+ver = [e["data"] for e in ev if e.get("type") == "stage.completed" and "checks" in (e.get("data") or {}) and "verify_scope" in (e.get("data") or {})]
+note = "full suite deferred: a targeted check is red"
+first = any(str(n).startswith(note) for n in (ver[0].get("not_proven", []) if ver else []))
+try: r = json.load(open(sys.argv[2]))
+except Exception: r = {}
+print(len(runs), first, any(str(n).startswith(note) for n in r.get("not_proven", [])), r.get("verdict"), len(ver))
+PY
+}
+E2E_STUB_FIX=fixit run_engine wrong
+f="$(g6r_facts)"; set -- $f
+G6R_ON="$4"
+[ "$1" = 1 ] && [ "$2" = True ] && [ "$3" = False ] && ok "K2: a low-tier run whose first verify is red runs the full suite once, on the final candidate; the deferred line is on the first verify only" || bad "K2 (FINAL-ONLY on) facts: $f (want: 1 True False <verdict> <verifies>)"
+LOKI_E10_FULL_SUITE_FINAL_ONLY=0 E2E_STUB_FIX=fixit run_engine wrong
+f="$(g6r_facts)"; set -- $f
+[ "$1" = 2 ] && [ "$2" = False ] && [ "$4" = "$G6R_ON" ] && ok "K2: LOKI_E10_FULL_SUITE_FINAL_ONLY=0 runs the suite on both verifies and seals the same label ($4)" || bad "K2 (FINAL-ONLY off) facts: $f (want: 2 False $G6R_ON <verifies>)"
+unset -f g6r_facts
 # The two runs above are low tier: their seal-time verify runs only bun:calc.test.ts and the npm suite runs in the post-seal deep worker, so suiteSkip never sees
 # it (probe e10-20261120T142527Z-fb46: receipt checks [bun:calc.test.ts], the new id only in receipt-addendum-1). Medium tier runs the suite inside verify.
 run_pr snstable stable LOKI_RISK_TIER=medium LOKI_PR_DRAFT=1
