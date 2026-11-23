@@ -309,6 +309,50 @@ resolved with a synthetic equivalent; an unavailable runtime check remains in
 Not checked. Do not call that check passed. This adds questions to the existing
 pass, not another reviewer or an unbounded audit of unrelated historical content.
 
+### Guard and validator changes
+
+When the change adds or repairs a guard, validator, resolver, or other safety
+boundary, the reviewer must test the boundary rather than only read its happy
+path. Enumerate the full active surface it claims to protect, including direct
+and indirect callers, default discovery paths, explicit overrides, tests and
+static coverage. Distinguish historical artifacts from live entry points.
+
+At minimum, record observations for:
+
+- missing dependency or unavailable default;
+- explicit input and automatically discovered input;
+- case aliases, symlinks and platform path normalization where relevant;
+- supported variant names and executable locations;
+- override/escape-hatch behavior and whether it is genuinely explicit;
+- the static guard's actual scan roots and excluded directories;
+- one known-bad input that must fail and one known-good input that must pass.
+
+A guard that protects only the first reproduced path is not closed. Report any
+unexamined surface as `Not checked`; do not infer coverage from the changed file
+list.
+
+### Destructive automation and retention loops
+
+When the change deletes, retires, prunes or retains objects automatically, review
+the command's full effect rather than only the selected happy-path ID. Record
+observations for:
+
+- default side effects beyond the named object, such as parent-image cleanup or
+  implicit cache eviction, and the flag that disables them;
+- the authoritative object identity used by the automation, including short
+  IDs, tags, digests, symlinks and values that may drift after planning;
+- the immediate pre-delete revalidation that closes planning-to-action races;
+- the machine-readable partial/fatal result and actual process exit code;
+- whether retrying cleanup can repeat an expensive build, deploy or other
+  out-of-scope action;
+- postconditions that detect collateral deletion, not only absence of the
+  intended candidate.
+
+Tests must lock the safe command shape and include negative probes for the
+unsafe default, force/all/subshell forms, identity drift, mid-loop inspection
+failure and retry behavior. A green unit test that asserts the unsafe command as
+the expected call does not establish safety.
+
 Triage each finding by causal relationship to the current change:
 
 | Finding relationship | Current-release disposition |
@@ -352,7 +396,7 @@ load-bearing operational mechanism the skill kept referencing but never showed h
 
 ## The review file
 
-Write `independent-review.md` under `skill-reviews/<skill-name>/` in your private, git-tracked knowledge repo, **and commit it there in the same turn** — a file sitting uncommitted in a git working directory carries none of the "git-tracked" guarantee this rule exists for; `ls`/`test -f` confirms it's on disk, not that it survives to the next session. If you don't know which repo that is (or don't have one), say so and ask the user — do not guess a location that lands in either forbidden zone. That repo's own commit hook may also restrict where such files may live (a structure guard may reject the path and name the directory it allows); read the hook's message and move the file there rather than bypassing the hook. Two forbidden locations: **NOT** in `<skill-name>-workspace/` (gitignored scratch dirs that get wiped — this file is cross-session review evidence and must survive them) and **NOT** in any repo that is or may become public or distributed — which normally rules out the reviewed skill's own repo (review content inherently quotes private paths, real names, and project details):
+Write `independent-review.md` under `skill-reviews/<skill-name>/` in your private, git-tracked knowledge repo, **and commit it there in the same turn** — a file sitting uncommitted in a git working directory carries none of the "git-tracked" guarantee this rule exists for; `ls`/`test -f` confirms it's on disk, not that it survives to the next session. If you don't know which repo that is (or don't have one), say so and ask the user — do not guess a location that lands in either forbidden zone. That repo's own commit hook may also restrict where such files may live (a structure guard may reject the path and name the directory it allows); read the hook's message and move the file there rather than bypassing the hook. Two forbidden locations: **NOT** in `<skill-name>-workspace/` (gitignored scratch dirs that get wiped — this file is cross-session review evidence and must survive them) and **NOT** in any repo that is or may become public or distributed — which normally rules out the reviewed skill's own repo. Review content may quote private paths, real names, and project details; when the archive is team-readable, apply the [review-archive redaction rule](sanitization_checklist.md#include-tests-fixtures-and-private-review-artifacts) while preserving commit SHAs, evidence coordinates and failure shape:
 
 **When the reviewed change ships in the public `claude-code-skills` repo, the archive carries one more receipt.** Its repository-owned [pre-push release gate](https://github.com/daymade/claude-code-skills/blob/main/scripts/ci/check_skill_release.py) requires an exact-head binding. For a normal attestation, the archive contains exactly one `<!-- skill-release-review` block holding passed metadata for the reviewed 40-char `candidate` and exact Skill scope — write it as `{"schema": 1, "result": "passed", "candidate": "<head>", "skill_paths": ["<skill-dir>"]}` and keep the authoritative fields with `release_readiness.py`. Amend or rebase requires a new normal reviewed binding. For an unchanged complete distribution after main integration, follow [release readiness's opt-in rebind](release-readiness.md#rebind-an-unchanged-distribution-after-main-integration): declare the complete dependency scope in the original review before attesting, then retain that review unchanged. The helper supplies the new exact-head binding only after equivalence checks; it does not independently review changed content.
 

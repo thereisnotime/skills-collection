@@ -5,7 +5,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { unforwardedProviderHeaders } from "../../cli/src/provider-routing.ts";
-import { compatForRoutedModel, unpreservedAttributionHeaders } from "./provider-compat.ts";
+import { compatForRoutedModel, piAiSupportsPromptCacheKeyMode, unpreservedAttributionHeaders } from "./provider-compat.ts";
 import { MAX_MESSAGE_BYTES, boundedString, compatUpstreamFor, hostOf, isLoopbackUrl, routeForApi, targetsGateway, upstreamHostFor } from "./protocol.ts";
 
 type Notify = (message: string, kind: "warning" | "info") => void;
@@ -26,10 +26,13 @@ export class ProviderRouter {
   private applying = false;
   private gateGeneration = 0;
   private warnedModels = new Set<string>();
+  private supportsOpenAIChatPromptCacheKeyMode: boolean;
 
-  constructor(pi: ExtensionAPI, notify: Notify) {
+  constructor(pi: ExtensionAPI, notify: Notify, options?: { supportsOpenAIChatPromptCacheKeyMode?: boolean }) {
     this.pi = pi;
     this.notify = notify;
+    this.supportsOpenAIChatPromptCacheKeyMode =
+      options?.supportsOpenAIChatPromptCacheKeyMode ?? piAiSupportsPromptCacheKeyMode();
   }
 
   // openGate is called once per session after the recovery gate held. Refuses
@@ -86,13 +89,16 @@ export class ProviderRouter {
     // models whose endpoints differ (#973).
     const original = this.isOwnedRoute(model) ? this.routed!.originalBaseUrl : model.baseUrl;
     const route = routeForApi(this.gateway, model.api, model.provider, original, this.compatUpstreams, this.providerUpstreams);
-    // Pi's Chat adapter derives short-retention prompt_cache_key directly from
-    // this URL; its public compat type has no override. The payload hook cannot
-    // recover the effective cache option or distinguish another extension's
-    // removal, so leave this specific endpoint direct. Responses is unaffected.
-    const compatibilityIssue = model.api === "openai-completions" && original.includes("api.openai.com")
-      ? "Pi cannot preserve this OpenAI Chat endpoint's prompt cache keys through routing"
-      : undefined;
+    let originalHost = "";
+    try { originalHost = new URL(original).hostname.toLowerCase(); } catch { /* endpoint gate reports invalid URLs */ }
+    // Pi <1.6.0's OpenAI Chat adapter derives prompt_cache_key from the host URL
+    // and ignores compat.promptCacheKeyMode; leave api.openai.com direct there.
+    const compatibilityIssue =
+      model.api === "openai-completions" &&
+      originalHost === "api.openai.com" &&
+      !this.supportsOpenAIChatPromptCacheKeyMode
+        ? "Pi <1.6.0 cannot preserve this OpenAI Chat endpoint's prompt cache keys through routing"
+        : undefined;
     let headerIssue: string | undefined;
     let oauth = true;
     let authKnown = false;

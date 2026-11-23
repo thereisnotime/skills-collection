@@ -1,6 +1,6 @@
 // T2 mutation proof v1: after a VERIFIED verdict, re-run the recorded Wall tests on a temporary worktree of the base
 // (pre-fix) tree. The Wall test files are applied, the fix's source changes are not. Data-only helper (D42, lives in util/ to stay out of the e10ext and features line caps): the test
-// runner is injected by seal.ts, so this file imports nothing from stages/. A "no" downgrades only under LOKI_MUTATION_STRICT=1 with a declared behavior change (seal.ts).
+// runner is injected by seal.ts, so this file imports nothing from stages/. A "no" downgrades only under LOKI_MUTATION_STRICT=1 with a declared behavior change (seal.ts). With the Wall off, LOKI_MUTATION_STRICT=1 also holds a change to code whose own proof was tried and showed nothing (seal.ts needsChangeProof, proofTried).
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,7 +26,7 @@ export interface MutationInput {
   baseMustPass?: string[];
   /** A file counts in `failed` only when its base failure was an assertion (runner reports assertFail), never an import, collection or attribute error. */
   requireAssertion?: boolean;
-  /** PROOF-TEST-SIDE (headSha mode only): test-side paths the change added, modified or deleted that are not themselves run (data files, fixtures), and, when there is any, the
+  /** PROOF-TEST-SIDE (off by default, LOKI_E10_PROOF_TEST_SIDE=1 opts in; headSha mode only): test-side paths the change added, modified or deleted that are not themselves run (data files, fixtures), and, when there is any, the
    *  change's other non-code files, and its code files in which the diff declares or modifies no symbol (seal.ts proofSupport). Each is written byte-exact from headSha, or removed when `deleted`, after the test overlay, so the base run differs from
    *  the head run only in the change's code (testSideSupport builds the list). */
   supportFiles?: SupportFile[];
@@ -37,8 +37,8 @@ export interface SupportFile {
   deleted: boolean;
   mode?: string;
 }
-/** PROOF-TEST-SIDE (LOKI_E10_PROOF_TEST_SIDE, default on, =0/off/false/no opts out): the fail-then-pass base worktree gets the change's whole test side, not only the test files that ran. */
-export const proofTestSideOn = (env: NodeJS.ProcessEnv = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_PROOF_TEST_SIDE"] ?? "").trim()) /* off by default: its last cold review was NOT GO (2026-11-21); opt in to measure */;
+/** PROOF-TEST-SIDE (LOKI_E10_PROOF_TEST_SIDE, off by default, =1/on/true/yes opts in): the fail-then-pass base worktree gets the change's whole test side, not only the test files that ran. */
+export const proofTestSideOn = (env: NodeJS.ProcessEnv = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_PROOF_TEST_SIDE"] ?? "").trim()) /* stays opt-in: with it on, a data file that git credits to a symbol stays at base while its result line is applied, and a test then fails on base for a reason that is not the change's code (review 2026-11-21, shapes G2, DFd, DFd2, O, C); no per-file rule closes the class */;
 /** PROOF-TEST-SIDE: the support files of a fail-then-pass proof from a `git diff-tree -r -z --raw --no-renames` listing (status line, path, status line, path, ...): every path with
  *  status A, M, T or D that `isSide` calls test side and that is not one of the `run` test files, with its head mode (the second field of the status line). [] with the knob off
  *  (only the run test files are copied, as before). */
@@ -58,9 +58,11 @@ function insideWorktree(wt: string, rel: string): boolean {
   for (let n = 1; n < parts.length; n++) { const p = join(wt, ...parts.slice(0, n)); try { if (lstatSync(p).isSymbolicLink()) return false; } catch { return true; } }
   return true;
 }
-/** CTO ruling: the downgrade to PARTIAL is off unless LOKI_MUTATION_STRICT=1 (and then only for a model-declared behavior change). */
+/** CTO ruling: the downgrade to PARTIAL is off unless LOKI_MUTATION_STRICT=1 (and then only for a model-declared behavior change). With the Wall off, LOKI_MUTATION_STRICT=1 also holds a change to code whose own proof was tried and showed nothing (seal.ts needsChangeProof, proofTried). */
 export const mutationStrict = (env: NodeJS.ProcessEnv = process.env): boolean => (env["LOKI_MUTATION_STRICT"] ?? "").trim() === "1";
 export const mutationEnabled = (env: NodeJS.ProcessEnv = process.env): boolean => (env["LOKI_MUTATION_PROOF"] ?? "").trim() !== "0";
+/** The extra environment of every proof run in a base worktree. The base version of an edited test runs first and would leave a compiled cache; the head bytes written next can be the same length in the same second, and the interpreter then runs the stale cache in place of the new source. */
+export const PROOF_RUN_ENV: Record<string, string> = { PYTHONDONTWRITEBYTECODE: "1" };
 const LABEL = "test fails without the fix: ";
 const np = (reason: string): MutationProof => ({ outcome: "inconclusive", line: `${LABEL}inconclusive (${reason})` });
 const MAX_TOTAL_S = 40; // B2: seal stage limit is 60s; the whole proof (worktree add, every test, removal) must fit well inside it

@@ -427,6 +427,10 @@
 # 303. check_result.ts unmeasuredTail: drop the 40-line slice (the UNMEASURED-TAIL 40-lines leg reads 61 lines).
 # 304. check_result.ts unmeasuredTail: drop the not_run/UNMEASURED_REASON condition (the measured-pass leg carries a tail).
 # 305. verify.ts runCheck: spread unmeasuredTail into the check itself (the event-only leg finds the tail on the check).
+# INERT1. proof_rerun.ts ruleStatus: drop the `counted === 0` branch (the INERT-CHECK cell reads "mm"); or stepKind: drop the FILE_TEST and "/" test from inertWords (the last kind reads "inert": a file test outside the repository is dropped).
+# BTC1. pr.ts acceptanceHead: count ch as met (the BY-THIS-CHANGE headline reads "3 of 4"); or proof_rerun.ts itemSplit: drop the own.has test (item 1 reads change 0, before 1 and a FAILED step is lost).
+# BC1. seal.ts baseProofRunner: PROOF_RUN_ENV back to {} (the PROOF-NO-BYTECODE cell counts 1 or more .pyc files).
+# KD1. util/mutation_proof.ts proofTestSideOn: make it opt-out (the KNOB-DEFAULTS cell reads true in the fourth place).
 
 ORIG_HOME="$HOME" # cargo's rustup proxy finds its toolchain under the real home; lib.sh swaps HOME for a throwaway one
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -1374,6 +1378,32 @@ while IFS= read -r line; do
 done <<< "$out"
 grep -q '^OK ' <<< "$out" || { bad "lean-fix unit script produced no results"; printf '%s\n' "$out" | tail -8 | sed 's/^/    | /'; }
 
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# INERT-CHECK (proof_rerun.ts stepKind, ruleStatus): a step whose commands are only shell builtins that read nothing is inert and not counted (a file test, also on a path outside the repository, is not inert);
+# a line with only inert passing checks reads unmet with the reason; a function wrapper or a command substitution is "other" and stays counted.
+IK="$T/inert-kind"; mkdir -p "$IK/docs"; printf 'x\n' > "$IK/docs/a.md"
+IKO="$(cd "$ROOT/loki-ts" && IK="$IK" bun --no-env-file --config=/dev/null -e '
+const { stepKind, ruleStatus } = await import("./src/engine10/proof_rerun.ts");
+const d = process.env.IK, k = (cmd) => stepKind("x | exit 0 | cmd: " + cmd + " | ", d);
+const kinds = [k("test 201 = 201"), k("true"), k("echo ok"), stepKind("x | status 200 | {}", d), k("npm test"), k("plan_uses_gin"), k("bash -c [ \"$(first_title)\" = A ]"), k("grep -q X " + d + "/docs/a.md"), k("test -f " + d + "/docs/a.md"), k("test -s /nonexistent-loki-dir/export.csv")];
+const run = { exit: 0, seconds: 1, proved: 3, failed: 0, tail: "", script_chars: 1, stopped: 0, left: 0, lines: { "1": { proved: 1, failed: 0, inert: 1, first_proved: "register returned 201 | exit 0 | cmd: test 201 = 201 | ", first_inert: "register returned 201 | exit 0 | cmd: test 201 = 201 | " }, "2": { proved: 2, failed: 0, inert: 1, first_proved: "a | exit 0 | cmd: true | ", first_inert: "a | exit 0 | cmd: true | ", first_counted: "search | status 200 | {}" } } };
+const st = ruleStatus(["fresh install works", "search works"], run);
+console.log([kinds.join(" "), st.map((s) => s.status[0]).join(""), String(st[0].reason).split(" (for example")[0], st[1].evidence].join(" | "));' 2>&1)"
+[ "$IKO" = "inert inert inert http runner other other reader reader other | um | its only passing check read nothing of the product or the tree when it ran | Loki's own run: 1 passing check; first: search | status 200 | {}" ] && ok "INERT-CHECK: builtins with fixed inputs are not counted; a line with nothing else reads unmet and says why" || bad "INERT-CHECK gave: $IKO"
+
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# BY-THIS-CHANGE (proof_rerun.ts itemSplit, pr.ts acceptanceHead): a line with a check that fails without the change is "met by this change"; one whose
+# checks all pass without it is "already met before this change"; the headline counts only the first kind; with no comparison the old sentences stand.
+BTC="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const { itemSplit } = await import("./src/engine10/proof_rerun.ts"); const { acceptanceHead } = await import("./src/engine10/stages/pr.ts");
+const ok = (item, what, real = true) => ({ item, what, ok: true, ...(real ? { real: true, cmd: "npm test", kind: "runner" } : {}) }), bad = (item, what) => ({ item, what, ok: false, exit: 1, out: "npm test | boom", printed: "boom" });
+const head = [ok("1", "a"), ok("1", "b"), ok("2", "c"), ok("3", "d", false)];
+const split = itemSplit(head, [ok("1", "a"), ok("1", "b"), ok("2", "c"), ok("3", "d", false)], [bad("1", "a"), ok("1", "b"), ok("2", "c"), ok("3", "d", false)]);
+const rows = [{ line: "A", status: "met", evidence: "e1", by: "change" }, { line: "B", status: "met", evidence: "e2", by: "before" }, { line: "C", status: "met", evidence: "e3" }, { line: "D", status: "unmet", reason: "r4" }];
+const l = acceptanceHead("PARTIAL", { issue_acceptance: rows }).split("\n"), old = acceptanceHead("VERIFIED", { issue_acceptance: [{ line: "A", status: "met", evidence: "e1" }] }).split("\n")[1];
+console.log([JSON.stringify(split), l[1], l[5], l[6], l[7], l[8], old].join(" ## "));' 2>&1)"
+[ "$BTC" = '{"1":{"change":1,"before":1},"2":{"change":0,"before":1},"3":{"change":0,"before":1}} ## 1 of 4 acceptance lines is met by this change; 1 already met before it; 1 met, not compared with the code before the change; 1 not met (each says why). ## | A | met by this change | e1 | ## | B | already met before this change | e2 | ## | C | met | e3 | ## | D | NOT MET | r4 | ## Every acceptance line is met (1 of 1), each with what proved it.' ] && ok "BY-THIS-CHANGE: lines and headline tell this change from what the code already did" || bad "BY-THIS-CHANGE gave: $BTC"
+
 # ---------------------------------------------------------------- spec choice evidence (features/spec_ambiguity.ts resolveChoices)
 cat > "$T/spec-choice.ts" <<'TS'
 import { execFileSync } from "node:child_process";
@@ -2196,7 +2226,7 @@ if python3 -I -c 'import pytest' >/dev/null 2>&1; then
 else
     if [ "${LOKI_STACKS_REQUIRE:-0}" = 1 ]; then bad "pytest wall-off: pytest is not installed (LOKI_STACKS_REQUIRE=1: this leg must run here)"; else echo "  SKIP: pytest wall-off: pytest is not installed"; fi
 fi
-# PROOF-TEST-SIDE (LOKI_E10_PROOF_TEST_SIDE, default on, =0 opts out; real pytest, Wall off): the fail-then-pass base worktree gets the change's whole test side (test files, and
+# PROOF-TEST-SIDE (LOKI_E10_PROOF_TEST_SIDE, off by default, =1 opts in; real pytest, Wall off): the fail-then-pass base worktree gets the change's whole test side (test files, and
 # every path under tests/, test/, __tests__/, testdata/ or __snapshots__/, deletions included), not only the test files that ran. hc2 bracex: the head test read its cases from
 # tests/brace-cases.txt, ran the OLD cases on base and passed, so a correct fix read PARTIAL. calc.f doubles x but is off by one from 10 up; tests/test_cases.py reads
 # tests/cases.txt with tests/results.txt (and tests/results-2.txt when present) and asserts each pair through calc.f; tests/data/*.txt is read only by a test a change adds.
@@ -2240,6 +2270,15 @@ side_leg() {
     MAKE_REPO="$mk" run_engine "$task" E2E_WALL= E2E_STUB_MODE=stack LOKI_E10_PLAN=auto LOKI_E10_SMALL_MAX_CHARS=10 "$@"; notes="$(wo_receipt np)"; mp="$(wo_receipt mp)"
 }
 if python3 -I -c 'import pytest' >/dev/null 2>&1; then
+    export LOKI_E10_PROOF_TEST_SIDE=1 # the cells of this section measure the rule with the knob on
+    # STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+    # PROOF-NO-BYTECODE (seal.ts baseProofRunner, mutation_proof.ts PROOF_RUN_ENV): the proof runner leaves no .pyc behind (a detector that does not depend on the clock).
+    BC="$T/proof-bytecode"; mkdir -p "$BC"; printf 'CASES = [1, 2, 3]\n' > "$BC/cases.py"; printf 'from cases import CASES\n\n\ndef test_sum():\n    assert sum(CASES) == 6\n' > "$BC/test_cases.py"
+    BCO="$(cd "$ROOT/loki-ts" && env -u PYTHONDONTWRITEBYTECODE BC="$BC" bun --no-env-file --config=/dev/null -e '
+const { baseProofRunner } = await import("./src/engine10/stages/seal.ts"); const { PROOF_RUN_ENV } = await import("./src/util/mutation_proof.ts");
+const r = baseProofRunner(60000).run(process.env.BC, [{ runner: "pytest", path: "test_cases.py" }]);
+console.log(r.pass + " " + r.fail + " " + JSON.stringify(PROOF_RUN_ENV));' 2>&1)"
+    [ "$BCO $(find "$BC" -name '*.pyc' | wc -l | tr -d ' ')" = '1 0 {"PYTHONDONTWRITEBYTECODE":"1"} 0' ] && ok "PROOF-NO-BYTECODE: the proof runner passes the test and leaves no .pyc" || bad "PROOF-NO-BYTECODE gave: $BCO, .pyc files: $(find "$BC" -name '*.pyc' | wc -l | tr -d ' ')"
     # Unit: testSideSupport and isTestSidePath on a listing with every status, then mutationProof itself on a two-commit repo (real pytest): with the data files the head test fails
     # on base by assertion; LOKI_MUTATION_PROOF_JOBS=2 confirms the concurrent failure by a serial re-run that gets the data files again. tests/test_two.py needs the head's
     # executable tests/bin/ok and symlink tests/cases-link.txt as they are (mode kept): with them it passes on base; the old overlay leaves both out, so test_cases.py passes there
@@ -2353,6 +2392,14 @@ EOF
 else
     if [ "${LOKI_STACKS_REQUIRE:-0}" = 1 ]; then bad "PROOF-TEST-SIDE: pytest is not installed (LOKI_STACKS_REQUIRE=1: this leg must run here)"; else echo "  SKIP: PROOF-TEST-SIDE: pytest is not installed"; fi
 fi
+unset LOKI_E10_PROOF_TEST_SIDE
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# KNOB-DEFAULTS (R2-4): three label rules are on unless set to 0; PROOF-TEST-SIDE is on only when set to 1.
+KD="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const py = await import("./src/util/python.ts"), cr = await import("./src/util/check_result.ts"), mp = await import("./src/util/mutation_proof.ts");
+const f = [py.systemProvidesOn, py.setupDepsOn, cr.proofReachOn, mp.proofTestSideOn], k = ["LOKI_E10_SYSTEM_PROVIDES_DEPS", "LOKI_E10_SETUP_DEPS", "LOKI_E10_PROOF_REACH", "LOKI_E10_PROOF_TEST_SIDE"];
+console.log([f.map((g) => g({})).join(","), f.map((g, i) => g({ [k[i]]: "0" })).join(","), f.map((g, i) => g({ [k[i]]: "1" })).join(",")].join(" "));' 2>&1)"
+[ "$KD" = "true,true,true,false false,false,false,false true,true,true,true" ] && ok "KNOB-DEFAULTS: SYSTEM-PROVIDES-DEPS, SETUP-DEPS and PROOF-REACH default on; PROOF-TEST-SIDE opt-in" || bad "KNOB-DEFAULTS gave: $KD"
 # PROOF-REACH (LOKI_E10_PROOF_REACH, default on, =0 opts out; real pytest, Wall off): the change's own base-red, head-green test also counts as its proof when it reaches a changed
 # symbol through the changed module, not only when it names one (hc2 async-timeout: the test calls the unchanged timeout(), which builds the changed Timeout class). box.make()
 # builds a Box whose value() returns _scale(); the change fixes _scale. .gitattributes picks git's python hunk header, so the changed symbol is the method _scale, not the class:

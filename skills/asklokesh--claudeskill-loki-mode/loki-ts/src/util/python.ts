@@ -495,7 +495,7 @@ export function pyprojectDeclaresDeps(text: string): boolean {
   return false;
 }
 /** SETUP-DEPS (LOKI_E10_SETUP_DEPS, default on; =0/off/false/no opts out). */
-export const setupDepsOn = (env: NodeJS.ProcessEnv = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_SETUP_DEPS"] ?? "").trim()) /* off by default: its last cold review was NOT GO (2026-11-21); opt in to measure */;
+export const setupDepsOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_SETUP_DEPS"] ?? "").trim());
 /** Python source with every comment removed and every string kept: a `#` inside a quoted string (a URL fragment) is not a comment, so it can
  *  never hide an `install_requires` that follows it on the same line. */
 function stripPyComments(text: string): string {
@@ -557,7 +557,7 @@ export function declaresPythonEnv(root: string, ref: string): boolean {
   } catch { return true; }
 }
 /** SYSTEM-PROVIDES-DEPS (LOKI_E10_SYSTEM_PROVIDES_DEPS; on by default, `0`/off/false/no opts out): see systemProvidesDeclared. */
-export const systemProvidesOn = (env: NodeJS.ProcessEnv = process.env): boolean => /^(1|on|true|yes)$/i.test((env["LOKI_E10_SYSTEM_PROVIDES_DEPS"] ?? "").trim()) /* off by default: its last cold review was NOT GO (2026-11-21); opt in to measure */;
+export const systemProvidesOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_SYSTEM_PROVIDES_DEPS"] ?? "").trim());
 const DIST_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 /** One poetry constraint as a PEP 440 specifier ("" for any version), or null when Loki cannot translate it (`||`, a pre-release in a caret or
  *  tilde bound, any unknown form). `^1.2.3` is `>=1.2.3,<2.0.0`, `^0.2.3` is `>=0.2.3,<0.3.0`, `^0.0.3` is `>=0.0.3,<0.0.4`, `^0` is `>=0,<1`;
@@ -601,19 +601,20 @@ export function setupPyRuntimeRequirements(text: string): string[] | null {
   return seen === uses ? out : null;
 }
 /** setup.cfg `[options] install_requires` lines (setupCfgDeclaresDeps is derived from this reader; the key `install_requires` or `install-requires`, any case, as
- *  configparser lowercases it; same line after `=`, then indented continuation lines; full-line `#` or `;` comments, at any indent, skipped without
- *  ending the key, and inline ` #` comments cut).
+ *  configparser lowercases it; the key at any indent, same line after `=` or `:`, then every line indented deeper than the key; a `[DEFAULT]` key counts; a section
+ *  header may carry trailing text; full-line `#` or `;` comments, at any indent, skipped without ending the key, and inline ` #` comments cut).
  *  `;` stays (it starts a PEP 508 marker). null for a `file:` or `attr:` directive or `%(` interpolation, which Loki does not resolve. */
 export function setupCfgRuntimeRequirements(text: string): string[] | null {
-  const out: string[] = []; let sec = "", inKey = false;
+  const out: string[] = []; let sec = "", inKey = false, opt = false, level = Infinity;
   for (const line of text.split(/\r?\n/)) {
-    const h = /^\s*\[([^\]]+)\]\s*$/.exec(line);
-    if (h) { sec = h[1]!.trim(); inKey = false; continue; }
-    const kv = /^(\S[^=:]*?)\s*[=:]\s*(.*)$/.exec(line);
-    if (/^\s*[#;]/.test(line)) continue;
-    if (kv && !/^\s/.test(line)) { inKey = sec === "options" && /^install[_-]requires$/i.test(kv[1]!.trim()); if (inKey) { const v = kv[2]!.replace(/\s#.*$/, "").trim(); if (/^(?:file|attr)\s*:/.test(v)) return null; if (v) out.push(v); } continue; }
-    if (inKey && /^\s+\S/.test(line)) { const v = line.replace(/\s#.*$/, "").trim(); if (v) out.push(v); continue; }
-    if (line.trim() !== "") inKey = false;
+    if (/^\s*[#;]/.test(line) || line.trim() === "") continue;
+    const indent = line.search(/\S/);
+    if (opt && indent > level) { if (inKey) { const v = line.replace(/\s#.*$/, "").trim(); if (v) out.push(v); } continue; } // deeper than its key: a continuation line of that key's value
+    level = indent;
+    const h = /^\s*\[(.+)\]/.exec(line); if (h) { sec = h[1]!.trim(); opt = false; inKey = false; continue; }
+    const kv = /^\s*(.*?)\s*(?:[=:]\s*(.*))?$/.exec(line)!; opt = true;
+    inKey = (sec === "options" || sec === "DEFAULT") && /^install[_-]requires$/i.test(kv[1]!);
+    if (inKey) { const v = (kv[2] ?? "").replace(/\s#.*$/, "").trim(); if (/^(?:file|attr)\s*:/.test(v)) return null; if (v) out.push(v); }
   }
   return out.some((r) => r.includes("%(")) ? null : out; // configparser interpolation: Loki does not expand it
 }
@@ -681,6 +682,8 @@ reqs = json.load(sys.stdin)
 if not isinstance(reqs, list) or not reqs:
     print(json.dumps({"ok": False, "why": "no requirements"})); sys.exit(4)
 path = [os.getcwd()] + [p for p in os.environ.get("PYTHONPATH", "").split(os.pathsep) if p] + ([] if os.environ.get("PYTHONNOUSERSITE") else [site.getusersitepackages()]) + sys.path
+root = os.path.realpath(os.getcwd())
+outside = [p for p in path if os.path.realpath(p or ".") != root and not os.path.realpath(p or ".").startswith(root + os.sep)]
 unmet = []
 for s in reqs:
     try:
@@ -693,7 +696,7 @@ for s in reqs:
         continue
     try:
         vs = [d.version for d in md.distributions(name=r.name, path=path)]
-        found = [d for d in md.distributions(name=r.name, path=path[1:])]
+        found = [d for d in md.distributions(name=r.name, path=outside)]
     except Exception:
         unmet.append(s); continue
     if not found or not all(r.specifier.contains(v) for v in vs):
@@ -708,8 +711,9 @@ print(json.dumps({"ok": not unmet, "n": len(reqs), "unmet": unmet}))
  *  The probe runs in `cwd`, the directory the checks ran in (the repo root), so a pyenv, asdf or mise shim that picks an interpreter by
  *  `.python-version` or `.tool-versions` picks the same one; -I keeps that directory off the probe's own import path. Tests run without -I, so
  *  the working directory, PYTHONPATH and the user site come before site-packages: every copy of a distribution on that search path must
- *  satisfy the specifier, and at least one must exist outside the working directory (a copy there may refute, never satisfy: a dist-info
- *  in the repo root is not an installed distribution). Not covered: a PYTHONPATH entry that is the repo root still satisfies; a `.python-version` inside a package directory whose checks run there. */
+ *  satisfy the specifier, and at least one must exist outside the repository root, by real path: a copy in the root or under it may refute and never satisfies,
+ *  whether it is reached through the working directory, PYTHONPATH or a .pth line (a vendored copy or a stray dist-info is not an installed distribution). Not covered:
+ *  a `.python-version` inside a package directory whose checks run there. */
 export function interpreterSatisfies(python: string, reqs: string[], cwd: string, env: NodeJS.ProcessEnv = tokenFreeEnv(process.env)): boolean {
   if (!python || reqs.length === 0) return false;
   const bin = isAbsolute(python) ? python : Bun.which(python, { PATH: env["PATH"] ?? "" });

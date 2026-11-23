@@ -12189,8 +12189,8 @@
       "description": "\"Formats the final manuscript output to target journal style requirements\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
-      "lines": 1062,
-      "words": 10290,
+      "lines": 1065,
+      "words": 10386,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -12484,7 +12484,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/source_verification_agent.md",
       "remote_path": "deep-research/agents/source_verification_agent.md",
       "lines": 301,
-      "words": 2351,
+      "words": 2793,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -26645,7 +26645,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-best-practices",
@@ -26658,7 +26658,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "transparent-videos",
@@ -26683,7 +26683,7 @@
       "words": 384,
       "code_blocks": 5,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "transitions",
@@ -26974,7 +26974,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-create",
@@ -26987,7 +26987,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "tailwind",
@@ -27008,7 +27008,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "get-video-dimensions",
@@ -27055,7 +27055,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-interactivity",
@@ -27069,7 +27069,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-license",
@@ -27080,7 +27080,7 @@
       "words": 48,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "rendering",
@@ -27125,7 +27125,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-docs",
@@ -27136,7 +27136,7 @@
       "words": 145,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-studio",
@@ -27149,7 +27149,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-upgrade",
@@ -27162,7 +27162,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "display-captions",
@@ -27188,7 +27188,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "import-srt-captions",
@@ -27226,7 +27226,7 @@
       "words": 382,
       "code_blocks": 5,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "transitions",
@@ -27317,7 +27317,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "3d",
@@ -27530,7 +27530,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "tailwind",
@@ -27551,7 +27551,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-multimedia",
@@ -27562,7 +27562,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "get-video-dimensions",
@@ -27612,7 +27612,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-license",
@@ -27623,7 +27623,7 @@
       "words": 48,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-saas",
@@ -27634,7 +27634,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "rendering",
@@ -27679,7 +27679,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-studio",
@@ -27692,7 +27692,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-upgrade",
@@ -27705,7 +27705,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "remotion-maps",
@@ -27716,7 +27716,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "maps-mapbox",
@@ -27807,7 +27807,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.545"
+      "version": "4.0.546"
     },
     {
       "name": "maps-mapbox",
@@ -28406,6 +28406,16 @@
       "remote_path": "skills/content-modeling-best-practices/SKILL.md",
       "lines": 33,
       "words": 243,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "sanity-studio-listeners",
+      "description": "Keep Sanity Studio customizations (custom tools, inputs, document views, structure and plugins) from opening a real-time listener per document, which fills the browser's shared connection to the Sanit",
+      "path": "sanity-io--agent-toolkit/skills/sanity-studio-listeners/SKILL.md",
+      "remote_path": "skills/sanity-studio-listeners/SKILL.md",
+      "lines": 127,
+      "words": 1308,
       "code_blocks": 0,
       "languages": []
     },
@@ -147769,8 +147779,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 724,
-      "words": 5552,
+      "lines": 744,
+      "words": 5713,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -147841,8 +147851,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
-      "lines": 140,
-      "words": 762,
+      "lines": 157,
+      "words": 851,
       "code_blocks": 0,
       "languages": []
     },
@@ -148042,13 +148052,14 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1432,
-      "words": 14915,
-      "code_blocks": 72,
+      "lines": 1464,
+      "words": 15228,
+      "code_blocks": 73,
       "languages": [
         "bash",
         "json",
         "makefile",
+        "sshconfig",
         "yaml"
       ]
     },
@@ -148209,8 +148220,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 887,
-      "words": 10545,
+      "lines": 912,
+      "words": 10759,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -148257,8 +148268,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-contributor/SKILL.md",
       "remote_path": "github-contributor/SKILL.md",
-      "lines": 340,
-      "words": 2846,
+      "lines": 358,
+      "words": 3065,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -148282,9 +148293,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-review-pr/SKILL.md",
       "remote_path": "github-review-pr/SKILL.md",
-      "lines": 605,
-      "words": 4542,
-      "code_blocks": 16,
+      "lines": 658,
+      "words": 4918,
+      "code_blocks": 17,
       "languages": [
         "bash",
         "text"
@@ -148380,8 +148391,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 302,
-      "words": 4185,
+      "lines": 303,
+      "words": 4291,
       "code_blocks": 0,
       "languages": []
     },
@@ -148845,8 +148856,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
       "remote_path": "daymade-skill/skill-governance/SKILL.md",
-      "lines": 187,
-      "words": 1220,
+      "lines": 191,
+      "words": 1250,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -148960,8 +148971,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/source-location-and-activation.md",
       "remote_path": "daymade-skill/skill-creator/references/source-location-and-activation.md",
-      "lines": 83,
-      "words": 831,
+      "lines": 92,
+      "words": 1039,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -149074,8 +149085,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/publishing-and-packaging.md",
       "remote_path": "daymade-skill/skill-creator/references/publishing-and-packaging.md",
-      "lines": 348,
-      "words": 3783,
+      "lines": 350,
+      "words": 3857,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -149181,8 +149192,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docs-cleaner/SKILL.md",
       "remote_path": "daymade-docs/docs-cleaner/SKILL.md",
-      "lines": 821,
-      "words": 8112,
+      "lines": 828,
+      "words": 8187,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -149455,8 +149466,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 581,
-      "words": 6264,
+      "lines": 587,
+      "words": 6485,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -149721,8 +149732,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
       "remote_path": "daymade-codex/local-codex/SKILL.md",
-      "lines": 201,
-      "words": 1469,
+      "lines": 205,
+      "words": 1510,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -168820,15 +168831,14 @@
     },
     {
       "name": "agency-docs-updater",
-      "description": "'End-to-end pipeline for publishing Claude Code lab meetings. Accepts optional args: date (YYYYMMDD, \"yesterday\", \"today\") and lab number (e.g. \"04\"). Examples: \"yesterday 04\", \"20260420 05\", \"04\" (to",
+      "description": "End-to-end pipeline for publishing Claude Code lab meetings. Accepts optional args: date (YYYYMMDD, \"yesterday\", \"today\") and lab number (e.g. \"04\"). Examples: \"yesterday 04\", \"20260420 05\", \"04\" (tod",
       "path": "glebis--claude-skills/agency-docs-updater/SKILL.md",
       "remote_path": "agency-docs-updater/SKILL.md",
-      "lines": 341,
-      "words": 2524,
-      "code_blocks": 16,
+      "lines": 346,
+      "words": 3545,
+      "code_blocks": 19,
       "languages": [
-        "bash",
-        "python"
+        "bash"
       ]
     },
     {
@@ -172694,7 +172704,7 @@
       "path": "JuliusBrussee--caveman/plugins/caveman/skills/caveman-compress/SKILL.md",
       "remote_path": "plugins/caveman/skills/caveman-compress/SKILL.md",
       "lines": 115,
-      "words": 869,
+      "words": 875,
       "code_blocks": 1,
       "languages": []
     },
@@ -172723,8 +172733,8 @@
       "description": ">",
       "path": "JuliusBrussee--caveman/plugins/caveman/skills/cavecrew/SKILL.md",
       "remote_path": "plugins/caveman/skills/cavecrew/SKILL.md",
-      "lines": 79,
-      "words": 587,
+      "lines": 86,
+      "words": 651,
       "code_blocks": 3,
       "languages": []
     },
@@ -172763,8 +172773,8 @@
       "description": "Read-only repository explorer for cold-start orientation, broad cross-file localization, or when a direct search failed. Skip it when the exact file or symbol is already named. Returns path:line citat",
       "path": "JuliusBrussee--caveman/skills/caveman-explore/SKILL.md",
       "remote_path": "skills/caveman-explore/SKILL.md",
-      "lines": 43,
-      "words": 317,
+      "lines": 46,
+      "words": 323,
       "code_blocks": 0,
       "languages": []
     },
@@ -172840,7 +172850,7 @@
       "path": "JuliusBrussee--caveman/skills/caveman-compress/SKILL.md",
       "remote_path": "skills/caveman-compress/SKILL.md",
       "lines": 115,
-      "words": 869,
+      "words": 875,
       "code_blocks": 1,
       "languages": []
     },
@@ -172850,7 +172860,7 @@
       "path": "JuliusBrussee--caveman/skills/caveman-stats/SKILL.md",
       "remote_path": "skills/caveman-stats/SKILL.md",
       "lines": 18,
-      "words": 281,
+      "words": 305,
       "code_blocks": 0,
       "languages": []
     },
@@ -172935,8 +172945,8 @@
       "description": ">",
       "path": "JuliusBrussee--caveman/skills/cavecrew/SKILL.md",
       "remote_path": "skills/cavecrew/SKILL.md",
-      "lines": 79,
-      "words": 587,
+      "lines": 86,
+      "words": 651,
       "code_blocks": 3,
       "languages": []
     },

@@ -23,12 +23,12 @@ RUN bun run build:all
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="11.176.0"
+LABEL version="11.178.0"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="11.176.0"
+LABEL org.opencontainers.image.version="11.178.0"
 LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Providers: Claude Code (CLI or Agent SDK) and opencode"
 LABEL url="https://www.autonomi.dev/"
 
@@ -142,12 +142,6 @@ COPY --chown=loki:loki tools/ ./tools/
 COPY --chown=loki:loki events/ ./events/
 COPY --chown=loki:loki dashboard/ ./dashboard/
 COPY --chown=loki:loki mcp/ ./mcp/
-# Purple Lab (web-app/): React UI + FastAPI backend. Pre-built dist/ ships in
-# the image so `loki web` works out of the box; Phase Merge-4 mounts the same
-# app under /lab/ in the dashboard. Backend Python deps installed below.
-COPY --chown=loki:loki web-app/*.py web-app/requirements.txt ./web-app/
-COPY --chown=loki:loki web-app/migrations/ ./web-app/migrations/
-COPY --chown=loki:loki web-app/dist/ ./web-app/dist/
 COPY --chown=loki:loki learning/ ./learning/
 COPY --chown=loki:loki magic/ ./magic/
 COPY --chown=loki:loki templates/ ./templates/
@@ -192,7 +186,7 @@ RUN cd loki-ts && npm install --no-save --no-package-lock @anthropic-ai/claude-a
     @anthropic-ai/sdk@1.6.0 \
     && chown -R loki:loki node_modules
 
-# Install dashboard, web-app, and MCP server Python dependencies.
+# Install dashboard and MCP server Python dependencies.
 # mcp/requirements.txt is installed here so the MCP SDK is present in the image:
 # Glama's clean-room introspection builds this image and launches the server, and
 # a baked-in SDK lets `loki mcp` serve tools without a first-run bootstrap.
@@ -203,7 +197,6 @@ RUN cd loki-ts && npm install --no-save --no-package-lock @anthropic-ai/claude-a
 # via their own image layer) since they are less common deploy targets.
 RUN pip3 install --no-cache-dir --break-system-packages \
     -r dashboard/requirements.txt \
-    -r web-app/requirements.txt \
     -r mcp/requirements.txt \
     boto3
 

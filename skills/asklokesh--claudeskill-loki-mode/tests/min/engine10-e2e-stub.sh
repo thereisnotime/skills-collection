@@ -74,13 +74,15 @@
 #   7x. python.ts stripPyComments: not triple-quote aware; the SPR triple-quote cell reads [] (a `#` in a URL then hides install_requires).
 #   7o2. loki-ts/src/util/python.ts PY_SATISFIES: drop the user-site term from path; the SYSTEM-PROVIDES-DEPS PYTHONUSERBASE pip 0.0.1 cell reads true.
 #   7o3. PY_SATISFIES: drop the `[os.getcwd()]` term from path; the SYSTEM-PROVIDES-DEPS repo-root pip 0.0.1 cell reads true (the tests import that copy).
-#   7o4. PY_SATISFIES: `path[1:]` back to `path` in the existence test; the SYSTEM-PROVIDES-DEPS root-only lokiabsentdist cell reads true (a dist-info
+#   7o4. PY_SATISFIES: `outside` back to `path` in the existence test; the SYSTEM-PROVIDES-DEPS root-only lokiabsentdist cell reads true (a dist-info
 #       in the repo root is not an installed distribution).
+#   7o5. PY_SATISFIES: `outside` back to `path[1:]`; the PYTHONPATH=. lokiabsentdist cell reads true (a vendored copy on PYTHONPATH satisfies again).
 #   7y. python.ts setupPyDeclaresDeps or setupPyRuntimeRequirements: drop `(` or `{` from the class after `**` ([A-Za-z_({]); the SETUP-DEPS
 #       setup(**(cfg)) or setup(**{k: v ...}) cell reads false, or the same SPR cell reads [] (a met second manifest then lifts unchecked).
 #   7z. python.ts setupCfgRuntimeRequirements: skip only indented comment lines (/^\s+[#;]/), so a column-0 comment ends the key; the SETUP-DEPS
 #       column-0 comment cell reads false (sysCase "none": the hold lifts with no check).
 #   7z2. python.ts setupCfgDeclaresDeps: drop the `r === null ||` half; the SETUP-DEPS `file: r.txt` cell reads false.
+#   7z3. python.ts setupCfgRuntimeRequirements: `opt && indent > level` back to `indent > 0`; the SPR indented-key cell reads [] and the SETUP-DEPS indented-key value reads false (a met second manifest then lifts unchecked).
 #   8. loki-ts/src/engine10/stages/seal.ts: drop leanHold from verdictOf (the never-calls-multiply leg reads VERIFIED).
 #   9. loki-ts/src/util/check_result.ts: changedSymbols counts any removed line as removed code (the
 #      never-calls-multiply leg reads VERIFIED: the replaced comment credits add()).
@@ -118,6 +120,7 @@
 #   37. loki-ts/src/engine10/supervisor.ts: drop failedPr from the push condition (rebuild dist); the FAILED-run legs read no PR, no pushed branch and no failing-checks body.
 #   38. loki-ts/src/engine10/supervisor.ts: drop !refusal from the push condition (rebuild dist); the secret-match legs read a PR and a pushed branch.
 #   39. loki-ts/src/engine10/stages/deep.ts runSecretScan: skip locate() (rebuild dist); every match reads "file name looks like a secret file", never calc.ts:5.
+#   40. loki-ts/src/util/receipt_surface.ts proofCardOf: drop the ownSteps return (the ONE-PROOF-LINE cell reads "false not run" first).
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need bun
@@ -300,6 +303,16 @@ awe() { python3 -I -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.ar
 [ "$(awe card_never_green)" = "false,false,false,false" ] && ok "awe honesty: a no, inconclusive, absent or unsealed proof never renders green or says After: passes" || bad "awe proof card never green: got $(awe card_never_green)"
 [ "$(awe card_states)" = "not shown,not run,not run,not run" ] && ok "awe proof card: no reads 'not shown', inconclusive and absent read 'not run'" || bad "awe proof card states: got $(awe card_states)"
 [ "$(awe card_after_red)" = "False" ] && ok "awe honesty: a yes proof whose proving test did not pass after the change is not green" || bad "awe proof card after red: got $(awe card_after_red)"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# ONE-PROOF-LINE (receipt_surface.ts proofCardOf, reviewer_body.ts proofSection): an own proof is a green card naming the step; a failed own proof is not;
+# a fail-then-pass test still wins when both exist.
+OPL="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const { proofCardOf, renderAweProofLine } = await import("./src/util/receipt_surface.ts"); const { proofSection } = await import("./src/e10ext/reviewer_body.ts");
+const own = { mutation_outcome: "inconclusive", mutation_proof: "test fails without the fix: inconclusive (x)", own_proof: { ok: true, steps: ["search unit tests"], before: [{ step: "search unit tests", lines: ["1 failed"] }] } };
+const a = proofCardOf(own), s = proofSection(own), b = proofCardOf({ ...own, own_proof: { ok: false, steps: [] } });
+const c = proofCardOf({ mutation_outcome: "yes", mutation_proof: "test fails without the fix: yes (calc.test.ts)", mutation_before: [{ file: "calc.test.ts", lines: ["AssertionError"] }], checks: [{ name: "vitest:calc.test.ts", result: "pass" }], own_proof: { ok: true, steps: ["s"] } });
+console.log([a.green + " " + a.state + " " + a.before[0].file + " " + (a.before[0].step === true), renderAweProofLine(a), s[1], s[5], b.green + " " + b.state, c.before[0].file + " " + (c.before[0].step === true)].join(" | "));' 2>&1)"
+[ "$OPL" = 'true shown search unit tests true | Proof: yes, proof step search unit tests fails without the change and passes with it | - Before: proof step `search unit tests` fails in a copy of the checkout without the change, with: | - After: passes on the change | false not run | calc.test.ts false' ] && ok "ONE-PROOF-LINE: the own proof is the proof line when no test proved the change" || bad "ONE-PROOF-LINE gave: $OPL"
 [ "$(awe pr_yes)" = "true,true,true,false" ] && ok "awe PR body from the receipt: the proof, conventions followed and Loki's own total cost, with no model comparison" || bad "awe PR body: got $(awe pr_yes)"
 [ "$(awe pr_never_green)" = "false,false,false" ] && ok "awe honesty: a no, inconclusive or absent proof never writes Before/After into the PR body" || bad "awe PR body never green: got $(awe pr_never_green)"
 [ "$(awe pr_cost)" = "true,true,true,false" ] && ok "awe PR cost: partial, unmetered and null read as such, never \$0.00" || bad "awe PR cost: got $(awe pr_cost)"
@@ -712,7 +725,7 @@ const pyc = [ten, "from setuptools import setup\nsetup()\n", "setup(name=\"x\", 
   "setup(**{k: v for k, v in c})\n"];
 const tenCfg = "[metadata]\nname = tenacity\n\n[options]\ninstall_requires =\npython_requires = >=3.10\npackages = find:\n\n[options.extras_require]\ntest =\n    pytest\n    tornado>=4.5\n    typeguard\n";
 const cfc = [tenCfg, "[options]\ninstall_requires =\n    a>=1\n", "[options]\ninstall_requires = a\n", "[options]\ninstall_requires =\n    # none\n", "[options.extras_require]\ninstall_requires = a\n",
-  "[options]\ninstall_requires =\n# core\n    requests>=9999\n", "[options]\ninstall_requires = file: r.txt\n"];
+  "[options]\ninstall_requires =\n# core\n    requests>=9999\n", "[options]\ninstall_requires = file: r.txt\n", "[options]\n    install_requires =\n        requests>=9999\n    python_requires = >=3.8\n"];
 const d = process.env.SD_DIR; mkdirSync(d, { recursive: true });
 const git = (...a) => spawnSync("git", ["-C", d, ...a], { encoding: "utf8" });
 git("init", "-q", "-b", "main"); git("config", "user.name", "e2e"); git("config", "user.email", "e2e@example.invalid");
@@ -721,7 +734,8 @@ writeFileSync(d + "/pyproject.toml", "[build-system]\nrequires = [\"setuptools\"
 git("add", "-A", "."); git("commit", "-q", "-m", "base"); const before = declaresPythonEnv(d, "HEAD");
 writeFileSync(d + "/requirements.txt", "tornado\n"); git("add", "requirements.txt"); git("commit", "-q", "-m", "reqs");
 console.log(pyc.map(py).join(" ") + " | " + cfc.map(cfg).join(" ") + " | " + before + " " + declaresPythonEnv(d, "HEAD"));' 2>&1)"
-[ "$SD" = "false false false true true true false true true false true true | false true true false false true true | false true" ] && ok "SETUP-DEPS: a setup.py or setup.cfg counts as a Python environment only with runtime requirements (tenacity's reads false, a requirements.txt makes it true)" || bad "SETUP-DEPS unit gave: $SD"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+[ "$SD" = "false false false true true true false true true false true true | false true true false false true true true | false true" ] && ok "SETUP-DEPS: a setup.py or setup.cfg counts as a Python environment only with runtime requirements (tenacity's reads false, a requirements.txt makes it true)" || bad "SETUP-DEPS unit gave: $SD"
 # SYSTEM-PROVIDES-DEPS (util/python.ts systemProvidesDeclared, seal.ts sysInfo): a repo that declares runtime requirements reads the
 # system-interpreter note as informational only when the interpreter that ran the tests meets every one. Readers first (no interpreter): poetry
 # caret and tilde bounds as PEP 440 (^0.x is the lift-direction trap), a computed setup.py list unreadable, [project] dynamic dependencies unreadable;
@@ -744,8 +758,10 @@ console.log([m.poetryConstraintToPep440("^1.2.3"), m.poetryConstraintToPep440("^
   j(m.setupCfgRuntimeRequirements("[options]\ninstall-requires = zzz\n")), j(m.setupCfgRuntimeRequirements("[options]\nInstall_Requires = zzz\n")),
   j(m.setupPyRuntimeRequirements("\"\"\"5\" disk\"\"\"\nsetup(url=\"https://x/#r\", install_requires=[\"zzz\"])")),
   j(m.declaredRuntimeRequirements(["pyproject.toml", "setup.cfg"], rd("[options]\nInstall_Requires = zzz\n"))), j(m.setupPyRuntimeRequirements("setup(**(cfg))")),
-  j(m.setupPyRuntimeRequirements("setup(**{k: v for k, v in c})"))].join(" "));' 2>&1)"
-SPR_WANT='>=1.2.3,<2.0.0 >=0.2.3,<0.3.0 >=0.0.3,<0.0.4 >=1.2.3,<1.3 null ["pyasn1>=0.1.3"] null null null ["a>=1"] [] null null null null null null null null null null ["pip>=1"] ["zzz"] ["zzz"] ["zzz"] ["pip>=1","zzz"] null null'
+  j(m.setupPyRuntimeRequirements("setup(**{k: v for k, v in c})")),
+  j(m.setupCfgRuntimeRequirements("[options]\n    install_requires =\n        requests>=9999\n")), j(m.setupCfgRuntimeRequirements("[DEFAULT]\ninstall_requires = zzz\n\n[options]\npackages = find:\n"))].join(" "));' 2>&1)"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+SPR_WANT='>=1.2.3,<2.0.0 >=0.2.3,<0.3.0 >=0.0.3,<0.0.4 >=1.2.3,<1.3 null ["pyasn1>=0.1.3"] null null null ["a>=1"] [] null null null null null null null null null null ["pip>=1"] ["zzz"] ["zzz"] ["zzz"] ["pip>=1","zzz"] null null ["requests>=9999"] ["zzz"]'
 [ "$SPR" = "$SPR_WANT" ] && ok "SYSTEM-PROVIDES-DEPS readers: caret and tilde bounds translate, computed, dynamic and git requirements are unreadable" || bad "SYSTEM-PROVIDES-DEPS readers gave: $SPR"
 # Interpreter cells, on scratch repos, against a distribution this python3 really has (pip, version probed, never hardcoded). Plants:
 #   7j. util/python.ts PY_SATISFIES: append every entry as met (skip the marker and specifier checks); the ">=9999" cell reads true (false VERIFIED).
@@ -757,8 +773,9 @@ SPR_WANT='>=1.2.3,<2.0.0 >=0.2.3,<0.3.0 >=0.0.3,<0.0.4 >=1.2.3,<1.3 null ["pyasn
 #   7u. no url/extras test: the extras and URL cells read true. 7v. no requirements/ directory test: the reqdir cell reads true.
 #   7o2. no user-site term: the PYTHONUSERBASE pip 0.0.1 cell reads true (its control sets PYTHONNOUSERSITE=1: true). The user site directory is
 #       the one this python3 prints for that PYTHONUSERBASE, never hardcoded (a framework build uses lib/python/site-packages).
-#   7o3. no cwd term: the rootlow cell (pip-0.0.1.dist-info in the repo root) reads true. 7o4. `path[1:]` back to `path`: the absent cell (a root-only
+#   7o3. no cwd term: the rootlow cell (pip-0.0.1.dist-info in the repo root) reads true. 7o4. `outside` back to `path` in the existence test: the absent cell (a root-only
 #       lokiabsentdist-1.0.dist-info, no such distribution installed) reads true. The working directory may refute, never satisfy.
+#   7o5. `outside` back to `path[1:]`: the PYTHONPATH=. lokiabsentdist cell reads true (a vendored copy on PYTHONPATH satisfies again).
 if python3 -I -c 'import importlib.metadata as m; m.version("pip")
 try:
     import packaging.requirements
@@ -780,6 +797,7 @@ except Exception:
     spd_repo reqdir 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip>=1"]\n' 'requirements/base.txt=pip\n'
     spd_repo pyver 'pyproject.toml=[project]\nname = "x"\ndependencies = ["lokifakespd>=1"]\n' '.python-version=system\n'
     spd_repo nopyver 'pyproject.toml=[project]\nname = "x"\ndependencies = ["lokifakespd>=1"]\n'
+    spd_repo indent 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip>=1"]\n' 'setup.cfg=[options]\n    install_requires =\n        requests>=9999\n'
     spd_repo absent 'pyproject.toml=[project]\nname = "x"\ndependencies = ["lokiabsentdist>=1"]\n' 'lokiabsentdist-1.0.dist-info/METADATA=Metadata-Version: 2.1\nName: lokiabsentdist\nVersion: 1.0\n'
     spd_repo rootlow 'pyproject.toml=[project]\nname = "x"\ndependencies = ["pip>=1"]\n' 'pip-0.0.1.dist-info/METADATA=Metadata-Version: 2.1\nName: pip\nVersion: 0.0.1\n'
     spd_us="$(PYTHONUSERBASE="$T/spd-ub" python3 -c 'import site; print(site.getusersitepackages())')"
@@ -799,8 +817,11 @@ console.log([f(`${T}/spd-rsa`, "HEAD", "python3"), f(`${T}/spd-high`, "HEAD", "p
   f(`${T}/spd-rsa`, "HEAD", "python3", { ...process.env, PYTHONPATH: `${T}/spd-pp-low` }),
   f(`${T}/spd-rsa`, "HEAD", "python3", { ...process.env, PYTHONPATH: `${T}/spd-pp-high` }),
   f(`${T}/spd-rsa`, "HEAD", "python3", { ...us, PYTHONUSERBASE: `${T}/spd-ub` }), f(`${T}/spd-rsa`, "HEAD", "python3", { ...us, PYTHONUSERBASE: `${T}/spd-ub`, PYTHONNOUSERSITE: "1" }),
-  f(`${T}/spd-absent`, "HEAD", "python3"), f(`${T}/spd-rootlow`, "HEAD", "python3")].join(" "));' 2>&1)"
-    SPD_WANT="true false true false false false false false false false false true false true false true false false"
+  f(`${T}/spd-absent`, "HEAD", "python3"), f(`${T}/spd-rootlow`, "HEAD", "python3"),
+  f(`${T}/spd-absent`, "HEAD", "python3", { ...process.env, PYTHONPATH: "." }), f(`${T}/spd-rsa`, "HEAD", "python3", { ...process.env, PYTHONPATH: "." }),
+  f(`${T}/spd-indent`, "HEAD", "python3")].join(" "));' 2>&1)"
+    # STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+    SPD_WANT="true false true false false false false false false false false true false true false true false false false true false"
     [ "$SPD" = "$SPD_WANT" ] && ok "SYSTEM-PROVIDES-DEPS: a met poetry requirement and a marker-false entry lift; an unmet version, a computed list, a requirements.txt, no packaging, no runtime requirement, an extra, a URL, a requirements/ file, an interpreter chosen by the repo's .python-version, a failing PYTHONPATH, user-site or repo-root copy and a repo-root-only copy keep the hold" || bad "SYSTEM-PROVIDES-DEPS unit gave: $SPD (want: $SPD_WANT)"
 elif [ "${CI:-}" = "true" ]; then
     bad "SYSTEM-PROVIDES-DEPS: python3 has no pip distribution or packaging (required in CI)"
@@ -2221,9 +2242,10 @@ rw_engine noscript "$RWD/list.md"; RWF="$(rw_facts)"
 grep -q 'loki-proof.sh' "$RWP.implement0" && grep -q 'acceptance.txt' "$RWP.implement0" && ok "RW-02 no-script: the implement brief carries the proof script instructions an issue run gets" || bad "RW-02 no-script: the implement brief lacks the proof script instructions"
 rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
 rw_engine proved "$RWD/list.md"; RWF="$(rw_facts)"
-[ "$RWF" = "VERIFIED road=work source=text lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
+[ "$RWF" = "PARTIAL road=work source=text lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
 && [ "$RWSTAGES" = "implement linecheck review implement linecheck " ] \
-    && ok "RW-02 proved: the same text task with a proof script that passes in Loki's own run is VERIFIED, both lines met by Loki's own count; 5 model calls ($RWSTAGES)" || bad "RW-02 proved gave: $RWF; sessions '$RWSTAGES' ($(grep -E '^(Outcome|NOT PROVEN)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-600))"
+    && ok "RW-02 proved: the same text task with a proof script that passes in Loki's own run is PARTIAL (the script only reads calc.ts), both lines met by Loki's own count; 5 model calls ($RWSTAGES)" || bad "RW-02 proved gave: $RWF; sessions '$RWSTAGES' ($(grep -E '^(Outcome|NOT PROVEN)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-600))"
 rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts' 'false' # line 2 has one passing and one failing check
 rw_engine failing "$RWD/list.md"; RWF="$(rw_facts)"
 [ "$RWF" = "PARTIAL road=work source=text lines=2 receipt=met,unmet own=1 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
@@ -2237,10 +2259,12 @@ rw_engine prose "$RWD/prose.md"; RWF="$(rw_facts)"
 [ "$RWF" = "VERIFIED road=text source=text lines=0 receipt=none own=0 reruns=no noscript=no plan=skipped src=None cap=none" ] && ! grep -q 'loki-proof.sh' "$RWP.implement0" && [ "$RWSTAGES" = "implement implement " ] \
     && ok "RW-02 prose: a text task with no list stays on the plain road: no lines, no proof brief, no plan, cap unchanged, the two sessions it had ($RWSTAGES)" || bad "RW-02 prose gave: $RWF; sessions '$RWSTAGES'"
 rw_engine prose-all "$RWD/prose.md" LOKI_E10_ONE_ROAD=all; RWF="$(rw_facts)"
-[ "$RWF" = "VERIFIED road=work source=text lines=0 receipt=met own=1 reruns=yes noscript=no plan=skipped src=title cap=2400" ] && ! grep -q plan <<< "$RWSTAGES" \
-    && ok "RW-02 prose, LOKI_E10_ONE_ROAD=all: the title stands in as item 1 with no plan session, and Loki's own run proves it" || bad "RW-02 prose (=all) gave: $RWF; sessions '$RWSTAGES' ($(grep -E '^(Outcome|NOT PROVEN)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-600))"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
+[ "$RWF" = "PARTIAL road=work source=text lines=0 receipt=met own=1 reruns=yes noscript=no plan=skipped src=title cap=2400" ] && ! grep -q plan <<< "$RWSTAGES" \
+    && ok "RW-02 prose, LOKI_E10_ONE_ROAD=all: the title stands in as item 1 with no plan session, and Loki's own run counts for it (PARTIAL: the script only reads calc.ts)" || bad "RW-02 prose (=all) gave: $RWF; sessions '$RWSTAGES' ($(grep -E '^(Outcome|NOT PROVEN)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-600))"
 rw_engine prose-all-off "$RWD/prose.md" LOKI_E10_ONE_ROAD=all LOKI_E10_TITLE_ACCEPTANCE=0; RWF="$(rw_facts)"
-[ "$RWF" = "VERIFIED road=work source=text lines=0 receipt=none own=0 reruns=yes noscript=no plan=skipped src=None cap=2400" ] \
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
+[ "$RWF" = "PARTIAL road=work source=text lines=0 receipt=none own=0 reruns=yes noscript=no plan=skipped src=None cap=2400" ] \
     && ok "RW-02 prose, =all: LOKI_E10_TITLE_ACCEPTANCE=0 gives no stand-in line" || bad "RW-02 prose (=all, stand-in off) gave: $RWF"
 rw_proof -
 rw_engine prose-all-noscript "$RWD/prose.md" LOKI_E10_ONE_ROAD=all; RWF="$(rw_facts)"
@@ -2256,10 +2280,12 @@ rw_engine off "$RWD/list.md" LOKI_E10_ONE_ROAD=0; RWF="$(rw_facts)"
 [ "$RWF" = "VERIFIED road=text source=text lines=0 receipt=none own=0 reruns=no noscript=no plan=skipped src=None cap=none" ] && ok "RW-02 off: LOKI_E10_ONE_ROAD=0 keeps a text task on the plain road" || bad "RW-02 off gave: $RWF"
 rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
 rw_engine json-file "$RWD/prose.md" LOKI_E10_ISSUE_JSON="$RWD/issue.json"; RWF="$(rw_facts)"
-[ "$RWF" = "VERIFIED road=issue source=issue lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
-    && ok "RW-02 issue json: LOKI_E10_ISSUE_JSON beside a positional file gives the issue's two lines, the issue cap rule, and VERIFIED on Loki's own run" || bad "RW-02 issue json (file) gave: $RWF"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
+[ "$RWF" = "PARTIAL road=issue source=issue lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
+    && ok "RW-02 issue json: LOKI_E10_ISSUE_JSON beside a positional file gives the issue's two lines, the issue cap rule, and PARTIAL on Loki's own run (the script only reads calc.ts)" || bad "RW-02 issue json (file) gave: $RWF"
 rw_engine json-short "add multiply to calc.ts" LOKI_E10_ISSUE_JSON="$RWD/issue.json"; RWF="$(rw_facts)"
-[ "$RWF" = "VERIFIED road=issue source=issue lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
+[ "$RWF" = "PARTIAL road=issue source=issue lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
     && ok "RW-02 issue json: the same with a short positional task" || bad "RW-02 issue json (short) gave: $RWF"
 # The shape of the recorded run playwright 44124 "loki-haiku-issue-road" (11.152.0): a positional file plus LOKI_E10_ISSUE_JSON holding only a title and a prose
 # body. There the plan was skipped, the run had no line, Loki's own proof run passed 2 checks that counted for nothing (proof.rerun statuses []), and the
@@ -2267,8 +2293,9 @@ rw_engine json-short "add multiply to calc.ts" LOKI_E10_ISSUE_JSON="$RWD/issue.j
 python3 -I -c 'import json, sys; json.dump({"title": "Add a multiply(a, b) function to calc.ts", "body": "## Problem\n\n" + sys.argv[2]}, open(sys.argv[1], "w"))' "$RWD/issue-prose.json" "$RW_PROBLEM"
 rw_proof 'grep -q "export function multiply" calc.ts' -
 rw_engine json-prose "$RWD/prose.md" LOKI_E10_ISSUE_JSON="$RWD/issue-prose.json"; RWF="$(rw_facts)"
-[ "$RWF" = "VERIFIED road=issue source=issue lines=0 receipt=met own=1 reruns=yes noscript=no plan=skipped src=title cap=2400" ] && ! grep -q plan <<< "$RWSTAGES" \
-    && ok "RW-02 issue json, prose: an issue file with no list has its title as the one line, with no plan session added, and Loki's own passing check is counted for it" || bad "RW-02 issue json (prose) gave: $RWF"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
+[ "$RWF" = "PARTIAL road=issue source=issue lines=0 receipt=met own=1 reruns=yes noscript=no plan=skipped src=title cap=2400" ] && ! grep -q plan <<< "$RWSTAGES" \
+    && ok "RW-02 issue json, prose: an issue file with no list has its title as the one line, with no plan session added, and Loki's own passing check is counted for it (PARTIAL: the script only reads calc.ts)" || bad "RW-02 issue json (prose) gave: $RWF"
 rw_proof -
 rw_engine json-prose-noscript "$RWD/prose.md" LOKI_E10_ISSUE_JSON="$RWD/issue-prose.json"; RWF="$(rw_facts)"; RWS_ON="$RWSTAGES"
 rw_engine json-prose-off "$RWD/prose.md" LOKI_E10_ISSUE_JSON="$RWD/issue-prose.json" LOKI_E10_TITLE_ACCEPTANCE=0; RWF0="$(rw_facts)"; RWS_OFF="$RWSTAGES"
@@ -2283,8 +2310,9 @@ rw_engine prove-off "$RWD/list.md" LOKI_E10_PROVE_BY_RUNNING=0; RWF="$(rw_facts)
 rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
 rw_engine resume "$RWD/list.md" E2E_STUB_LIMIT=implement E2E_STUB_LIMIT_MARK="$T/rw-resume.mark"; RWCUT="$(grep -E '^Outcome:' <<< "$RWOUT" | tr -s ' ')"
 RW_REUSE="$RWDIR" rw_engine resume2 "$RWD/list.md" E2E_STUB_LIMIT=implement E2E_STUB_LIMIT_MARK="$T/rw-resume.mark"; RWF="$(rw_facts)"
-[ "$RWCUT" = "Outcome: CANCELLED" ] && [ "$(ls "$RWDIR"/repo/.loki/runs | wc -l | tr -d ' ')" = 1 ] && [ "$RWF" = "VERIFIED road=work source=text lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
-    && ok "RW-02 resume: a road run cut in implement and started again resumes the same run on the road and is VERIFIED on Loki's own count" || bad "RW-02 resume gave: cut '$RWCUT', runs $(ls "$RWDIR"/repo/.loki/runs 2>/dev/null | wc -l | tr -d ' '), $RWF ($(grep -E '^(Outcome|Reason|engine10:)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-500))"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
+[ "$RWCUT" = "Outcome: CANCELLED" ] && [ "$(ls "$RWDIR"/repo/.loki/runs | wc -l | tr -d ' ')" = 1 ] && [ "$RWF" = "PARTIAL road=work source=text lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
+    && ok "RW-02 resume: a road run cut in implement and started again resumes the same run on the road and is PARTIAL on Loki's own count (the script only reads calc.ts)" || bad "RW-02 resume gave: cut '$RWCUT', runs $(ls "$RWDIR"/repo/.loki/runs 2>/dev/null | wc -l | tr -d ' '), $RWF ($(grep -E '^(Outcome|Reason|engine10:)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-500))"
 rw_proof -
 # ---- end RW-02 ----
 

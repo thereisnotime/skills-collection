@@ -10,7 +10,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSy
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { cleanupSessionScratch, createSessionScratch, scratchSessionEnv, TASK_MEMORY_SUBDIR } from "../runner/worker_proc.ts";
 import { run } from "../util/shell.ts";
-import { safeGit } from "../util/safe_git.ts";
+import { noteHarnessRestored, safeGit, treeSnapshot, withTrackedRestored } from "../util/safe_git.ts";
 import { CONNECTION_ENV } from "./session.ts";
 import { acceptanceLines, FRESH_INSTALL_ASK, issueAcceptanceCapOn, issueAcceptanceOf, optionalAsk } from "../util/intent_card.ts";
 import { neededServices } from "../util/stack_tools.ts";
@@ -107,6 +107,7 @@ loki_http() {
 }
 # loki_cmd <item number> "<what is proved>" <command...>
 #   Runs the command. Passes when it exits 0. Use it for a test run, a query plan, a file that must exist, anything that is not one HTTP request.
+#   A command whose inputs were fixed before it ran (test 201 = 201, true, echo ok) is not counted: send the request with loki_http, or run the real command here.
 loki_cmd() {
   local n="$1" what="$2"; shift 2
   what="\${what//|//}"
@@ -190,7 +191,7 @@ export function writeProofKit(dir: string, asks: string[] | null): void {
   try { writeFileSync(join(dir, PROOF_HELPER), PROOF_HELPER_SH, { mode: 0o600 }); if (asks?.length) writeFileSync(join(dir, ACCEPTANCE_FILE), asks.map((a, i) => `${i + 1}. ${a}`).join("\n") + "\n", { mode: 0o600 }); } catch { /* the proof then has no helper; the re-run reports it */ }
 }
 /** One check line of a run: the acceptance item it names, what it says it proves (run-specific values removed, see checkKey) and whether it passed. */
-export interface ProofCheck { item: string; what: string; ok: boolean; real?: true /* OWN-PROOF: a passing step that ran repository code (realStep) */; cmd?: string /* that step's command, kept in memory only */; exit?: number; out?: string /* a failed step: its exit code, and its command with the last lines it printed */; printed?: string /* a failed step: the last lines it printed, alone */ }
+export interface ProofCheck { item: string; what: string; ok: boolean; real?: true /* OWN-PROOF: a passing step that ran repository code (realStep) */; cmd?: string /* that step's command, kept in memory only */; exit?: number; out?: string /* a failed step: its exit code, and its command with the last lines it printed */; printed?: string /* a failed step: the last lines it printed, alone */; kind?: StepKind /* a passing step: what it ran (stepKind) */ }
 /** A check's description as a key that is the same in two runs of one script: the text before the helper's own result part, lower case, with ids, hashes
  *  and every number replaced (a port, a row id or a duration differs between two runs of the same check). Two checks of one item that then read the same
  *  are paired by count, never merged. */
@@ -208,11 +209,11 @@ function proofLines(out: string, token: string): { item: string; ok: boolean; te
   return found;
 }
 /** The tally of helper lines carrying this run's token: per acceptance line number, how many checks passed and failed, and the first text of each. */
-export function tallyProof(out: string, token: string, repoDir?: string): Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string }> {
-  const t: Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string }> = {};
+export function tallyProof(out: string, token: string, repoDir?: string): Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string; inert?: number; first_inert?: string; first_counted?: string }> {
+  const t: Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string; inert?: number; first_inert?: string; first_counted?: string }> = {};
   for (const c of proofLines(out, token)) {
     const e = (t[c.item] ??= { proved: 0, failed: 0, real: 0, http: 0 }), txt = c.text.slice(0, 300);
-    if (c.ok) { e.proved++; e.first_proved ??= txt; if (realStep(c.text, repoDir)) e.real = (e.real ?? 0) + 1; if (httpStep(c.text)) e.http = (e.http ?? 0) + 1; } else { e.failed++; e.first_failed ??= txt; }
+    if (c.ok) { e.proved++; e.first_proved ??= txt; if (realStep(c.text, repoDir)) e.real = (e.real ?? 0) + 1; if (httpStep(c.text)) e.http = (e.http ?? 0) + 1; const kd = repoDir ? stepKind(c.text, repoDir) : "other"; if (kd === "inert") { e.inert = (e.inert ?? 0) + 1; e.first_inert ??= txt; } else e.first_counted ??= txt; } else { e.failed++; e.first_failed ??= txt; }
   }
   return t;
 }
@@ -226,13 +227,19 @@ const afterWhat = (text: string): string => { const i = text.indexOf(" | "); ret
 /** A passing loki_http step: the app answered the request with the expected status. */
 export const httpStep = (text: string): boolean => /^status \d{3}( \||$)/.test(afterWhat(text));
 const SKIP = /^(env|exec|command|time|nice|nohup)$/, SHELLS = /^(bash|sh|zsh)$/, READERS = /^(grep|egrep|fgrep|rg|test|\[|cat|head|tail|wc|diff|cmp|ls|jq)$/;
+export type StepKind = "http" | "runner" | "path" | "reader" | "inert" | "other";
+const INERT_ALWAYS = /^(true|:|echo|printf)$/, INERT_TEST = /^(test|\[|\[\[)$/, FILE_TEST = /^-(?:[bcdefghkLprsSuwxGNO]|nt|ot|ef)$/;
+/** A `test` or `[` reads nothing only when it has no file operator and no path-like word: `test -s "$WORK/export.csv"` reads the filesystem and is not inert. */
+const inertWords = (head: string, args: string[]): boolean => INERT_ALWAYS.test(head) || (INERT_TEST.test(head) && !args.some((a) => FILE_TEST.test(a) || a.includes("/")));
 /** ADS-REAL (Fable): a passing loki_cmd step ran something of the repository's when, in command position of one of its segments (split at ; && || | ( )), it
  *  runs the repository's runner, or a path that exists in the repository, or a file reader (grep, test, cat, ...) on such a path. `bash|sh|zsh -c` hands the
  *  rest of its segment to the inner command; `bash <script>` runs the script path. Leading VAR=value, env, exec, command, time are skipped. A runner or path
- *  word anywhere else (`true npm`, `echo package.json`, a comment) does not count. */
-export function realStep(text: string, repoDir?: string): boolean {
-  if (httpStep(text)) return true;
-  const rest = afterWhat(text); if (!rest.startsWith("exit 0 | cmd: ")) return false;
+ *  word anywhere else (`true npm`, `echo package.json`, a comment) does not count.
+ *  `inert`: every command of the step is a shell builtin that reads nothing (`true`, `:`, `echo`, `printf`, or a `test` or `[` with no file operator and no path-like
+ *  word): its inputs were fixed before the helper ran, so Loki did not witness what they stand for (a status code captured by an earlier curl prints as `test 201 = 201`). */
+export function stepKind(text: string, repoDir?: string): StepKind {
+  if (httpStep(text)) return "http";
+  const rest = afterWhat(text); if (!rest.startsWith("exit 0 | cmd: ")) return "other";
   const cmd = rest.slice("exit 0 | cmd: ".length).split(" | ")[0]!;
   const real = (p: string): string | null => { try { return realpathSync(p); } catch { return null; } }, root = repoDir ? real(repoDir) : null;
   const inRepo = (w: string): boolean => { // both sides resolved, so /tmp and /private/tmp (or a symlinked home) name the same tree
@@ -240,7 +247,7 @@ export function realStep(text: string, repoDir?: string): boolean {
     const r = real(isAbsolute(w) ? w : join(repoDir, w.replace(/^\.\//, ""))); return !!r && r.startsWith(root + "/"); // the root itself always exists, so naming it shows nothing
   };
   const segs = cmd.replace(/%7C/g, "|").split(/;|&&|\|\||\||\(|\)/);
-  return segs.some((seg) => {
+  const kinds = segs.map((seg): StepKind | null => {
     let w = seg.trim().split(/\s+/).map((x) => x.replace(/^["'`]+|["'`]+$/g, "")).filter(Boolean);
     const lead = (): void => { // VAR=value, the skip list, and timeout/gtimeout with their options and duration
       for (;;) {
@@ -252,13 +259,18 @@ export function realStep(text: string, repoDir?: string): boolean {
     lead();
     if (w.length && SHELLS.test(w[0]!)) w = w[1] === "-c" ? w.slice(2) : w.slice(1);
     lead();
-    const head = w[0]; if (!head || head.startsWith("#")) return false;
-    if (RUNNERS.test(head.split("/").pop()!) || inRepo(head)) return true;
-    return READERS.test(head) && w.slice(1).some(inRepo);
-  });
+    const head = w[0]; if (!head || head.startsWith("#")) return null;
+    if (RUNNERS.test(head.split("/").pop()!)) return "runner";
+    if (inRepo(head)) return "path";
+    if (READERS.test(head) && w.slice(1).some(inRepo)) return "reader";
+    return inertWords(head, w.slice(1)) ? "inert" : "other";
+  }).filter((k): k is StepKind => k !== null);
+  for (const k of ["runner", "path", "reader"] as const) if (kinds.includes(k)) return k;
+  return kinds.length > 0 && kinds.every((k) => k === "inert") ? "inert" : "other";
 }
+export const realStep = (text: string, repoDir?: string): boolean => { const k = stepKind(text, repoDir); return k === "http" || k === "runner" || k === "path" || k === "reader"; };
 /** The same lines as a list of checks, for the comparison with the base commit (proofOnBase). */
-export const proofChecks = (out: string, token: string, repoDir?: string): ProofCheck[] => proofLines(out, token).map((c) => ({ item: c.item, what: checkKey(c.text), ok: c.ok, ...(c.ok && repoDir && realStep(c.text, repoDir) ? { real: true as const, cmd: (c.text.split(" | cmd: ")[1] ?? "").split(" | ")[0]!.replace(/%7C/g, "|") } : {}), ...(c.ok ? {} : { exit: Number(/ \| exit (\d+)(?: \||$)/.exec(c.text)?.[1] ?? NaN), out: c.text.split(" | cmd: ").slice(1).join(" | cmd: "), printed: (() => { const t = c.text.split(" | cmd: ").slice(1).join(" | cmd: "), i = t.indexOf("| "); return i < 0 ? "" : t.slice(i + 2).trim(); })() }) }));
+export const proofChecks = (out: string, token: string, repoDir?: string): ProofCheck[] => proofLines(out, token).map((c) => ({ item: c.item, what: checkKey(c.text), ok: c.ok, ...(c.ok && repoDir && realStep(c.text, repoDir) ? { real: true as const, cmd: (c.text.split(" | cmd: ")[1] ?? "").split(" | ")[0]!.replace(/%7C/g, "|") } : {}), ...(c.ok && repoDir ? { kind: stepKind(c.text, repoDir) } : {}), ...(c.ok ? {} : { exit: Number(/ \| exit (\d+)(?: \||$)/.exec(c.text)?.[1] ?? NaN), out: c.text.split(" | cmd: ").slice(1).join(" | cmd: "), printed: (() => { const t = c.text.split(" | cmd: ").slice(1).join(" | cmd: "), i = t.indexOf("| "); return i < 0 ? "" : t.slice(i + 2).trim(); })() }) }));
 const MAX_SCRIPT_BYTES = 200_000, TAIL_CHARS = 8000;
 /** Seconds Loki gives its own re-run (LOKI_E10_PROOF_RERUN_S overrides). */
 export const proofRerunS = (env: NodeJS.ProcessEnv = process.env): number => { const n = Number(env["LOKI_E10_PROOF_RERUN_S"]); return n > 0 ? n : defaultBudgetsOn(env) ? 600 : Infinity; }; // NO-DEFAULT-BUDGET: no limit unless set (shell.run's silence guard ends a silent proof)
@@ -304,7 +316,7 @@ export function proofScriptRefusal(text: string): string | null {
   if (/(^|[\s;&|({])(function\s+)?(loki_http|loki_cmd|_lp)\s*\(\s*\)/.test(code)) return "the proof script redefines loki_http, loki_cmd or _lp; source loki-check.sh and use its functions unchanged";
   return null;
 }
-export interface ProofRerun { refused?: string; exit: number | null; seconds: number; proved: number; failed: number; tail: string; script_chars: number; stopped: number; left: number; lines: Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string }>; checks?: ProofCheck[] }
+export interface ProofRerun { refused?: string; exit: number | null; seconds: number; proved: number; failed: number; tail: string; script_chars: number; stopped: number; left: number; lines: Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string; inert?: number; first_inert?: string; first_counted?: string }>; checks?: ProofCheck[]; restored?: string[]; dropped?: string[]; reused?: true; measured_at?: string }
 /** One run of a proof script by Loki: a new scratch directory, the helper with a token that exists only in this run, an empty directory as the argument,
  *  the user's own database settings blanked, and the ownership cleanup afterwards. `plan` gets the scratch directory and names the script and where it runs
  *  (null: nothing is run). Null when no scratch directory could be made. Never throws. */
@@ -338,10 +350,24 @@ export async function rerunProof(repoDir: string, runDir: string, signal?: Abort
   let scriptChars = 0, refusal: string | null = null; try { const t = readFileSync(script, "utf8"); scriptChars = t.length; refusal = proofScriptRefusal(t); } catch { return null; }
   if (refusal) return { refused: refusal, exit: null, seconds: 0, proved: 0, failed: 0, tail: `Loki did not run this proof script: ${refusal}.`, script_chars: scriptChars, stopped: 0, left: 0, lines: {} };
   writeProofKit(runDir, null); // also beside the kept script: one stored script in fourteen sourced the helper from its own directory
-  const r = await runProofScript(env, signal, runDir, async () => ({ script, cwd: repoDir }));
+  let restored: string[] = []; const r = await withTrackedRestored(repoDir, () => runProofScript(env, signal, runDir, async () => ({ script, cwd: repoDir })), (p) => { restored = p; noteHarnessRestored(runDir, p); }, env);
   if (!r) return { exit: null, seconds: 0, proved: 0, failed: 0, tail: "Loki could not create a scratch directory for its own re-run", script_chars: scriptChars, stopped: 0, left: 0, lines: {} };
   const lines = tallyProof(r.results, r.token, repoDir), vals = Object.values(lines); // from the result file when it has lines, else from the output
-  return { exit: r.exit, seconds: r.seconds, proved: vals.reduce((a, v) => a + v.proved, 0), failed: vals.reduce((a, v) => a + v.failed, 0), tail: r.text.replace(new RegExp(`LOKI-PROOF ${r.token} `, "g"), "").slice(-TAIL_CHARS), script_chars: scriptChars, stopped: r.stopped, left: r.left, lines, checks: proofChecks(r.results, r.token, repoDir) };
+  const out: ProofRerun = { exit: r.exit, seconds: r.seconds, proved: vals.reduce((a, v) => a + v.proved, 0), failed: vals.reduce((a, v) => a + v.failed, 0), tail: r.text.replace(new RegExp(`LOKI-PROOF ${r.token} `, "g"), "").slice(-TAIL_CHARS), script_chars: scriptChars, stopped: r.stopped, left: r.left, lines, checks: proofChecks(r.results, r.token, repoDir), ...(restored.length ? { restored } : {}), ...(() => { const d = Object.values(lines).flatMap((v) => (v.inert && v.first_inert ? [v.first_inert.slice(0, 160)] : [])).slice(0, 20); return d.length ? { dropped: d } : {}; })() };
+  saveRerun(repoDir, runDir, out); return out;
+}
+const RERUN_CACHE = "proof-rerun.json";
+const scriptSha = (runDir: string): string => createHash("sha256").update(readFileSync(join(runDir, PROOF_SCRIPT))).digest("hex");
+/** D6: Loki's last own run of the kept script, with the tree and the script it was measured on. Written after every in-place run. */
+export function saveRerun(repoDir: string, runDir: string, r: ProofRerun): void {
+  try { const tree = treeSnapshot(repoDir); if (tree && r.exit !== null && !r.refused) writeFileSync(join(runDir, RERUN_CACHE), JSON.stringify({ tree, script: scriptSha(runDir), at: new Date().toISOString(), result: r })); } catch { /* no record: the next caller runs the script */ }
+}
+/** D6: that result again, only when it was fully green (exit 0, no FAILED line) and neither the working tree nor the script changed since. Else null. */
+export function cachedRerun(repoDir: string, runDir: string): ProofRerun | null {
+  try {
+    const c = JSON.parse(readFileSync(join(runDir, RERUN_CACHE), "utf8")) as { tree?: string; script?: string; at?: string; result?: ProofRerun };
+    return c.tree && c.result && c.result.exit === 0 && c.result.failed === 0 && c.tree === treeSnapshot(repoDir) && c.script === scriptSha(runDir) ? { ...c.result, reused: true, ...(c.at ? { measured_at: c.at } : {}) } : null;
+  } catch { return null; }
 }
 
 // ---- PROVES THE CHANGE: the same proof script, run against the base commit ----
@@ -473,18 +499,32 @@ export function stepNamesFile(cmd: string, file: string): boolean {
  *  that is not a start failure (stepStartFailure) and that printed at least one line: a silent failure (`cli newcmd | grep -q ok` swallows the base's "unknown
  *  command" and exits 1) says nothing about why the step failed, so it proves nothing about behaviour. Paired by item and description, as compareWithBase pairs them; a step a run never reached, or that passed
  *  without the change, is not one. Pure. */
-export function failsWithoutChange(head: ProofCheck[], control: ProofCheck[], without: ProofCheck[]): string[] {
+export function failsWithoutChange(head: ProofCheck[], control: ProofCheck[], without: ProofCheck[], readersCount = true): string[] {
   const k = (c: ProofCheck): string => `${c.item}\u0001${c.what}`, set = (cs: ProofCheck[], ok: boolean): Set<string> => new Set(cs.filter((c) => c.ok === ok).map(k));
   const cOk = set(control, true), cBad = set(control, false), wOk = set(without, true), wBad = set(without, false), wStart = new Set(without.filter(stepStartFailure).map(k)), wSaid = new Set(without.filter((c) => !c.ok && (c.printed ?? "").trim() !== "").map(k));
-  return [...new Set(head.filter((c) => c.ok && c.real === true && cOk.has(k(c)) && !cBad.has(k(c)) && wBad.has(k(c)) && !wOk.has(k(c)) && !wStart.has(k(c)) && wSaid.has(k(c))).map((c) => c.what))];
+  return [...new Set(head.filter((c) => c.ok && c.real === true && cOk.has(k(c)) && !cBad.has(k(c)) && wBad.has(k(c)) && !wOk.has(k(c)) && !wStart.has(k(c)) && wSaid.has(k(c)) && (readersCount || c.kind !== "reader")).map((c) => c.what))];
 }
-export interface OwnProof { ok: boolean; steps: string[]; cmds: string[] /* the counted steps' commands: which changed test file a step ran (never written to the receipt) */; why?: string; seconds: number; built?: true; checks_without: number; checks_control: number }
+/** D2: per acceptance item, how many of its passing checks on the change are the change's own (failsWithoutChange) and how many also pass in the copy
+ *  without the change (a PROVED line there for the same item and description, paired by count as compareWithBase pairs them). A check that is neither
+ *  (never reached without the change, a start failure, a silent failure, a failure in the control) is in neither count. Pure. */
+export function itemSplit(head: ProofCheck[], control: ProofCheck[], without: ProofCheck[], readersCount = true): Record<string, { change: number; before: number }> {
+  const k = (c: ProofCheck): string => `${c.item}\u0001${c.what}`, own = new Set(failsWithoutChange(head, control, without, readersCount)), left = new Map<string, number>();
+  for (const c of without) if (c.ok) left.set(k(c), (left.get(k(c)) ?? 0) + 1);
+  const out: Record<string, { change: number; before: number }> = {};
+  for (const c of head) {
+    if (!c.ok) continue;
+    const e = (out[c.item] ??= { change: 0, before: 0 }), n = left.get(k(c)) ?? 0;
+    if (c.real === true && own.has(c.what) && n === 0) e.change++; else if (n > 0) { left.set(k(c), n - 1); e.before++; }
+  }
+  return out;
+}
+export interface OwnProof { ok: boolean; steps: string[]; cmds: string[] /* the counted steps' commands: which changed test file a step ran (never written to the receipt) */; why?: string; seconds: number; built?: true; checks_without: number; checks_control: number; by_item?: Record<string, { change: number; before: number }>; before?: { step: string; lines: string[] }[] }
 /** Runs the kept proof script in a copy of the checkout without the change (see the block comment above). `revert`: the change's non-test files, each with
  *  whether the change added it. An added file STAYS in the copy: removing it would make any step that touches it fail, which shows that the file exists
  *  and nothing about behaviour. Only files the base commit has are put back to their base content (read from the repository's objects, so no git command
  *  runs inside the copy and the run's own index is never touched); a change that only adds files therefore has no own proof. `builds`: the build commands of the packages that own those files, tried only when
  *  no step fails without them. Null when it is off or there is nothing to run. Never throws, never touches the working tree. */
-export async function proofWithoutChange(repoDir: string, runDir: string, baseSha: string | undefined, head: ProofRerun | null, revert: readonly { path: string; added: boolean }[], builds: readonly { cmd: string; cwd: string }[], signal?: AbortSignal, env: NodeJS.ProcessEnv = process.env): Promise<OwnProof | null> {
+export async function proofWithoutChange(repoDir: string, runDir: string, baseSha: string | undefined, head: ProofRerun | null, revert: readonly { path: string; added: boolean }[], builds: readonly { cmd: string; cwd: string }[], signal?: AbortSignal, env: NodeJS.ProcessEnv = process.env, opts: { readersCount?: boolean } = {}): Promise<OwnProof | null> {
   if (!ownProofOn(env) || !proofRerunOn(env) || !baseSha || !head || head.refused || head.exit !== 0 || head.failed > 0 || !head.checks?.some((c) => c.ok && c.real) || !revert.some((f) => !f.added)) return null;
   let text = ""; try { text = readFileSync(join(runDir, PROOF_SCRIPT), "utf8"); } catch { return null; }
   const no = (why: string, seconds = 0): OwnProof => ({ ok: false, steps: [], cmds: [], why, seconds, checks_without: 0, checks_control: 0 });
@@ -524,7 +564,7 @@ export async function proofWithoutChange(repoDir: string, runDir: string, baseSh
     const control = await once("control"); if (typeof control === "string") return no(control, total);
     const key = (c: ProofCheck): string => `${c.item}\u0001${c.what}`, cOk = new Set(control.filter((c) => c.ok).map(key));
     if (!head.checks!.some((c) => c.ok && c.real && cOk.has(key(c)))) return { ...no("no step of the proof script passes in a copy of the checkout, so a failure there would say nothing about the change", total), checks_control: control.length };
-    const result = (without: ProofCheck[], built: boolean): OwnProof => { const steps = failsWithoutChange(head.checks!, control, without); return { ok: steps.length > 0, steps, cmds: head.checks!.filter((c) => c.ok && c.real && steps.includes(c.what)).map((c) => c.cmd ?? ""), seconds: total, checks_without: without.length, checks_control: control.length, ...(built ? { built: true as const } : {}), ...(steps.length ? {} : { why: without.length === 0 ? "the proof script printed no check when run without the change" : "every step that passes on the change also passes without it, so the proof does not tell the change from no change" }) }; };
+    const result = (without: ProofCheck[], built: boolean): OwnProof => { const steps = failsWithoutChange(head.checks!, control, without, opts.readersCount !== false); return { ok: steps.length > 0, steps, cmds: head.checks!.filter((c) => c.ok && c.real && steps.includes(c.what)).map((c) => c.cmd ?? ""), seconds: total, checks_without: without.length, checks_control: control.length, by_item: itemSplit(head.checks!, control, without, opts.readersCount !== false), ...(steps.length ? { before: steps.slice(0, 5).map((st) => ({ step: st, lines: [(without.find((c) => !c.ok && c.what === st)?.printed ?? "").slice(0, 300)].filter(Boolean) })) } : {}), ...(built ? { built: true as const } : {}), ...(steps.length ? {} : { why: without.length === 0 ? "the proof script printed no check when run without the change" : opts.readersCount === false && failsWithoutChange(head.checks!, control, without, true).length > 0 ? "the only steps that fail without the change read a file, which does not show that a change to code works" : "every step that passes on the change also passes without it, so the proof does not tell the change from no change" }) }; };
     const w1 = await once("without"); if (typeof w1 === "string") return { ...no(w1, total), checks_control: control.length };
     const first = result(w1, false);
     if (first.ok || builds.length === 0 || w1.length === 0 || signal?.aborted) return first;
@@ -558,9 +598,9 @@ const SETUP_CHECK_S = 120, SETUP_TAIL_CHARS = 1000;
 /** SETUP CHECK (e10ext/repomemory.ts): runs a stored setup, the part of an earlier proof script before its first check, by itself on this checkout. A cut
  *  script has no meaningful exit status, so Loki appends one line that prints a token made for this run: the setup reached its end only when that line printed.
  *  The tail names the run's directory as $DIR and the repository root as `.`, so the same failure reads the same on every run and in every clone. */
-export async function runSetupScript(repoDir: string, setup: string, signal?: AbortSignal, env: NodeJS.ProcessEnv = process.env): Promise<{ reached: boolean; exit: number | null; seconds: number; tail: string }> {
+export async function runSetupScript(repoDir: string, setup: string, signal?: AbortSignal, env: NodeJS.ProcessEnv = process.env, runDir?: string): Promise<{ reached: boolean; exit: number | null; seconds: number; tail: string }> {
   const token = randomBytes(8).toString("hex"), end = `LOKI-SETUP-END ${token}`;
-  const r = await runOwned(repoDir, (dir) => { const p = join(dir, "loki-setup-check.sh"); writeFileSync(p, `${setup}\nprintf '\\n%s\\n' '${end}'\n`, { mode: 0o700 }); return p; }, SETUP_CHECK_S, signal, env, {});
+  const r = await withTrackedRestored(repoDir, () => runOwned(repoDir, (dir) => { const p = join(dir, "loki-setup-check.sh"); writeFileSync(p, `${setup}\nprintf '\\n%s\\n' '${end}'\n`, { mode: 0o700 }); return p; }, SETUP_CHECK_S, signal, env, {}), (p) => { if (runDir) noteHarnessRestored(runDir, p); }, env);
   if (!r) return { reached: false, exit: null, seconds: 0, tail: "" };
   const names = (d: string, as: string): [string, string][] => { const real = (() => { try { return realpathSync(d); } catch { return d; } })(); return [...new Set([real, d, real.replace(/^\/private\//, "/")])].filter((x) => x.length > 5).map((x): [string, string] => [x, as]); };
   let text = r.out.split(end).join("").replace(/\[\d{1,3}(;\d{1,3})*m/g, ""); for (const [d, as] of [...names(r.dir, "$DIR"), ...names(repoDir, ".")].sort((a, b) => b[0].length - a[0].length)) text = text.split(d).join(as);
@@ -585,13 +625,15 @@ export function proofFacts(runDir: string, r: ProofRerun | null, expected: boole
 }
 
 /** The fixed rule: an acceptance line is met when Loki's own run has at least one passing check for its number and no failing one, and (when `base` is
- *  given and its comparison is available) at least one of those checks does not also pass on the base commit. No model is asked. */
+ *  given and its comparison is available) at least one of those checks does not also pass on the base commit. No model is asked. A passing check that read nothing
+ *  of the product or the tree (stepKind inert) is not counted. */
 export function ruleStatus(asks: string[], r: ProofRerun | null, base?: ProofBase | null): { line: string; status: "met" | "unmet"; evidence?: string; reason?: string; optional?: true }[] {
   const empty = new Set(provesNothing(asks, r, base));
   return asks.map((line, i) => {
-    const e = r?.lines[String(i + 1)], opt = optionalAsk(line) ? { optional: true as const } : {};
+    const e = r?.lines[String(i + 1)], opt = optionalAsk(line) ? { optional: true as const } : {}, counted = e ? e.proved - (e.inert ?? 0) : 0;
+    if (e && e.proved > 0 && e.failed === 0 && counted === 0) return { line, status: "unmet" as const, reason: `its only passing check${e.proved === 1 ? "" : "s"} read nothing of the product or the tree when ${e.proved === 1 ? "it" : "they"} ran (for example: ${e.first_inert ?? ""}); make the request with loki_http or run the real command inside loki_cmd, so Loki sees it`.slice(0, 300), ...opt };
     if (e && e.proved > 0 && e.failed === 0 && empty.has(i + 1)) return { line, status: "unmet" as const, reason: provesNothingReason(base!, i + 1), ...opt };
-    if (e && e.proved > 0 && e.failed === 0) return { line, status: "met" as const, evidence: `Loki's own run: ${e.proved} passing check${e.proved === 1 ? "" : "s"}; first: ${e.first_proved ?? ""}`.slice(0, 300), ...opt };
+    if (e && e.proved > 0 && e.failed === 0) return { line, status: "met" as const, evidence: `Loki's own run: ${counted} passing check${counted === 1 ? "" : "s"}; first: ${e.first_counted ?? e.first_proved ?? ""}`.slice(0, 300), ...opt };
     return { line, status: "unmet" as const, reason: (!r ? "there is no proof script for Loki to run" : r.refused ? `Loki did not run the proof script: ${r.refused}` : r.exit === null ? "Loki's own run of the proof did not finish" : e && e.failed > 0 ? `a check failed in Loki's own run: ${e.first_failed ?? ""}` : "Loki's own run has no passing check for this line").slice(0, 300), ...opt };
   });
 }

@@ -141,6 +141,12 @@
 #  P11. repo_profile.ts couldNotRun: keep every candidate in a touched package (the non-external cell is listed: the founder rule is gone).
 #  P12. verify.ts couldNotNotes: drop the externalCouldNotNotes entry, or externalCouldNotNotes returns [] (the external seal leg reads PARTIAL>PARTIAL although the check was listed).
 #  P13. load_owner.ts harnessLoad: compute external without ownedOnBase's acceptance (on any load error): the named-changed-file cell gets a candidate (a false VERIFIED path through a load error the change caused).
+#  HR1. util/safe_git.ts withTrackedRestored: drop the tracked.has(path) test (the HARNESS-RESTORE cell reads "mine" in place of "theirs"); or return before the restore loop (it reads the rewritten config).
+#  RR1. proof_rerun.ts cachedRerun: drop the tree comparison (the RERUN-REUSE cell reads a reused result second, "[object Object]").
+#  RB1. e10ext/stop_restore.ts resumeOrigBranch: return cur on the run branch too (the RESUME-BRANCH cell reads "loki/e10-x" first).
+#  CP1. seal.ts proofTried: count a "yes" line as tried (the second tried value reads true: a change that only adds files would be held).
+#  CP2. proof_rerun.ts failsWithoutChange: drop the readersCount test (the CHANGE-PROOF cell reads ["doc","unit"] first).
+#  CP3. seal.ts: drop "|| proofCap" from verdict3a (no cell of this build sees it: add the engine leg when the founder allows runs).
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need bun
@@ -667,6 +673,50 @@ out.push([seal.targetedBreak(ctx(checks), run(1, 0, seen)), seal.targetedBreak(c
 console.log(out.join(" | "));
 ' 2>&1)"
 [ "$SDR" = "testdata/api_components__load | testdata/api_components__load | - | false,true,true,false | vitest:test/a.test.ts" ] && ok "SD drop: a new file only a check run wrote leaves the diff even when a plain task word (components) is in it, a file the task names by path stays, on by default, =0 drops nothing; targetedBreak runs only the passing targeted test, reads a fail as breaks, reads nothing-ran as breaks (fail safe) and no targeted test as no break" || bad "SD drop/targetedBreak: $SDR"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# HARNESS-RESTORE (util/safe_git.ts withTrackedRestored): a command Loki runs in the checkout leaves tracked files as it found them (content, deletion,
+# exec bit); a file it creates stays; an untracked file it changes stays changed; LOKI_E10_REGEN_DROP=0 restores nothing.
+HR="$T/harness-restore"; mkdir -p "$HR/sub"; printf '{"a":1}\n' > "$HR/config.json"; printf 'keep\n' > "$HR/sub/gone.txt"; printf 'x\n' > "$HR/tool.sh"; chmod +x "$HR/tool.sh"
+git -C "$HR" init -q -b main; git -C "$HR" config user.name e2e; git -C "$HR" config user.email e2e@example.invalid; git -C "$HR" add -A .; git -C "$HR" commit -q -m base
+printf 'mine\n' > "$HR/session-new.txt"
+HRO="$(cd "$ROOT/loki-ts" && HR="$HR" bun --no-env-file --config=/dev/null -e '
+const { withTrackedRestored } = await import("./src/util/safe_git.ts");
+const { writeFileSync, rmSync, readFileSync, existsSync, statSync, chmodSync } = await import("node:fs");
+const d = process.env.HR, got = [], rd = (p) => readFileSync(d + "/" + p, "utf8").trim();
+const r = await withTrackedRestored(d, async () => { writeFileSync(d + "/config.json", "{\n  \"a\": 1,\n  \"b\": 2\n}\n"); rmSync(d + "/sub/gone.txt"); writeFileSync(d + "/tool.sh", "y\n"); chmodSync(d + "/tool.sh", 0o644); writeFileSync(d + "/made-by-command.txt", "out\n"); writeFileSync(d + "/session-new.txt", "theirs\n"); return 7; }, (p) => got.push(...p));
+const first = [r, got.slice().sort().join(","), rd("config.json"), rd("sub/gone.txt"), rd("tool.sh"), (statSync(d + "/tool.sh").mode & 0o111) ? "x" : "-", existsSync(d + "/made-by-command.txt"), rd("session-new.txt")];
+const n = got.length, off = await withTrackedRestored(d, async () => { writeFileSync(d + "/config.json", "off\n"); return 1; }, (p) => got.push(...p), { ...process.env, LOKI_E10_REGEN_DROP: "0" });
+console.log([...first, off, rd("config.json"), got.length - n].join(" | "));' 2>&1)"
+[ "$HRO" = '7 | config.json,sub/gone.txt,tool.sh | {"a":1} | keep | x | x | true | theirs | 1 | off | 0' ] && ok "HARNESS-RESTORE: a Loki-run command leaves tracked files as it found them; created and untracked files are not touched; =0 restores nothing" || bad "HARNESS-RESTORE gave: $HRO"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# RERUN-REUSE (proof_rerun.ts saveRerun, cachedRerun): a green result is reused only on the same tree and script; a changed tracked file, a changed
+# script or a red result is not; sealStepLines prints steps of 5 s or more and reused ones.
+RR="$T/rerun-reuse"; mkdir -p "$RR/.loki/runs/r1"; printf 'a\n' > "$RR/app.txt"
+git -C "$RR" init -q -b main; git -C "$RR" config user.name e2e; git -C "$RR" config user.email e2e@example.invalid; git -C "$RR" add app.txt; git -C "$RR" commit -q -m base
+printf '#!/bin/bash\ntrue\n' > "$RR/.loki/runs/r1/loki-proof.sh"
+RRO="$(cd "$ROOT/loki-ts" && RR="$RR" bun --no-env-file --config=/dev/null -e '
+const { saveRerun, cachedRerun } = await import("./src/engine10/proof_rerun.ts"); const { sealStepLines } = await import("./src/e10ext/reviewer_body.ts");
+const { writeFileSync } = await import("node:fs");
+const d = process.env.RR, rd = d + "/.loki/runs/r1", green = { exit: 0, seconds: 9, proved: 2, failed: 0, tail: "", script_chars: 1, stopped: 0, left: 0, lines: {} };
+saveRerun(d, rd, green); const a = cachedRerun(d, rd)?.reused === true;
+writeFileSync(d + "/app.txt", "b\n"); const b = cachedRerun(d, rd);
+writeFileSync(d + "/app.txt", "a\n"); writeFileSync(rd + "/loki-proof.sh", "#!/bin/bash\nfalse\n"); const c = cachedRerun(d, rd);
+saveRerun(d, rd, { ...green, exit: 1, failed: 1 }); const e = cachedRerun(d, rd);
+console.log([a, String(b), String(c), String(e), sealStepLines({ seal_steps: [{ step: "proof script on the change", seconds: 0, reused: true }, { step: "copies", seconds: 346.2 }, { step: "small", seconds: 2 }] })[0]].join(" | "));' 2>&1)"
+[ "$RRO" = "true | null | null | null | - Seal reran: proof script on the change (reused, tree and script unchanged); copies 346 s" ] && ok "RERUN-REUSE: only a green result on the same tree and script is reused, and the PR names what seal reran" || bad "RERUN-REUSE gave: $RRO"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# RESUME-BRANCH (e10ext/stop_restore.ts resumeOrigBranch): on the run branch the recorded start branch wins; elsewhere the current branch; a recorded
+# branch that is gone, a missing record, or a record naming the run branch gives null (the run end detaches at the base commit).
+RB="$T/resume-branch"; mkdir -p "$RB"; printf 'a\n' > "$RB/a.txt"
+git -C "$RB" init -q -b main; git -C "$RB" config user.name e2e; git -C "$RB" config user.email e2e@example.invalid; git -C "$RB" add a.txt; git -C "$RB" commit -q -m base
+git -C "$RB" branch feature; git -C "$RB" checkout -q -b loki/e10-x
+RBO="$(cd "$ROOT/loki-ts" && RB="$RB" bun --no-env-file --config=/dev/null -e '
+const { resumeOrigBranch: f } = await import("./src/e10ext/stop_restore.ts"); const { spawnSync } = await import("node:child_process");
+const d = process.env.RB, ev = (b) => [{ type: "stage.completed", stage: "intake", data: { pr_base: { start_branch: b } } }], run = "loki/e10-x";
+const onRun = [f(d, run, ev("main")), f(d, run, ev("gone")), f(d, run, []), f(d, run, ev(run))];
+spawnSync("git", ["-C", d, "checkout", "-q", "feature"]);
+console.log([onRun[0], f(d, run, ev("main")), onRun[1], onRun[2], onRun[3]].map(String).join(" "));' 2>&1)"
+[ "$RBO" = "main feature null null null" ] && ok "RESUME-BRANCH: a resume returns to the branch the run started on" || bad "RESUME-BRANCH gave: $RBO"
 SG="$T/sd-guard"; mkdir -p "$SG/__snapshots__" "$SG/testdata" && git -C "$SG" init -q -b main && git -C "$SG" config user.name rs && git -C "$SG" config user.email rs@example.invalid
 printf 'exports[`a`] = 1;\n' > "$SG/__snapshots__/a.snap"; printf 'x\n' > "$SG/app.ts"; git -C "$SG" add -A . && git -C "$SG" commit -q -m base; BASE_G="$(git -C "$SG" rev-parse HEAD)"
 sd_guard() { # sd_guard <needs: none|cache>: dirty the snapshot, add a cache file, run the guard; print kept | dropped | snap | cache
@@ -1395,6 +1445,17 @@ console.log([...pure, names, ...real, status() === before ? "tree-same" : "TREE-
 X10="1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | yyynn | ok:1:1/1 | no:0:1/1 | null | null | null | null | no:0:1/0 | ok:1:built:1/1 | null | ok:1:1/1 | no:0:1/1 | no:0:1/1 | no:0:1/1 | no:0:1/1 | tree-same"
 [ "$A10" = "$X10" ] && ok "unit, own proof (F1 to F12, N, O1 to O15): a proof-script step is the change's own proof only when it ran repository code, passed on the change and in an untouched copy of the checkout, and printed FAILED in a copy without the change; stale build output is rebuilt in the copy; the user's tree is untouched" \
     || bad "own-proof unit gave: $A10 (want: $X10)"
+# STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22.
+# CHANGE-PROOF (seal.ts needsChangeProof, proofTried; proof_rerun.ts failsWithoutChange readersCount): strict, a run that could be VERIFIED and a changed
+# symbol ask for the change's own proof; the label is held only when a trial ran and said no; a step that only reads a file is the proof only when
+# readers count (a change with no code file).
+CPF="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const { needsChangeProof: n, proofTried: t } = await import("./src/engine10/stages/seal.ts"); const { failsWithoutChange: f } = await import("./src/engine10/proof_rerun.ts");
+const ok = (what, kind) => ({ item: "1", what, ok: true, real: true, cmd: "x", kind }), bad = (what) => ({ item: "1", what, ok: false, exit: 1, out: "x | no match", printed: "no match" });
+const head = [ok("doc", "reader"), ok("unit", "runner")], ctl = [ok("doc", "reader"), ok("unit", "runner")], wo = [bad("doc"), bad("unit")];
+const tried = [t("test fails without the fix: no (warning: the Wall tests also pass on the old code)", null), t("test fails without the fix: yes", null), t("test fails without the fix: inconclusive (timeout)", null), t("", null), t("", { ok: false, checks_without: 19 }), t("", { ok: false, checks_without: 0 }), t("", { ok: true, checks_without: 19 })];
+console.log([[n(true, true, "VERIFIED", 2), n(true, true, "VERIFIED", 0), n(false, true, "VERIFIED", 2), n(true, false, "VERIFIED", 2), n(true, true, "PARTIAL", 2)].join(","), tried.join(","), JSON.stringify(f(head, ctl, wo, false)), JSON.stringify(f(head, ctl, wo, true)), JSON.stringify(f(head, ctl, wo))].join(" "));' 2>&1)"
+[ "$CPF" = 'true,false,false,false,false true,false,false,false,true,false,false ["unit"] ["doc","unit"] ["doc","unit"]' ] && ok "CHANGE-PROOF: a code change is held only when its proof was tried and showed nothing, and a file read is not that proof" || bad "CHANGE-PROOF gave: $CPF"
 
 # Base run budget (v131 STALLED tq runs): a suite that takes ~250 s on the change got 60 s on base, timed out, and its pre-existing red was blamed on the change.
 # A base run now gets the same 300 s its own run gets (bounded by a third of the run cap); a cut base run is recorded on the receipt line as "base run
