@@ -57,9 +57,9 @@
     "file_types": {
       "md": 7,
       "html": 2,
-      "js": 1,
       "sh": 1,
-      "css": 1
+      "css": 1,
+      "js": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -107,8 +107,8 @@
       "go": 12,
       "png": 9,
       "mdc": 2,
-      "jsonc": 1,
       "sh": 1,
+      "jsonc": 1,
       "cff": 1,
       "svg": 1
     },
@@ -234,9 +234,9 @@
       "txt": 47,
       "xml": 6,
       "html": 3,
-      "js": 2,
+      "mjs": 2,
       "sh": 2,
-      "mjs": 2
+      "js": 2
     },
     "has_license": false,
     "has_readme": true,
@@ -296,9 +296,9 @@
     "file_types": {
       "md": 23,
       "tex": 5,
+      "pdf": 2,
       "png": 2,
       "cls": 2,
-      "pdf": 2,
       "txt": 1,
       "py": 1
     },
@@ -400,8 +400,8 @@
       "sh": 3,
       "ps1": 2,
       "txt": 1,
-      "jpeg": 1,
-      "json": 1
+      "json": 1,
+      "jpeg": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -415,8 +415,8 @@
     "skill_lines_min": 54,
     "skill_lines_max": 855,
     "skill_lines_median": 124,
-    "skill_words_total": 12885,
-    "skill_words_avg": 1171,
+    "skill_words_total": 12907,
+    "skill_words_avg": 1173,
     "code_blocks_total": 51,
     "code_blocks_avg": 4.6,
     "code_languages": [
@@ -442,10 +442,10 @@
       "md": 129,
       "json": 16,
       "yml": 3,
-      "py": 2,
       "yaml": 2,
-      "mjs": 1,
-      "lock": 1
+      "py": 2,
+      "lock": 1,
+      "mjs": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -519,14 +519,14 @@
     "reference_files": 278,
     "eval_files": 1,
     "test_files": 296,
-    "total_files": 2228,
-    "total_size_mb": 19.29,
+    "total_files": 2230,
+    "total_size_mb": 19.3,
     "file_types": {
       "md": 1089,
       "ts": 372,
       "js": 236,
       "json": 211,
-      "yaml": 68,
+      "yaml": 70,
       "py": 47,
       "sh": 27,
       "tsx": 24,
@@ -570,9 +570,9 @@
       "sh": 4,
       "asp": 4,
       "xml": 3,
-      "zip": 2,
       "aspx": 2,
-      "swf": 1
+      "zip": 2,
+      "html": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -617,10 +617,10 @@
       "log": 6,
       "txt": 5,
       "yml": 4,
-      "npy": 2,
       "lammps": 2,
-      "toml": 1,
-      "in": 1
+      "npy": 2,
+      "cff": 1,
+      "toml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -675,7 +675,7 @@
     "eval_files": 5,
     "test_files": 426,
     "total_files": 2882,
-    "total_size_mb": 38.98,
+    "total_size_mb": 39.0,
     "file_types": {
       "md": 1159,
       "json": 590,
@@ -851,9 +851,9 @@
       "png": 2,
       "yaml": 1,
       "py": 1,
+      "yml": 1,
       "lockb": 1,
-      "gif": 1,
-      "yml": 1
+      "gif": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1216,7 +1216,7 @@
       "html": 2,
       "toml": 1,
       "txt": 1,
-      "sh": 1
+      "svg": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1448,8 +1448,8 @@
       "sh": 4,
       "py": 2,
       "yml": 2,
-      "svg": 1,
       "png": 1,
+      "svg": 1,
       "mdc": 1
     },
     "has_license": true,
@@ -1528,8 +1528,8 @@
       "yaml": 10,
       "py": 9,
       "jsonl": 4,
-      "svg": 3,
-      "sh": 3
+      "sh": 3,
+      "svg": 3
     },
     "has_license": true,
     "has_readme": true,
@@ -1579,13 +1579,13 @@
   "coreyhaines31--marketingskills": {
     "description": "Marketing skills for Claude Code and AI agents. CRO, copywriting, SEO, analytics, and growth engineering.",
     "skill_count": 53,
-    "skill_lines_total": 16737,
+    "skill_lines_total": 16751,
     "skill_lines_avg": 316,
     "skill_lines_min": 117,
     "skill_lines_max": 501,
-    "skill_lines_median": 315,
-    "skill_words_total": 125400,
-    "skill_words_avg": 2366,
+    "skill_lines_median": 321,
+    "skill_words_total": 125667,
+    "skill_words_avg": 2371,
     "code_blocks_total": 81,
     "code_blocks_avg": 1.5,
     "code_languages": [
@@ -1606,10 +1606,10 @@
     "reference_files": 246,
     "eval_files": 57,
     "test_files": 188,
-    "total_files": 899,
-    "total_size_mb": 7.35,
+    "total_files": 902,
+    "total_size_mb": 7.39,
     "file_types": {
-      "md": 492,
+      "md": 494,
       "cjs": 167,
       "json": 107,
       "js": 96,
@@ -1617,8 +1617,8 @@
       "mjs": 6,
       "sh": 4,
       "py": 4,
-      "fixture": 4,
-      "txt": 4
+      "txt": 4,
+      "fixture": 4
     },
     "has_license": true,
     "has_readme": true,
@@ -1657,8 +1657,8 @@
       "toml": 2,
       "jsonc": 1,
       "yaml": 1,
-      "tape": 1,
       "sh": 1,
+      "tape": 1,
       "gif": 1
     },
     "has_license": true,
@@ -1698,15 +1698,15 @@
   "expo--skills": {
     "description": "A collection of AI agent skills for working with Expo projects and Expo Application Services",
     "skill_count": 25,
-    "skill_lines_total": 5290,
-    "skill_lines_avg": 212,
-    "skill_lines_min": 50,
-    "skill_lines_max": 478,
-    "skill_lines_median": 183,
-    "skill_words_total": 44513,
-    "skill_words_avg": 1781,
-    "code_blocks_total": 197,
-    "code_blocks_avg": 7.9,
+    "skill_lines_total": 5194,
+    "skill_lines_avg": 208,
+    "skill_lines_min": 46,
+    "skill_lines_max": 474,
+    "skill_lines_median": 179,
+    "skill_words_total": 45140,
+    "skill_words_avg": 1806,
+    "code_blocks_total": 173,
+    "code_blocks_avg": 6.9,
     "code_languages": [
       "bash",
       "html",
@@ -1741,8 +1741,8 @@
       "json": 17,
       "ts": 10,
       "sh": 9,
-      "swift": 4,
       "yml": 4,
+      "swift": 4,
       "png": 3,
       "py": 2,
       "js": 2
@@ -1834,8 +1834,8 @@
       "sh": 2,
       "go": 2,
       "py": 1,
-      "yaml": 1,
-      "yml": 1
+      "yml": 1,
+      "yaml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1875,10 +1875,10 @@
       "toml": 5,
       "txt": 3,
       "yml": 3,
-      "ps1": 1,
       "example": 1,
       "lock": 1,
-      "gif": 1
+      "ps1": 1,
+      "sh": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1918,8 +1918,8 @@
       "png": 4,
       "pdf": 3,
       "js": 2,
-      "example": 1,
-      "lock": 1
+      "lock": 1,
+      "gif": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1960,11 +1960,11 @@
       "md": 28,
       "json": 12,
       "svg": 9,
-      "yaml": 4,
       "sh": 4,
+      "yaml": 4,
       "py": 3,
-      "txt": 1,
-      "yml": 1
+      "yml": 1,
+      "txt": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -2035,8 +2035,8 @@
     "file_types": {
       "md": 6,
       "js": 5,
-      "json": 4,
       "yml": 4,
+      "json": 4,
       "html": 2
     },
     "has_license": true,
@@ -2110,8 +2110,8 @@
       "html": 12,
       "json": 6,
       "sh": 3,
-      "toml": 1,
       "example": 1,
+      "toml": 1,
       "gif": 1
     },
     "has_license": true,
@@ -2202,14 +2202,14 @@
   "netlify--context-and-tools": {
     "description": "context-and-tools",
     "skill_count": 49,
-    "skill_lines_total": 13481,
-    "skill_lines_avg": 275,
+    "skill_lines_total": 13535,
+    "skill_lines_avg": 276,
     "skill_lines_min": 86,
     "skill_lines_max": 392,
-    "skill_lines_median": 270,
-    "skill_words_total": 103159,
-    "skill_words_avg": 2105,
-    "code_blocks_total": 518,
+    "skill_lines_median": 272,
+    "skill_words_total": 103543,
+    "skill_words_avg": 2113,
+    "code_blocks_total": 521,
     "code_blocks_avg": 10.6,
     "code_languages": [
       "bash",
@@ -2295,8 +2295,8 @@
       "py": 6,
       "mjs": 5,
       "yaml": 2,
-      "png": 2,
-      "yml": 2
+      "yml": 2,
+      "png": 2
     },
     "has_license": true,
     "has_readme": true,
@@ -2379,8 +2379,8 @@
     "file_types": {
       "md": 19,
       "json": 3,
-      "zip": 1,
       "py": 1,
+      "zip": 1,
       "yml": 1
     },
     "has_license": true,
@@ -2461,8 +2461,8 @@
       "ts": 13,
       "json": 10,
       "tsx": 8,
-      "geojson": 4,
-      "mjs": 4
+      "mjs": 4,
+      "geojson": 4
     },
     "has_license": false,
     "has_readme": true,
@@ -2723,15 +2723,15 @@
   "stripe--ai": {
     "description": "One-stop shop for building AI-powered products and businesses with Stripe.",
     "skill_count": 78,
-    "skill_lines_total": 11399,
-    "skill_lines_avg": 146,
+    "skill_lines_total": 11273,
+    "skill_lines_avg": 145,
     "skill_lines_min": 48,
     "skill_lines_max": 413,
     "skill_lines_median": 80,
-    "skill_words_total": 114135,
-    "skill_words_avg": 1463,
-    "code_blocks_total": 295,
-    "code_blocks_avg": 3.8,
+    "skill_words_total": 111951,
+    "skill_words_avg": 1435,
+    "code_blocks_total": 288,
+    "code_blocks_avg": 3.7,
     "code_languages": [
       "bash",
       "json",
@@ -2750,7 +2750,7 @@
     "eval_files": 0,
     "test_files": 53,
     "total_files": 958,
-    "total_size_mb": 23.5,
+    "total_size_mb": 23.46,
     "file_types": {
       "md": 333,
       "tsx": 127,
@@ -3021,8 +3021,8 @@
       "json": 58,
       "ts": 8,
       "zip": 5,
-      "txt": 2,
       "yml": 2,
+      "txt": 2,
       "yaml": 1
     },
     "has_license": false,
@@ -3090,8 +3090,8 @@
       "ts": 33,
       "md": 10,
       "json": 4,
-      "sh": 3,
       "mjs": 3,
+      "sh": 3,
       "js": 2,
       "yml": 2,
       "schema": 1
@@ -3175,11 +3175,11 @@
     "total_size_mb": 3.37,
     "file_types": {
       "md": 147,
-      "json": 4,
       "sh": 4,
+      "json": 4,
       "css": 2,
-      "js": 2,
-      "py": 2
+      "py": 2,
+      "js": 2
     },
     "has_license": true,
     "has_readme": true,
@@ -3222,8 +3222,8 @@
       "py": 6,
       "sh": 3,
       "json": 2,
-      "runtime-template": 1,
-      "yml": 1
+      "yml": 1,
+      "runtime-template": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3323,16 +3323,16 @@
     "reference_files": 22,
     "eval_files": 0,
     "test_files": 427,
-    "total_files": 2424,
-    "total_size_mb": 37.79,
+    "total_files": 2396,
+    "total_size_mb": 37.76,
     "file_types": {
       "py": 689,
-      "ts": 506,
+      "ts": 499,
       "md": 321,
       "json": 189,
       "sh": 142,
       "txt": 110,
-      "js": 89,
+      "js": 82,
       "go": 78,
       "yaml": 51,
       "rs": 41
@@ -3515,10 +3515,10 @@
       "json": 2,
       "sh": 2,
       "csv": 2,
-      "txt": 1,
-      "toml": 1,
-      "example": 1,
-      "yml": 1
+      "pdf": 1,
+      "png": 1,
+      "yml": 1,
+      "txt": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3737,13 +3737,13 @@
     ],
     "reference_files": 943,
     "eval_files": 19,
-    "test_files": 127,
-    "total_files": 4069,
-    "total_size_mb": 34.84,
+    "test_files": 126,
+    "total_files": 4058,
+    "total_size_mb": 34.81,
     "file_types": {
       "md": 2420,
       "py": 921,
-      "json": 458,
+      "json": 453,
       "csv": 65,
       "txt": 51,
       "yml": 24,
@@ -3838,8 +3838,8 @@
       "sh": 56,
       "json": 23,
       "ps1": 5,
-      "ts": 3,
       "yml": 3,
+      "ts": 3,
       "tsx": 2
     },
     "has_license": true,
@@ -3970,10 +3970,10 @@
     "reference_files": 8532,
     "eval_files": 7,
     "test_files": 1063,
-    "total_files": 25721,
-    "total_size_mb": 169.51,
+    "total_files": 25722,
+    "total_size_mb": 169.52,
     "file_types": {
-      "md": 19841,
+      "md": 19842,
       "json": 2260,
       "py": 1264,
       "sh": 358,
@@ -4048,8 +4048,8 @@
       "md": 473,
       "json": 139,
       "js": 19,
-      "sh": 1,
       "yml": 1,
+      "sh": 1,
       "py": 1
     },
     "has_license": true,
@@ -4059,13 +4059,13 @@
   "daymade--claude-code-skills": {
     "description": "Professional Claude Code skills marketplace featuring production-ready skills for enhanced development workflows.",
     "skill_count": 185,
-    "skill_lines_total": 47112,
+    "skill_lines_total": 47178,
     "skill_lines_avg": 255,
     "skill_lines_min": 13,
     "skill_lines_max": 1464,
     "skill_lines_median": 189,
-    "skill_words_total": 379149,
-    "skill_words_avg": 2049,
+    "skill_words_total": 379999,
+    "skill_words_avg": 2054,
     "code_blocks_total": 1057,
     "code_blocks_avg": 5.7,
     "code_languages": [
@@ -4108,13 +4108,13 @@
       "name",
       "title"
     ],
-    "reference_files": 518,
+    "reference_files": 519,
     "eval_files": 27,
     "test_files": 406,
-    "total_files": 1860,
-    "total_size_mb": 34.1,
+    "total_files": 1861,
+    "total_size_mb": 34.18,
     "file_types": {
-      "md": 809,
+      "md": 810,
       "py": 734,
       "sh": 59,
       "json": 55,
@@ -4170,8 +4170,8 @@
       "js": 3,
       "yml": 2,
       "cmd": 1,
-      "dot": 1,
       "ts": 1,
+      "dot": 1,
       "py": 1
     },
     "has_license": true,
@@ -4293,15 +4293,15 @@
   },
   "glebis--claude-skills": {
     "description": "Collection of Claude Code skills for enhanced AI workflows",
-    "skill_count": 134,
-    "skill_lines_total": 18465,
+    "skill_count": 133,
+    "skill_lines_total": 18350,
     "skill_lines_avg": 138,
     "skill_lines_min": 19,
     "skill_lines_max": 745,
-    "skill_lines_median": 107,
-    "skill_words_total": 124354,
+    "skill_lines_median": 105,
+    "skill_words_total": 123402,
     "skill_words_avg": 928,
-    "code_blocks_total": 590,
+    "code_blocks_total": 589,
     "code_blocks_avg": 4.4,
     "code_languages": [
       "bash",
@@ -4335,15 +4335,15 @@
       "typography",
       "user_invocable"
     ],
-    "reference_files": 131,
+    "reference_files": 126,
     "eval_files": 16,
     "test_files": 128,
-    "total_files": 1210,
-    "total_size_mb": 22.53,
+    "total_files": 1197,
+    "total_size_mb": 22.47,
     "file_types": {
-      "md": 384,
+      "md": 377,
       "py": 351,
-      "json": 143,
+      "json": 141,
       "yaml": 50,
       "sh": 34,
       "html": 27,
@@ -4393,13 +4393,13 @@
     "eval_files": 0,
     "test_files": 0,
     "total_files": 465,
-    "total_size_mb": 77.68,
+    "total_size_mb": 77.7,
     "file_types": {
       "png": 131,
       "md": 124,
       "svg": 58,
-      "wav": 45,
       "mp3": 45,
+      "wav": 45,
       "webp": 14,
       "jpg": 13,
       "json": 8,
@@ -4528,10 +4528,10 @@
     "eval_files": 0,
     "test_files": 0,
     "total_files": 3,
-    "total_size_mb": 0.21,
+    "total_size_mb": 0.22,
     "file_types": {
-      "md": 1,
-      "webp": 1
+      "webp": 1,
+      "md": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -4623,8 +4623,8 @@
       "mjs": 3,
       "jsonl": 2,
       "png": 1,
-      "ps1": 1,
-      "sh": 1
+      "sh": 1,
+      "ps1": 1
     },
     "has_license": true,
     "has_readme": true,
