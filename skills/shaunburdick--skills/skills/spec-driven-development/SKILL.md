@@ -6,7 +6,7 @@ description: >-
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.11.1"
+  version: "2.11.2"
 ---
 
 # Spec-Driven Development
@@ -149,6 +149,12 @@ past ~15, goes through the Amendment Gate in the triage guide. If no spec owns
 it, create one only after the approval step below. If ambiguous, ask. "Improve
 combat" is an amendment; "add inventory system" is new. A spec that has accreted
 a hundred lines of amendments is rewritten, not split.
+
+**Amend in one pass per section.** Apply a findings list by rewriting each
+affected requirement once rather than patching it finding by finding, and never
+chain an edit onto text an earlier edit already rewrote. Past a handful of
+edits to one file, prefer a single scripted replacement pass over a stream of
+anchored edits.
 
 ### Create the Spec
 
