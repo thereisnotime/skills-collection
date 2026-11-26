@@ -10,7 +10,7 @@ import { fastTierModel } from "../../runner/model_downgrades.ts"; import { noteR
 import { cascadeDowngrade, loadRepoMap, namedFiles, sizeTask } from "../sizing.ts";
 import { attemptModels, attemptsK, type ExtraAttemptsDeps } from "../../features/attempts.ts";
 import { selectRelevantFiles } from "./plan.ts"; import { changedFiles, checkExcerpt, commandFor, runCheck, type VerifyCheck } from "./verify.ts"; import { loadProjectApi } from "../../project_model/resolve.ts"; import { suiteCmdsOpt } from "../../project_model/package_suite.ts"; import { planStopChecks } from "../../runner/stop_checks.ts";
-import { treeFingerprint } from "../../util/anti_loop.ts"; import { TASK_MEMORY_DIR_ENV, taskMemoryOn } from "../../runner/providers.ts"; import { CARD_BASE_ENV, CARD_RUN_DIR_ENV, compactCardOn, TASK_CARD_ENV, taskCardText } from "../../runner/compact_card.ts"; import { baseFacts, keepProofScript, labelAsks, taskMemoryText, writeTaskMemory, optionalAsk, ruleStatus, writeProofKit, PROOF_SCRIPT, PROVES_NOTHING_FIX, proofBaseCapOn, proofFacts, proofLoopMax, proofOnBase, proofRerunOn, provesNothing, provesNothingReason, rerunProof, unmetBrief, unusedNewFiles, worktreeTree, runSetupScript } from "../proof_rerun.ts"; import { crossReview, isUnmetNote, issueLineCheck, reviewFixOn } from "./xreview.ts"; import { PROOF_SCRIPT_LINE } from "../../e10ext/context.ts"; import { writeExitCleanup, cleanupSessionScratch, createSessionScratch, scratchSessionEnv, type SessionScratch } from "../../runner/worker_proc.ts"; import { envCard } from "../../util/stack_tools.ts"; import { repoCardBrief, settleSetupCheck } from "../../e10ext/repomemory.ts"; import { capStopOf, classifyExitCause, resolveModel } from "../session.ts"; import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; // E-68 reuse: never re-classify exit codes here
+import { treeFingerprint } from "../../util/anti_loop.ts"; import { TASK_MEMORY_DIR_ENV, taskMemoryOn } from "../../runner/providers.ts"; import { CARD_BASE_ENV, CARD_RUN_DIR_ENV, compactCardOn, TASK_CARD_ENV, taskCardText } from "../../runner/compact_card.ts"; import { baseFacts, keepProofScript, labelAsks, taskMemoryText, writeTaskMemory, optionalAsk, ruleStatus, writeProofKit, PROOF_SCRIPT, PROVES_NOTHING_FIX, proofBaseCapOn, proofFacts, proofLoopMax, proofOnBase, proofRerunOn, provesNothing, provesNothingReason, rerunProof, unmetBrief, unusedNewFiles, worktreeTree, runSetupScript } from "../proof_rerun.ts"; import { crossReview, handBackReasons, issueLineCheck, modelReviewRan, reviewFixOn, type CrossReview, type LineCheckRecord } from "./xreview.ts"; import { PROOF_SCRIPT_LINE } from "../../e10ext/context.ts"; import { writeExitCleanup, cleanupSessionScratch, createSessionScratch, scratchSessionEnv, type SessionScratch } from "../../runner/worker_proc.ts"; import { envCard } from "../../util/stack_tools.ts"; import { repoCardBrief, settleSetupCheck } from "../../e10ext/repomemory.ts"; import { capStopOf, classifyExitCause, resolveModel } from "../session.ts"; import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; // E-68 reuse: never re-classify exit codes here
 import { NAMED_SITE_LINE, namedSites, namedSitesEnabled, type ContinueRecord, asUnfinishedConflict, compactionsOf, conflictNeedsTestOn, lacksFinishLine, resumeToFinish, type NamedSitesRecord, type RemedyRecord, resumeForNamedSites, resumeForPrecedence, resumeForRemedy, adjudicateWallConflict, coverageFoldLines, coverageMode, coverageResumeEnabled, reaskFoldedClaims, resumeAfterAlreadyDone, resumeForProofScript, resumeForSelfReview, resumeNeverStop, resumeAfterConflict, resumeAfterEmptyDone, resumeForCoverage, runVerifiedFinish } from "../../util/conflict_resume.ts";
 import { INTERRUPTED_BRIEF, interruptedSession, planChain, readSessionId } from "../../runner/session_resume.ts"; import { issueAcceptanceCapOn, issueAcceptanceOf } from "../../util/intent_card.ts";
 import { routeEscalate, routeStart } from "../../runner/router/implement_route.ts";
@@ -24,6 +24,39 @@ import { appliedTests, buildPatchBrief, patchCallFor, patchEnabled, runPatchProt
 import { isTestFile } from "../../util/test_file_text.ts";
 import { type FinishRecord, guardReviewTurn, type ReviewItem, reviewTurnGuardOn, selfReviewBrief, verifiedFinishBrief, verifiedFinishMaxTurns, verifiedFinishOn, selfReviewChecks, selfReviewMaxTurns, selfReviewMode, selfReviewWanted, settleItems, stripInventedReleaseRefs, treeStaged, type TurnGuardRecord } from "../../features/self_review.ts";
 import { type DiffEntry, snapshotDiff } from "../../e10ext/treeswap.ts";
+
+/** A reviewer's gap on a line that already has a passing check is handed back once per line: `handed` holds the numbers already handed back (and is added to here); a line seen again is a dispute, recorded and not handed back. */
+export function gapOnce(handed: Set<number>, gaps: { n: number; line: string; reason: string }[], round: number): { handBack: { n: number; line: string; reason: string }[]; disputes: { line: string; reason: string; round: number }[] } {
+  const handBack: { n: number; line: string; reason: string }[] = [], disputes: { line: string; reason: string; round: number }[] = [];
+  for (const g of gaps) { if (handed.has(g.n)) disputes.push({ line: g.line, reason: g.reason, round }); else { handed.add(g.n); handBack.push(g); } }
+  return { handBack, disputes };
+}
+/** The one resume text of a proof-loop round: the independent reviewer's whole findings first, then Loki's unmet acceptance lines. "" when both are empty. */
+export function combinedHandBack(found: string[], unmetText: string): string {
+  const review = found.length ? [`An independent reviewer read your whole change and found ${found.length} problem${found.length === 1 ? "" : "s"}:`, "", ...found.map((n, i) => `${i + 1}. ${n}`), "", "Check each one against the code. Where the reviewer is right, fix the product (and the documentation when the two disagree), add a check for it to $LOKI_SCRATCH/loki-proof.sh under the acceptance item it belongs to, and run the proof again until it passes. Close each finding where the code already is: when a finding says something has no caller, call it at the nearest existing call site or remove it. Add no mechanism the issue does not ask for. When the reviewer gave an input that shows a problem, add that exact input as a test in the repository's own tests, next to the tests for that code, and see it fail before your fix and pass after it. When the code you are fixing reads untrusted input (markup, an address, a query, a path, a file format), use the parser or escaping library this repository already depends on for it; do not replace a library call with matching you wrote yourself, and if the repository has no such dependency, say so in your reply. Where the reviewer is wrong, say why in one line and change nothing for it. Do not remove or loosen an existing check. End with the same finish line as before."].join("\n") : "";
+  return [review, unmetText].filter(Boolean).join("\n\n");
+}
+
+/** Which reader looks at the tree in a passing-proof round (loki-mode#692). "review": the first independent review. "follow": a follow-up review of what the last fix turn changed, while the
+ *  last hand-back carried review findings (the caller folds that into changedSinceReview) and fewer than max follow-ups ran. "line-check": the acceptance line check, as before.
+ *  max 0 (LOKI_E10_REVIEW_FOLLOW_MAX=0) never follows and the loop runs today's review plus line check in parallel, exactly as before this change. */
+export function readerFor(s: { reviewOn: boolean; reviewed: boolean; changedSinceReview: boolean; followUps: number; max: number }): "review" | "follow" | "line-check" {
+  if (s.reviewOn && !s.reviewed) return "review";
+  if (s.reviewOn && s.reviewed && s.changedSinceReview && s.followUps < s.max) return "follow";
+  return "line-check";
+}
+/** True when the round must also run the acceptance line check: always for the "line-check" reader, and for any reader whose review did not run (no reviewer, no room, a provider without one), so no tree is left unread. */
+export const needsLineCheck = (reader: "review" | "follow" | "line-check", reviewRan: boolean): boolean => reader === "line-check" || !reviewRan;
+/** LOKI_E10_REVIEW_FOLLOW_MAX: how many times review findings are handed back to the session (default 1; 0 means they are never handed back). Every fix made in answer to one is read again. */
+export const followMax = (env: NodeJS.ProcessEnv = process.env): number => { const n = Number((env["LOKI_E10_REVIEW_FOLLOW_MAX"] ?? "").trim()); return (env["LOKI_E10_REVIEW_FOLLOW_MAX"] ?? "").trim() !== "" && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 1; };
+/** True while the review findings may still be handed back: handBacks counts the hand-backs that carried review findings. An unmet acceptance line is handed back whatever this says. Pure. */
+export const mayHandBack = (s: { handBacks: number; max: number }): boolean => s.handBacks < s.max;
+/** SEAL-REUSE: the fields of a model read that seal needs to rebuild the review (notes already capped by xreview). */
+export interface ReviewRead { notes: string[]; reasons: string[]; provider: string; reviewed_by?: string; reviewer_model?: string }
+export const readOf = (xr: CrossReview): ReviewRead => ({ notes: xr.notes, reasons: xr.reasons ?? [], provider: xr.provider, ...(xr.reviewed_by ? { reviewed_by: xr.reviewed_by } : {}), ...(xr.reviewer_model ? { reviewer_model: xr.reviewer_model } : {}) });
+/** True when a model review ran in this stage and the tree now differs from the tree the last review read: one more read of reviewedTree..tree is due, and nothing is handed back from it. Pure. */
+export const needsClosingRead = (s: { reviewRan: boolean; tree: string; reviewedTree: string }): boolean => s.reviewRan && s.tree !== s.reviewedTree;
+const UNTRUSTED_INPUT_RULE = "Code that reads untrusted input uses the parser or escaping library this repository already depends on for that format. Hand-written matching of such input is a defect unless the repository has no such dependency; then say so in your reply.";
 
 /** A test file (a sealed Wall test) the implement session must not change: path is absolute, in the repo working tree; content is what to restore if it no longer matches. */
 export interface ReadOnlyFile { path: string; content: string; }
@@ -47,6 +80,7 @@ const REPRO_LINE = "If the task reports a bug, first add a new test function tha
 export function buildImplementBrief(task: string, plan: string | null, impactedTests: string[], repoMap = "", spec: string | null = null, assumptions: unknown = undefined, remedy: unknown = undefined, issue: boolean | "text" = false): string {
   return withStagePrefix([ // FIXED_RULES leads and FINISH_LINE closes, both byte-identical per task
     fixedRules(process.env, issue), // Z2: the pinned-test rule, or the v11.139.0 text with LOKI_E10_PINNED_TEST_UPDATE=0; issue: the issue-run rules constant (e10ext/context.ts issueRules)
+    UNTRUSTED_INPUT_RULE, // loki-mode#692: one fixed rule line in the cache-stable prefix, before any per-task text
     ...(plan ? [] : [FOLD_PLAN_INSTRUCTION, ...coverageFoldLines()]), // LOKI_E10_COVERAGE_RESUME fold (default): fixed bytes before any per-task text; turn and off add nothing (main's brief)
     ...taskBlock(task),
     ...assumptionsBlock(assumptions),
@@ -281,27 +315,59 @@ export const implementStage: Stage = {
       if (r.iterationId !== ids[ids.length - 1]) ids.push(r.iterationId);
       if (r.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[proof script turn]\n${r.session.summary}` };
     }
-    const lineRounds: { met: number; unmet: number; usd: number | null }[] = [];
+    const lineRounds: { met: number; unmet: number; usd: number | null; reader?: "review" | "follow" }[] = [];
+    let reviewedTree = "", lastFound: string[] = [], followUps = 0, lastReviewRan = false, handBacks = 0, pendingFollow = false, lastReadFound: string[] = [], lastRead: { level: string; findings: number; follow: boolean; still_open: string[] | null; tree: string; read: ReviewRead } | null = null; /* handBacks: hand-backs that carried review findings; pendingFollow: the last such hand-back is not read yet; lastRead: the last model read, for review_state */ const reviewFollow: { round: number; level: string; findings: number }[] = [], followCosts: string[] = []; // loki-mode#692: the tree the last review read, what it found, and the follow-ups that read what each fix turn changed
     const proofRounds: { exit: number | null; failed: number; seconds: number; base_seconds?: number }[] = []; // PROOF LOOP: Loki runs the proof itself and hands a failure back with its real output, so a session that is wrong is corrected by evidence, not asked to try harder
     let reviewedEarly = false, earlyReviewCost: string | null = null; let proofFails = 0, lineTurns = 0; const LINE_TURNS_MAX = 2;
     // NO-DEFAULT-BUDGET: with no time limit the proof and acceptance turn counts are not the bound. A round makes progress when Loki's own proof run fails fewer
     // checks, or fewer acceptance lines are unmet, than the best round so far; noProgressRounds() rounds in a row without either end the loop.
     const noBudget = !defaultBudgetsOn(); let proofBest = { failed: Infinity, unmet: Infinity }, proofStill = 0;
     const proofStep = (failed: number, unmet: number): void => { if (failed < proofBest.failed || unmet < proofBest.unmet) { proofBest = { failed: Math.min(failed, proofBest.failed), unmet: Math.min(unmet, proofBest.unmet) }; proofStill = 0; } else proofStill++; }; // the acceptance check has its own two turns: a session that used every proof turn to get the script passing (Haiku did) used to get no acceptance feedback at all
-    // One independent review during the run, with its findings handed back; true when the session was resumed and the proof must run again.
-    const reviewRound = async (tree: string): Promise<boolean> => {
-      // REVIEW-THEN-FIX: every item is met by count and by the acceptance check. One independent review now, while the session can still act on it.
-      if (reviewedEarly || !reviewFixOn()) return false;
+    // One independent review during the run (a read-only call): returns the findings to hand back, [] when it found none, was off or already ran.
+    const reviewFound = async (tree: string): Promise<string[]> => {
+      // REVIEW-THEN-FIX: the review is read first, with the first passing proof run, so the session hears the reviewer and the acceptance check in one turn.
+      if (reviewedEarly || !reviewFixOn()) return [];
       reviewedEarly = true;
       const xr = await crossReview(ctx, "VERIFIED", tree, signal, true); if (xr?.cost_iteration) earlyReviewCost = xr.cost_iteration;
-      const found = xr && (xr.level === "block" || xr.level === "flag") ? xr.notes.filter((n) => /^cross-review (block|flag) /.test(n) || isUnmetNote(n)).slice(0, 8) : []; // flags too: a reviewer filed "the default search page fails with a 400 on first load" as a flag, and the session can fix or rebut a flag in one turn
+      const found = handBackReasons(xr); // flags too: a reviewer filed "the default search page fails with a 400 on first load" as a flag, and the session can fix or rebut a flag in one turn; the reviewer's whole findings come first, then its UNMET items, bounded by handBackReasons and not by the receipt's cap of 5
       ctx.emit("review.early", "implement", { level: xr?.level ?? "not_run", findings: found.length });
-      if (!found.length) return false;
-      const r3 = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, [`An independent reviewer read your whole change and found ${found.length} problem${found.length === 1 ? "" : "s"}:`, "", ...found.map((n, i) => `${i + 1}. ${n.replace(/^cross-review \w+ \([^)]*\):\s*/, "")}`), "", "Check each one against the code. Where the reviewer is right, fix the product (and the documentation when the two disagree), add a check for it to $LOKI_SCRATCH/loki-proof.sh under the acceptance item it belongs to, and run the proof again until it passes. Where the reviewer is wrong, say why in one line and change nothing for it. Do not remove or loosen an existing check. End with the same finish line as before."].join("\n"));
+      lastReviewRan = modelReviewRan(xr); lastFound = found; if (lastReviewRan) { reviewedTree = tree; lastReadFound = found; lastRead = { level: xr!.level, findings: found.length, follow: false, still_open: [], tree, read: readOf(xr!) }; }
+      return found;
+    };
+    // A follow-up review of what the last fix turn changed (reviewedTree..tree); the earlier findings are named so the reviewer says which are still open. It ends when it finds nothing (lastFound is then empty).
+    const noteFollow = (xr: CrossReview, earlier: string[], found: string[], tree: string): void => { // the follow-up read's record for review_state: which earlier findings it listed as open (null: it gave no STILL OPEN line; [] when there was nothing earlier to list)
+      reviewedTree = tree; lastReadFound = found; pendingFollow = false;
+      lastRead = { level: xr.level, findings: found.length, follow: true, still_open: earlier.length === 0 ? [] : xr.still_open == null ? null : xr.still_open.map((k) => earlier[k - 1]!.slice(0, 300)), tree, read: readOf(xr) };
+    };
+    const followFound = async (tree: string, round: number): Promise<string[]> => {
+      const n = ++followUps, earlier = lastReadFound;
+      const xr = await crossReview(ctx, "VERIFIED", tree, signal, true, { from: reviewedTree, earlier, n }); if (xr?.cost_iteration) followCosts.push(xr.cost_iteration);
+      const found = handBackReasons(xr);
+      ctx.emit("review.early", "implement", { level: xr?.level ?? "not_run", findings: found.length, follow: n });
+      lastReviewRan = modelReviewRan(xr); lastFound = found; if (lastReviewRan) { noteFollow(xr!, earlier, found, tree); reviewFollow.push({ round, level: xr!.level, findings: found.length }); }
+      return found;
+    };
+    // The closing read: one follow-up read of reviewedTree..tree for a change no review has read (a proof-failure turn, a count-only hand-back, a self review turn). It hands nothing back.
+    const closingRead = async (tree: string): Promise<void> => {
+      const n = ++followUps, earlier = lastReadFound;
+      const xr = await crossReview(ctx, "VERIFIED", tree, signal, true, { from: reviewedTree, earlier, n }); if (xr?.cost_iteration) followCosts.push(xr.cost_iteration);
+      if (xr === null) { reviewedTree = tree; return; } // an empty diff: nothing changed that a reader could read
+      const found = handBackReasons(xr);
+      ctx.emit("review.early", "implement", { level: xr.level, findings: found.length, follow: n, closing: true });
+      if (modelReviewRan(xr)) { noteFollow(xr, earlier, found, tree); reviewFollow.push({ round: proofRounds.length + 1, level: xr.level, findings: found.length }); }
+    };
+    // The one hand-back resume: the review's findings and any unmet acceptance lines together; true when the session was resumed and the proof must run again.
+    const handBackTurn = async (found: string[], unmetText: string, round: number): Promise<boolean> => {
+      const text = combinedHandBack(found, unmetText); if (!text) return false;
+      const r3 = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, text);
       if (r3.iterationId !== ids[ids.length - 1]) ids.push(r3.iterationId); else return false;
-      if (r3.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[after the independent review]\n${r3.session.summary}` };
+      if (found.length) { handBacks++; pendingFollow = true; }
+      const tag = found.length && unmetText ? `after the independent review and Loki's acceptance check, round ${round + 1}` : unmetText ? `after Loki's acceptance check, round ${round + 1}` : "after the independent review";
+      if (r3.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[${tag}]\n${r3.session.summary}` };
       return true;
     };
+    const reviewRound = async (tree: string): Promise<boolean> => { const f = await reviewFound(tree); return handBackTurn(mayHandBack({ handBacks, max: followMax() }) ? f : [], "", 0); }; // the later call sites (turns used up, no unmet line): nothing when the review already ran
+    const handedGaps = new Set<number>(), disputes: { line: string; reason: string; round: number }[] = []; // a reviewer gap on a line with a passing check is handed back once per line
     for (let round = 0; (noBudget ? proofStill < noProgressRounds() : proofFails < proofLoopMax()) && scratch && proofRerunOn() && existsSync(join(scratch.dir, PROOF_SCRIPT)) && !signal.aborted && !session.killed && session.exit === 0 && !session.markers.specConflict && !session.markers.alreadyDone; round++) {
       if (!keepProofScript(scratch.dir, ctx.runDir)) break;
       const pr = await rerunProof(ctx.repoDir, ctx.runDir, signal); if (!pr) break;
@@ -311,18 +377,26 @@ export const implementStage: Stage = {
       if (pr.exit === 0 && pr.failed === 0) { // the proof passes when Loki runs it: now check it against every acceptance line, and hand unmet lines back with the reason
         const la = labelAsks(ctx.provider, prior.intake, prior.plan, ctx.repoDir); if (!la.asks.length) break; if (noBudget ? proofStill >= noProgressRounds() : lineTurns >= LINE_TURNS_MAX) { const t = await worktreeTree(ctx.repoDir); if (t && await reviewRound(t)) continue; break; } // the acceptance turns are used up: the review still gets its one round (a run that spent both turns never reached it)
         const tree = await worktreeTree(ctx.repoDir); if (!tree) break;
-        const lc = await issueLineCheck(ctx, la.asks, tree, [], session.summary ?? "", [...(la.needs.length ? [`This repository needs: ${la.needs.join(", ")}.`] : []), "Loki's verify stage has not run yet at this point, so the check list is empty: a line about tests is met when the output of Loki's own run shows those tests passing.", ...proofFacts(ctx.runDir, pr, true), ...baseFacts(la.asks, pr, pb)]);
-        const byRule = ruleStatus(la.asks, pr), empty = new Set(provesNothing(la.asks, pr, pb)), unmet = la.asks.flatMap((line, i) => { if (optionalAsk(line)) return []; if (byRule[i]!.status !== "met") return [{ line: `${i + 1}. ${line}`, reason: byRule[i]!.reason ?? "" }]; if (empty.has(i + 1)) return [{ line: `${i + 1}. ${line}`, reason: `${provesNothingReason(pb!, i + 1)}. ${PROVES_NOTHING_FIX}` }]; return lc.marks && !lc.marks.met.includes(i + 1) ? [{ line: `${i + 1}. ${line}`, reason: `it has a passing check, but a reviewer found a gap: ${lc.reasons?.[String(i + 1)] ?? "not stated"}` }] : []; }); // the count decides; the reviewer's gaps are handed back too, as advice the session should close
-        const lineUnmet = unmet.length; // the acceptance count is about the lines only
+        const lcRun = (): Promise<LineCheckRecord> => issueLineCheck(ctx, la.asks, tree, [], session.summary ?? "", [...(la.needs.length ? [`This repository needs: ${la.needs.join(", ")}.`] : []), "Loki's verify stage has not run yet at this point, so the check list is empty: a line about tests is met when the output of Loki's own run shows those tests passing.", ...proofFacts(ctx.runDir, pr, true), ...baseFacts(la.asks, pr, pb)]);
+        // loki-mode#692: ONE reader per tree. A tree a review (or follow-up) read gets no line check in that round; one the review did not read (no reviewer, no room) still gets it, so no tree is left unread. With LOKI_E10_REVIEW_FOLLOW_MAX=0 the round is today's: review and line check in parallel.
+        const reader = readerFor({ reviewOn: reviewFixOn(), reviewed: reviewedEarly, changedSinceReview: pendingFollow && reviewedTree !== "" && tree !== reviewedTree && lastFound.length > 0, followUps, max: Infinity }); // a fix made in answer to review findings is always read; how many times findings are handed back is mayHandBack's bound
+        let lc: LineCheckRecord | null = null, found: string[] = [];
+        if (reader === "line-check") lc = lastRead ? null : await lcRun(); // after a model review has read a tree no later round runs the line check; the closing read reads what changed
+        else if (followMax() === 0) [lc, found] = await Promise.all([lcRun(), reviewFound(tree)]);
+        else { found = reader === "review" ? await reviewFound(tree) : await followFound(tree, round + 1); if (needsLineCheck(reader, lastReviewRan) && !lastRead) lc = await lcRun(); }
+        if (!mayHandBack({ handBacks, max: followMax() })) found = []; // the review's findings are handed back only while handBacks < max; unmet lines below still are
+        const byRule = ruleStatus(la.asks, pr), empty = new Set(provesNothing(la.asks, pr, pb)), unmetAll = la.asks.flatMap<{ line: string; reason: string; gap?: number; raw?: string }>((line, i) => { if (optionalAsk(line)) return []; if (byRule[i]!.status !== "met") return [{ line: `${i + 1}. ${line}`, reason: byRule[i]!.reason ?? "" }]; if (empty.has(i + 1)) return [{ line: `${i + 1}. ${line}`, reason: `${provesNothingReason(pb!, i + 1)}. ${PROVES_NOTHING_FIX}` }]; return lc?.marks && !lc.marks.met.includes(i + 1) ? [{ line: `${i + 1}. ${line}`, reason: `it has a passing check, but a reviewer found a gap: ${lc.reasons?.[String(i + 1)] ?? "not stated"}`, gap: i + 1, raw: lc.reasons?.[String(i + 1)] ?? "not stated" }] : []; }); // the count decides; the reviewer's gaps are handed back too, as advice the session should close
+        const go = gapOnce(handedGaps, unmetAll.filter((u) => u.gap !== undefined).map((u) => ({ n: u.gap!, line: u.line, reason: u.raw! })), round + 1), again = new Set(go.handBack.map((g) => g.n)); disputes.push(...go.disputes); // the second time a reviewer names the same line it is recorded, not handed back
+        const unmet: { line: string; reason: string }[] = unmetAll.filter((u) => u.gap === undefined || again.has(u.gap)).map((u) => ({ line: u.line, reason: u.reason }));
+        const lineUnmet = unmet.length; // the acceptance count is about the lines actually handed back
         proofStep(pr.failed, lineUnmet);
         for (const f of await unusedNewFiles(ctx.repoDir, ctx.baseSha, tree)) unmet.push({ line: `(not an acceptance line) ${f}`, reason: "no other file in the repository imports or names this new file, so a user cannot reach what it does. Mount it where it belongs (a page, a route, a registry, a menu) and prove that path, or remove it" });
-        lineRounds.push({ met: lc.marks?.met.length ?? 0, unmet: unmet.length, usd: lc.usd }); ctx.emit("acceptance.round", "implement", { round: round + 1, met: la.asks.length - lineUnmet, unmet: lineUnmet, ...(empty.size ? { pass_on_base_too: empty.size } : {}), ...(unmet.length > lineUnmet ? { unused_new_files: unmet.length - lineUnmet } : {}) });
-        if (!unmet.length) { if (await reviewRound(tree)) continue; break; } // REVIEW-THEN-FIX, then the proof again on the fixed tree
+        lineRounds.push(lc ? { met: lc.marks?.met.length ?? 0, unmet: unmet.length, usd: lc.usd } : { met: la.asks.length - lineUnmet, unmet: unmet.length, usd: null, ...(reader === "line-check" ? {} : { reader }) }); // no line check ran: the count is the round's own ctx.emit("acceptance.round", "implement", { round: round + 1, met: la.asks.length - lineUnmet, unmet: lineUnmet, ...(empty.size ? { pass_on_base_too: empty.size } : {}), ...(unmet.length > lineUnmet ? { unused_new_files: unmet.length - lineUnmet } : {}), ...(go.disputes.length ? { disputed: go.disputes.length } : {}) });
+        if (!unmet.length) { if (await handBackTurn(found, "", round)) { if (found.length) proofStill = 0; continue; } break; } // a hand-back that carried review findings is not a still round: the proof must rerun on the last fix // REVIEW-THEN-FIX, then the proof again on the fixed tree
         const stray = Object.keys(pr.lines).filter((k) => Number(k) > la.asks.length || Number(k) < 1); // checks filed under a number that is no acceptance item
-        const r2 = await resumeForProofScript(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session, unmetBrief(unmet, stray.length ? `Your proof script passes, but ${stray.length} of its check numbers (${stray.slice(0, 6).join(", ")}) are not acceptance item numbers, so those checks count for no item. The first argument of loki_http and loki_cmd is the item's number in $LOKI_SCRATCH/acceptance.txt (1 to ${la.asks.length}), never a line number of the script. Renumber them.` : ""));
-        if (r2.iterationId !== ids[ids.length - 1]) ids.push(r2.iterationId); else break;
-        lineTurns++;
-        if (r2.session.summary) session = { ...session, summary: `${session.summary ?? ""}\n\n[after Loki's acceptance check, round ${round + 1}]\n${r2.session.summary}` };
+        if (!await handBackTurn(found, unmetBrief(unmet, stray.length ? `Your proof script passes, but ${stray.length} of its check numbers (${stray.slice(0, 6).join(", ")}) are not acceptance item numbers, so those checks count for no item. The first argument of loki_http and loki_cmd is the item's number in $LOKI_SCRATCH/acceptance.txt (1 to ${la.asks.length}), never a line number of the script. Renumber them.` : ""), round)) break;
+        if (found.length) proofStill = 0; // as above: review findings were handed back, so the proof reruns before any still-round count
+        lineTurns++; // only a hand-back that carried unmet lines counts toward the acceptance turns
         continue;
       }
       proofStep(Math.max(1, pr.failed), Infinity); if (noBudget && proofStill >= noProgressRounds()) break; // the proof keeps failing the same number of checks
@@ -347,6 +421,14 @@ export const implementStage: Stage = {
     const tournament = tournamentEnabled() && !plan ? await runTournamentGate(ctx, signal, session, attemptDeps(ctx, 0, "", 0)) : undefined; // after the Wall files are restored, so candidates are checked against the original Wall and tests; LOKI_E10_TOURNAMENT (Go, lean path, on by default but inert without an exec-spec probe block; =0 opts out): features/tournament.ts
     const overlap = !plan && nrdOverlapOn(); if (overlap) startNrdGate(ctx, signal, session, readOnly.map((f) => relative(ctx.repoDir, f.path))); // SPEED-NRD-OVERLAP: verify (or seal) settles it
     const noRegression = !plan && !overlap ? await runNrdGate(ctx, signal, session, readOnly.map((f) => relative(ctx.repoDir, f.path))) : null; // LOKI_E10_NRD (Go, lean path, default on, =0 opts out): features/no_regression.ts, after the tournament and the Wall restore; the first verify hands its finding to one fix round
+    // REVIEW-HOLDS (#698): the last point where the stage can have changed code (after the self review, the Wall restore, the tournament and the no-regression gate). One closing read when a model review ran and the tree is not the tree it read; review_state records what the last read said.
+    let reviewState: Record<string, unknown> | null = null;
+    if (lastRead) {
+      const endTree = (await worktreeTree(ctx.repoDir)) ?? "";
+      if (needsClosingRead({ reviewRan: true, tree: endTree, reviewedTree }) && endTree && !signal.aborted && !session.killed) await closingRead(endTree);
+      const final = lastRead as { level: string; findings: number; follow: boolean; still_open: string[] | null; tree: string; read: ReviewRead };
+      reviewState = { level: final.level, findings: final.findings, follow: final.follow, still_open: final.still_open, changed_unread: !!endTree && endTree !== reviewedTree, tree: final.tree, read: final.read }; // SEAL-REUSE (#702, #691): the tree the last read saw and what it said, so seal can reuse a block read of the sealed tree
+    }
     const iterationId = ids[ids.length - 1]!;
     // E-68 classifies exit codes; a non-killed, marker-less non-zero exit is an error, never "done".
     if (scratch) keepProofScript(scratch.dir, ctx.runDir); // the session's proof script leaves the scratch before it is removed; seal re-runs it
@@ -377,12 +459,12 @@ export const implementStage: Stage = {
       impacted_tests: impacted, ...(known ? { repo_card: known.record } : {}), ...(plan && planHintsOn() ? { plan_hints: true } : {}), brief_files: bc.files, ...(bc.pack ? { context_pack: bc.pack } : {}), // L022: the exact files the brief named; L021: pack paths and line ranges
       cascade,
       ...(downgrade ? { model_downgrade: downgrade.note } : {}),
-      iteration_ids: earlyReviewCost ? [...ids, earlyReviewCost] : ids, model: rt ? rt.current : downgrade?.to ?? firstAttemptModel ?? devPin ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
+      iteration_ids: earlyReviewCost || followCosts.length ? [...ids, ...(earlyReviewCost ? [earlyReviewCost] : []), ...followCosts] : ids, model: rt ? rt.current : downgrade?.to ?? firstAttemptModel ?? devPin ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
       duration_s: session.durationS, ...(session.exit === MAX_TURNS_EXIT && !session.killed ? { stop_cause: "max_turns", owner: "harness", limit_s: implementStage.limitS, elapsed_s: session.durationS, ...(capStopOf(session.summary) ? { session_cap: capStopOf(session.summary) } : {}) } : {}),
       ...(planChainMode ? { plan_chain: planChainMode } : {}),
       ...(sessionResume ? { session_resume: sessionResume } : {}),
       ...(finish ? { finish: { ...finish, compactions: compactionsOf(ctx, ids) } } : {}),
-      ...(proofRounds.length ? { proof_rounds: proofRounds } : {}), ...(lineRounds.length ? { acceptance_rounds: lineRounds } : {}), ...(scratchRec && (scratchRec.stopped.length || scratchRec.left.length || !scratchRec.removed) ? { scratch_cleanup: scratchRec } : {}), // RUN-SCRATCH: recorded only when the harness had to stop something or could not remove the directory // S1b: only when it fired, so an unchanged run's receipt keys stay as they were; compactions are seen on the SDK route only (null on the CLI route)
+      ...(proofRounds.length ? { proof_rounds: proofRounds } : {}), ...(lineRounds.length ? { acceptance_rounds: lineRounds } : {}), ...(reviewFollow.length ? { review_follow: reviewFollow } : {}), ...(reviewState ? { review_state: reviewState } : {}), ...(disputes.length ? { acceptance_disputes: disputes } : {}), ...(scratchRec && (scratchRec.stopped.length || scratchRec.left.length || !scratchRec.removed) ? { scratch_cleanup: scratchRec } : {}), // RUN-SCRATCH: recorded only when the harness had to stop something or could not remove the directory // S1b: only when it fired, so an unchanged run's receipt keys stay as they were; compactions are seen on the SDK route only (null on the CLI route)
       ...(coverage ? { coverage_resume: coverage } : {}), ...(rankedRemedyRec ? { ranked_remedy: rankedRemedyRec } : {}), ...(precedenceRec ? { precedence_check: precedenceRec } : {}), ...(namedRec ? { named_sites: namedRec } : {}), ...(memDir && memText ? { task_memory: { bytes: Buffer.byteLength(memText), sha256: sha256(memText) } } : {}), ...(pinConflict ? { pin_conflict: pinConflict } : {}), ...(pinnedUpdates.length ? { pinned_test_updates: pinnedUpdates } : {}), ...(claimAbsent ? { claim_absent: claimAbsent } : {}),
       ...(patch ? { patch: { status: patch.status, seconds: Math.round(patchS * 10) / 10, calls: patch.calls, applied: patch.applied, refused: patch.refused, restored: patch.restored, usd: patch.usd, log: patch.log, ...(patch.check ? { check: patch.check } : {}) } } : {}),
       ...(tournament ? { tournament } : {}),

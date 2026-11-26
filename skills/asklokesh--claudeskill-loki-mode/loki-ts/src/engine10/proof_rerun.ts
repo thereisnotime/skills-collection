@@ -15,6 +15,8 @@ import { CONNECTION_ENV } from "./session.ts";
 import { acceptanceLines, FRESH_INSTALL_ASK, issueAcceptanceCapOn, issueAcceptanceOf, optionalAsk } from "../util/intent_card.ts";
 import { neededServices } from "../util/stack_tools.ts";
 import { issueRunBrief } from "./types.ts";
+import { MANIFEST } from "../e10ext/commit_filter.ts";
+import { LOCKFILE_RE } from "../util/lock_ecosystems.ts";
 
 /** RW-02 TITLE STAND-IN (LOKI_E10_TITLE_ACCEPTANCE, default on; 0/off/false/no opts out): the lines of a run on the proof road whose task has no acceptance
  *  list of its own. The plan's intent-card "Acceptance:" lines when a plan session ran for its own reasons (a large or hard task, consent); otherwise the
@@ -90,19 +92,39 @@ export const PROOF_HELPER = "loki-check.sh", ACCEPTANCE_FILE = "acceptance.txt";
 export const PROOF_HELPER_SH = `# Loki proof helpers. Source this file; never edit it. Only lines printed by these functions count toward the label.
 # Each result is printed, and also appended to the file Loki names in LOKI_PROOF_LOG, so a script that pipes or redirects its output loses nothing.
 _lp() { printf 'LOKI-PROOF %s %s %s: %s\\n' "\${LOKI_PROOF_TOKEN:-session}" "$1" "$2" "$3"; if [ -n "\${LOKI_PROOF_LOG:-}" ]; then printf 'LOKI-PROOF %s %s %s: %s\\n' "\${LOKI_PROOF_TOKEN:-session}" "$1" "$2" "$3" >> "$LOKI_PROOF_LOG" 2>/dev/null; fi; }
+# _lstep <text>: appends one line to the step log (LOKI_STEP_LOG, default $TMPDIR/loki-steps.log). A file only; never printed, never fails.
+_lstep() { { printf '%s\\n' "$*" >> "\${LOKI_STEP_LOG:-\${TMPDIR:-/tmp}/loki-steps.log}"; } 2>/dev/null; return 0; }
+# The step log holds "start <item> <epoch> <what>" before each loki_http and loki_cmd and "end <item> <rc> <seconds>" after it: a start with no end is the step still running.
+# loki_wait_http <url> [seconds]: polls once a second (default 60) until the address answers with any HTTP status; returns 0.
+#   On timeout prints "LOKI-WAIT gave up after <s> s: <url>" to stderr, then the last 20 lines of the file named in LOKI_WAIT_LOG when set, and returns 1.
+loki_wait_http() {
+  local url="$1" s="\${2:-60}" deadline
+  case "$s" in ''|*[!0-9]*) s=60 ;; esac
+  deadline=$((SECONDS + s))
+  while :; do
+    curl -s -o /dev/null --connect-timeout 1 --max-time 10 "$url" 2>/dev/null && return 0
+    [ "$SECONDS" -ge "$deadline" ] && break
+    sleep 1
+  done
+  echo "LOKI-WAIT gave up after $s s: $url" >&2
+  if [ -n "\${LOKI_WAIT_LOG:-}" ] && [ -f "$LOKI_WAIT_LOG" ]; then tail -n 20 "$LOKI_WAIT_LOG" >&2; fi
+  return 1
+}
 # loki_http <item number> "<what is proved>" <expected status> <curl arguments...>
 #   <item number> is the number of the acceptance item in acceptance.txt (1, 2, 3 ...), never a line of this script.
 #   Sends the request with curl. Passes when the status equals the expected one (and, when LOKI_BODY_MATCH is set, the body matches that grep -E pattern).
 loki_http() {
   local n="$1" what="$2" want="$3"; shift 3
   what="\${what//|//}"  # ADS-REAL: no "|" in the description, so no description text can read as a status or a command
-  local body code snip ok=1
+  local body code snip ok=1 t0
   body="$(mktemp "\${TMPDIR:-/tmp}/lpb.XXXXXX")" || return 1
+  t0="$(date +%s)"; _lstep "start $n $t0 $(printf '%s' "$what" | tr '\\n' ' ')"
   code="$(curl -sS -o "$body" -w '%{http_code}' --max-time 60 "$@" 2>/dev/null)" || code="000"
   snip="$(head -c 300 "$body" | tr '\\n' ' ')"
   [ "$code" = "$want" ] || ok=0
   if [ "$ok" = 1 ] && [ -n "\${LOKI_BODY_MATCH:-}" ]; then grep -Eq -- "$LOKI_BODY_MATCH" "$body" || ok=0; fi
   rm -f "$body"
+  _lstep "end $n $((1 - ok)) $(( $(date +%s) - t0 ))"
   if [ "$ok" = 1 ]; then _lp PROVED "$n" "$what | status $code | $snip"; else _lp FAILED "$n" "$what | wanted $want\${LOKI_BODY_MATCH:+ and a body matching $LOKI_BODY_MATCH}, got $code | $snip"; return 1; fi
 }
 # loki_cmd <item number> "<what is proved>" <command...>
@@ -111,10 +133,38 @@ loki_http() {
 loki_cmd() {
   local n="$1" what="$2"; shift 2
   what="\${what//|//}"
-  local out rc snip
+  local out rc snip t0 lim="\${LOKI_STEP_MAX_S:-}" late="" of pid pg was ticks=0 max=0
   local cmdline; cmdline="$(printf '%s ' "$@" | tr '\\n' ' ' | cut -c1-200)"; cmdline="\${cmdline//|/%7C}"  # a pipe in the command is printed as %7C
-  out="$("$@" 2>&1)"; rc=$?
+  t0="$(date +%s)"; _lstep "start $n $t0 $(printf '%s' "$what" | tr '\\n' ' ')"
+  # LOKI_STEP_MAX_S (a positive number of seconds) limits this one command: its own process group is stopped when the time is up. Unset: no limit.
+  if [ -n "$lim" ] && awk -v l="$lim" 'BEGIN{exit !(l ~ /^[0-9]+(\\.[0-9]+)?$/ && l + 0 > 0)}' && of="$(mktemp "\${TMPDIR:-/tmp}/lpo.XXXXXX")"; then
+    max="$(awk -v l="$lim" 'BEGIN{printf "%d", l * 5 + 0.999}')"
+    case $- in *m*) was=1 ;; *) was=0 ;; esac
+    set -m  # job control gives the background command its own process group (its pid is the group id)
+    "$@" </dev/null >"$of" 2>&1 &
+    pid=$!
+    [ "$was" = 1 ] || set +m
+    while kill -0 "$pid" 2>/dev/null; do
+      if [ "$ticks" -ge "$max" ]; then late=1; break; fi
+      sleep 0.2 2>/dev/null || sleep 1
+      ticks=$((ticks + 1))
+    done
+    if [ -n "$late" ]; then
+      pg="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')"  # only the group this function started: when the pid is not its own group leader, only the pid is stopped
+      if [ "$pg" = "$pid" ]; then kill -TERM -- "-$pid" 2>/dev/null; else kill -TERM "$pid" 2>/dev/null; fi
+      ticks=0; while kill -0 "$pid" 2>/dev/null && [ "$ticks" -lt 10 ]; do sleep 0.2 2>/dev/null || sleep 1; ticks=$((ticks + 1)); done
+      if kill -0 "$pid" 2>/dev/null; then if [ "$pg" = "$pid" ]; then kill -KILL -- "-$pid" 2>/dev/null; else kill -KILL "$pid" 2>/dev/null; fi; fi
+      { wait "$pid"; } 2>/dev/null; rc=124
+    else
+      { wait "$pid"; } 2>/dev/null; rc=$?
+    fi
+    out="$(cat "$of" 2>/dev/null)"; rm -f "$of"
+  else
+    out="$("$@" 2>&1)"; rc=$?
+  fi
   snip="$(printf '%s' "$out" | tail -n 3 | tr '\\n' ' ' | cut -c1-300)"
+  _lstep "end $n $rc $(( $(date +%s) - t0 ))"
+  if [ -n "$late" ]; then _lp FAILED "$n" "$what | no result after $lim s | cmd: $cmdline| $snip"; return 1; fi
   if [ "$rc" = 0 ]; then _lp PROVED "$n" "$what | exit 0 | cmd: $cmdline| $snip"; else _lp FAILED "$n" "$what | exit $rc | cmd: $cmdline| $snip"; return 1; fi
 }
 
@@ -316,7 +366,7 @@ export function proofScriptRefusal(text: string): string | null {
   if (/(^|[\s;&|({])(function\s+)?(loki_http|loki_cmd|_lp)\s*\(\s*\)/.test(code)) return "the proof script redefines loki_http, loki_cmd or _lp; source loki-check.sh and use its functions unchanged";
   return null;
 }
-export interface ProofRerun { refused?: string; exit: number | null; seconds: number; proved: number; failed: number; tail: string; script_chars: number; stopped: number; left: number; lines: Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string; inert?: number; first_inert?: string; first_counted?: string }>; checks?: ProofCheck[]; restored?: string[]; dropped?: string[]; reused?: true; measured_at?: string }
+export interface ProofRerun { facts?: { repo: string; base: string }; refused?: string; exit: number | null; seconds: number; proved: number; failed: number; tail: string; script_chars: number; stopped: number; left: number; lines: Record<string, { proved: number; failed: number; real?: number; http?: number; first_proved?: string; first_failed?: string; inert?: number; first_inert?: string; first_counted?: string }>; checks?: ProofCheck[]; restored?: string[]; dropped?: string[]; reused?: true; measured_at?: string }
 /** One run of a proof script by Loki: a new scratch directory, the helper with a token that exists only in this run, an empty directory as the argument,
  *  the user's own database settings blanked, and the ownership cleanup afterwards. `plan` gets the scratch directory and names the script and where it runs
  *  (null: nothing is run). Null when no scratch directory could be made. Never throws. */
@@ -353,7 +403,7 @@ export async function rerunProof(repoDir: string, runDir: string, signal?: Abort
   let restored: string[] = []; const r = await withTrackedRestored(repoDir, () => runProofScript(env, signal, runDir, async () => ({ script, cwd: repoDir })), (p) => { restored = p; noteHarnessRestored(runDir, p); }, env);
   if (!r) return { exit: null, seconds: 0, proved: 0, failed: 0, tail: "Loki could not create a scratch directory for its own re-run", script_chars: scriptChars, stopped: 0, left: 0, lines: {} };
   const lines = tallyProof(r.results, r.token, repoDir), vals = Object.values(lines); // from the result file when it has lines, else from the output
-  const out: ProofRerun = { exit: r.exit, seconds: r.seconds, proved: vals.reduce((a, v) => a + v.proved, 0), failed: vals.reduce((a, v) => a + v.failed, 0), tail: r.text.replace(new RegExp(`LOKI-PROOF ${r.token} `, "g"), "").slice(-TAIL_CHARS), script_chars: scriptChars, stopped: r.stopped, left: r.left, lines, checks: proofChecks(r.results, r.token, repoDir), ...(restored.length ? { restored } : {}), ...(() => { const d = Object.values(lines).flatMap((v) => (v.inert && v.first_inert ? [v.first_inert.slice(0, 160)] : [])).slice(0, 20); return d.length ? { dropped: d } : {}; })() };
+  const out: ProofRerun = { exit: r.exit, seconds: r.seconds, proved: vals.reduce((a, v) => a + v.proved, 0), failed: vals.reduce((a, v) => a + v.failed, 0), tail: r.text.replace(new RegExp(`LOKI-PROOF ${r.token} `, "g"), "").slice(-TAIL_CHARS), script_chars: scriptChars, stopped: r.stopped, left: r.left, lines, checks: proofChecks(r.results, r.token, repoDir), ...(restored.length ? { restored } : {}), ...(() => { const f = recordedBase(repoDir, runDir); return f ? { facts: f } : {}; })(), ...(() => { const d = Object.values(lines).flatMap((v) => (v.inert && v.first_inert ? [v.first_inert.slice(0, 160)] : [])).slice(0, 20); return d.length ? { dropped: d } : {}; })() };
   saveRerun(repoDir, runDir, out); return out;
 }
 const RERUN_CACHE = "proof-rerun.json";
@@ -518,7 +568,53 @@ export function itemSplit(head: ProofCheck[], control: ProofCheck[], without: Pr
   }
   return out;
 }
-export interface OwnProof { ok: boolean; steps: string[]; cmds: string[] /* the counted steps' commands: which changed test file a step ran (never written to the receipt) */; why?: string; seconds: number; built?: true; checks_without: number; checks_control: number; by_item?: Record<string, { change: number; before: number }>; before?: { step: string; lines: string[] }[] }
+/** Whether a step's command names a file the change added: the path itself (stepNamesFile), a directory that holds one, or a glob that matches one. A passing
+ *  step that does so passes because the change put that file there, and the copy without the change keeps added files, so it says nothing about the code
+ *  before the change. Pure. */
+export function namesAddedPath(cmd: string, added: readonly string[]): boolean {
+  if (added.some((f) => stepNamesFile(cmd, f))) return true;
+  const words = cmd.split(/[\s"'`=:;|&()<>]+/).filter(Boolean).map((t) => t.replace(/^\.\//, "").replace(/\/+$/, "")).filter((w) => w.includes("/") || /[*?]/.test(w));
+  return words.some((w) => {
+    const re = /[*?]/.test(w) ? new RegExp(`(^|/)${w.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")}$`) : null;
+    return added.some((f) => (re ? re.test(f) : f.startsWith(`${w}/`) || f.includes(`/${w}/`)));
+  });
+}
+/** A line reads "already met before this change" only when its passing steps do not depend on a file the change added (#679). True when any passing step of the
+ *  item that counts (not inert) names an added path in its command. A step with no recorded command (a request to the app) names none. */
+export const lineDependsOnAdded = (head: readonly ProofCheck[] | undefined, item: string, added: readonly string[]): boolean => added.length > 0 && !!head?.some((c) => c.ok && c.item === item && c.kind !== "inert" && !!c.cmd && namesAddedPath(c.cmd, added));
+/** How a met line is told apart on the receipt: "change" when one of its checks fails without the change; "before" when every counting check also passes without it
+ *  and none of them depends on an added file; otherwise undefined (plain "met", not compared with the code before the change). The verdict never reads it. */
+export const rowBasis = (s: { change: number; before: number } | undefined, counted: number, dependsOnAdded: boolean): "change" | "before" | undefined => (s && s.change > 0 ? "change" : s && counted > 0 && s.before >= counted && !dependsOnAdded ? "before" : undefined);
+/** The basis of one met row (seal.ts). A change that added a product file (a non-test one) has no run without it: the copy keeps added files, so a step that
+ *  passes there says nothing about the code before the change, whatever its command names (a helper outside the repository can import the added file). Only a
+ *  change that adds no product file can read "before". The verdict never reads it. */
+export const issueRowBasis = (s: { change: number; before: number } | undefined, counted: number, head: readonly ProofCheck[] | undefined, item: string, added: readonly string[], isTest: (p: string) => boolean): "change" | "before" | undefined => rowBasis(s, counted, added.some((p) => !isTest(p)) || lineDependsOnAdded(head, item, added));
+export interface OwnProof { ok: boolean; steps: string[]; cmds: string[] /* the counted steps' commands: which changed test file a step ran (never written to the receipt) */; why?: string; seconds: number; built?: true; checks_without: number; checks_control: number; by_item?: Record<string, { change: number; before: number }>; before?: { step: string; lines: string[] }[]; without_checks?: WithoutCheck[] }
+/** What happened to one passing check of the change when the script ran without it (the own proof's record, so the receipt never says less than the counts). */
+export type WithoutOutcome = "passed without the change" | "failed without the change" | "start failure" | "silent failure" | "failed in the untouched copy" | "not reached" | "reads a file only";
+export interface WithoutCheck { item: string; what: string; outcome: WithoutOutcome }
+/** One outcome per passing check of the change, with the same predicates failsWithoutChange uses ("failed without the change" is exactly the counted kind). Pure. */
+export function withoutOutcomes(head: ProofCheck[], control: ProofCheck[], without: ProofCheck[], readersCount = true): { c: ProofCheck; outcome: WithoutOutcome }[] {
+  const k = (c: ProofCheck): string => `${c.item}\u0001${c.what}`, set = (cs: ProofCheck[], ok: boolean): Set<string> => new Set(cs.filter((c) => c.ok === ok).map(k));
+  const cOk = set(control, true), cBad = set(control, false), wOk = set(without, true), wBad = set(without, false), wStart = new Set(without.filter(stepStartFailure).map(k)), wSaid = new Set(without.filter((c) => !c.ok && (c.printed ?? "").trim() !== "").map(k));
+  const counts = (c: ProofCheck, readers: boolean): boolean => c.real === true && cOk.has(k(c)) && !cBad.has(k(c)) && wBad.has(k(c)) && !wOk.has(k(c)) && !wStart.has(k(c)) && wSaid.has(k(c)) && (readers || c.kind !== "reader");
+  return head.filter((c) => c.ok).map((c) => {
+    const outcome: WithoutOutcome = counts(c, readersCount) ? "failed without the change" : counts(c, true) ? "reads a file only" : !cOk.has(k(c)) || cBad.has(k(c)) ? "failed in the untouched copy" : wOk.has(k(c)) ? "passed without the change" : wStart.has(k(c)) ? "start failure" : wBad.has(k(c)) ? (wSaid.has(k(c)) ? "reads a file only" : "silent failure") : "not reached";
+    return { c, outcome };
+  });
+}
+/** The sentence for an own proof that counted nothing, built from the counts. The old fixed sentence stays only when every passing check passed without the change. */
+export function withoutWhy(rows: readonly { outcome: WithoutOutcome }[]): string {
+  const n = rows.length, pass = rows.filter((r) => r.outcome === "passed without the change").length;
+  if (pass === n) return "every step that passes on the change also passes without it, so the proof does not tell the change from no change";
+  const by = new Map<string, number>(); for (const r of rows) if (r.outcome !== "passed without the change") by.set(r.outcome, (by.get(r.outcome) ?? 0) + 1);
+  return `${pass} of ${n} checks also pass without the change; ${n - pass} did not pass there but do not count: ${[...by].map(([o, c]) => `${c} ${o}`).join(", ")}`;
+}
+/** The own proof for one run without the change, built from the three runs' checks. Pure. */
+export function ownProofOf(head: ProofCheck[], control: ProofCheck[], without: ProofCheck[], built: boolean, total: number, readersCount: boolean): OwnProof {
+  const steps = failsWithoutChange(head, control, without, readersCount), rows = withoutOutcomes(head, control, without, readersCount);
+  return { ok: steps.length > 0, steps, cmds: head.filter((c) => c.ok && c.real && steps.includes(c.what)).map((c) => c.cmd ?? ""), seconds: total, checks_without: without.length, checks_control: control.length, by_item: itemSplit(head, control, without, readersCount), without_checks: rows.slice(0, 80).map((r) => ({ item: r.c.item, what: r.c.what.slice(0, 120), outcome: r.outcome })), ...(steps.length ? { before: steps.slice(0, 5).map((st) => ({ step: st, lines: [(without.find((c) => !c.ok && c.what === st)?.printed ?? "").slice(0, 300)].filter(Boolean) })) } : {}), ...(built ? { built: true as const } : {}), ...(steps.length ? {} : { why: without.length === 0 ? "the proof script printed no check when run without the change" : !readersCount && failsWithoutChange(head, control, without, true).length > 0 ? "the only steps that fail without the change read a file, which does not show that a change to code works" : withoutWhy(rows) }) };
+}
 /** Runs the kept proof script in a copy of the checkout without the change (see the block comment above). `revert`: the change's non-test files, each with
  *  whether the change added it. An added file STAYS in the copy: removing it would make any step that touches it fail, which shows that the file exists
  *  and nothing about behaviour. Only files the base commit has are put back to their base content (read from the repository's objects, so no git command
@@ -564,7 +660,7 @@ export async function proofWithoutChange(repoDir: string, runDir: string, baseSh
     const control = await once("control"); if (typeof control === "string") return no(control, total);
     const key = (c: ProofCheck): string => `${c.item}\u0001${c.what}`, cOk = new Set(control.filter((c) => c.ok).map(key));
     if (!head.checks!.some((c) => c.ok && c.real && cOk.has(key(c)))) return { ...no("no step of the proof script passes in a copy of the checkout, so a failure there would say nothing about the change", total), checks_control: control.length };
-    const result = (without: ProofCheck[], built: boolean): OwnProof => { const steps = failsWithoutChange(head.checks!, control, without, opts.readersCount !== false); return { ok: steps.length > 0, steps, cmds: head.checks!.filter((c) => c.ok && c.real && steps.includes(c.what)).map((c) => c.cmd ?? ""), seconds: total, checks_without: without.length, checks_control: control.length, by_item: itemSplit(head.checks!, control, without, opts.readersCount !== false), ...(steps.length ? { before: steps.slice(0, 5).map((st) => ({ step: st, lines: [(without.find((c) => !c.ok && c.what === st)?.printed ?? "").slice(0, 300)].filter(Boolean) })) } : {}), ...(built ? { built: true as const } : {}), ...(steps.length ? {} : { why: without.length === 0 ? "the proof script printed no check when run without the change" : opts.readersCount === false && failsWithoutChange(head.checks!, control, without, true).length > 0 ? "the only steps that fail without the change read a file, which does not show that a change to code works" : "every step that passes on the change also passes without it, so the proof does not tell the change from no change" }) }; };
+    const result = (without: ProofCheck[], built: boolean): OwnProof => ownProofOf(head.checks!, control, without, built, total, opts.readersCount !== false);
     const w1 = await once("without"); if (typeof w1 === "string") return { ...no(w1, total), checks_control: control.length };
     const first = result(w1, false);
     if (first.ok || builds.length === 0 || w1.length === 0 || signal?.aborted) return first;
@@ -616,14 +712,59 @@ export const noOwnProofNotes = (source: unknown, listed: number, r: ProofRerun |
 /** The facts for the acceptance line check: what Loki's own run of the script returned, and the script itself (so a script that checks nothing is visible). */
 export function proofFacts(runDir: string, r: ProofRerun | null, expected: boolean): string[] {
   if (!r) return expected ? ["The session left no proof script ($LOKI_SCRATCH/loki-proof.sh), so Loki could not re-run anything itself. Nothing in the reply counts as proof from running."] : [];
-  let script = ""; try { script = readFileSync(join(runDir, PROOF_SCRIPT), "utf8").slice(0, 12000); } catch { /* the facts still say what ran */ }
+  let script = "", cut = 0; try { const full = readFileSync(join(runDir, PROOF_SCRIPT), "utf8"); script = full.slice(0, 12000); cut = Math.max(0, full.length - 12000); } catch { /* the facts still say what ran */ }
+  const all = r.checks && r.checks.length > 0 ? r.checks.map((c) => `${c.ok ? "PROVED" : "FAILED"} ${c.item}: ${c.what}`) : r.tail.split("\n").map((l) => l.trim()).filter((l) => /\b(PROVED|FAILED) \d{1,3}: /.test(l)); // the tail alone loses the first lines of a long run: every result line is listed first, whole or counted as left out
+  const listing = [...all.slice(0, 120).map((l) => (l.length > 160 ? l.slice(0, 160) : l)), ...(all.length > 120 ? [`(${all.length - 120} more lines not shown)`] : [])];
   return [
     `Loki re-ran the session's proof script by itself, after the session and every fix round, in a new empty directory: exit ${r.exit === null ? "none (it did not complete)" : r.exit} after ${r.seconds}s; ${r.proved} passing check(s), ${r.failed} failing check(s), counted by Loki from its own helper functions. Only this run counts as proof from running; what the reply says about earlier runs does not.`,
+    ...(listing.length ? [`Every PROVED and FAILED line of Loki's own run, one per line:\n${listing.join("\n")}`] : []),
     `Output of Loki's own run (real, last ${TAIL_CHARS} characters):\n${r.tail || "(no output)"}`,
-    `The script Loki ran (check that each PROVED line comes from a real request or command and its response, not from an unconditional echo):\n${script || "(unreadable)"}`,
+    `The script Loki ran (check that each PROVED line comes from a real request or command and its response, not from an unconditional echo):\n${script || "(unreadable)"}${cut > 0 ? `\n(script cut: ${cut} more characters not shown)` : ""}`,
   ];
 }
 
+const recordedBase = (repoDir: string, runDir: string): { repo: string; base: string } | null => { // the base revision the run recorded (baseline.json), or none
+  try { const b = (JSON.parse(readFileSync(join(runDir, "baseline.json"), "utf8")) as { revision?: unknown }).revision; return typeof b === "string" && /^[0-9a-f]{7,64}$/i.test(b) ? { repo: repoDir, base: b } : null; } catch { return null; }
+};
+/** OUTSIDE-LINE: the names an acceptance line gives for a product (a capitalized word of 3 or more characters that is not all capitals and not the line's first word, and any word inside backticks), lower case, no repeats. A line Loki added itself gives none. */
+export function outsideNames(line: string): string[] {
+  if (/\(added by Loki\)/i.test(line)) return [];
+  const out = new Set<string>(), words = [...line.matchAll(/[A-Za-z][A-Za-z0-9]*/g)];
+  words.forEach((m, i) => { const w = m[0]; if (i > 0 && /^[A-Z]/.test(w) && w.length >= 3 && w !== w.toUpperCase()) out.add(w.toLowerCase()); });
+  for (const span of line.matchAll(/`([^`]+)`/g)) for (const w of span[1]!.matchAll(/[A-Za-z0-9]+/g)) out.add(w[0].toLowerCase());
+  return [...out];
+}
+/** OUTSIDE-LINE: the line allows another product or a stand-in (similar, equivalent, or other, or another, e.g., such as). */
+export const allowsAlternative = (line: string): boolean => /\b(similar|equivalent)\b|\bor (other|another)\b|\be\.g\.|\bsuch as\b/i.test(line);
+/** OUTSIDE-LINE: why a line that names an outside product is not met yet, or null. */
+export function outsideHold(f: { line: string; absent: string[]; inManifest: string[]; manifestAdded: number; http: number }): string | null {
+  const names = f.absent.filter((n) => !f.inManifest.includes(n));
+  if (!names.length || f.http > 0 || (allowsAlternative(f.line) && f.manifestAdded > 0)) return null;
+  return `the line names ${names.join(", ")}, which this repository did not use before the change; no dependency manifest names it, the change adds no dependency, and no check for this line makes a request, so nothing shows the integration runs. Add the package and prove the path that sends to it against a local stand-in`;
+}
+const ABSENT_MEMO = new Map<string, string[]>();
+const gitOut = (repo: string, args: string[]): string | null => { try { return execFileSync("git", args, { cwd: repo, encoding: "utf8", timeout: 10000, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }); } catch (e) { return (e as { status?: number }).status === 1 ? "" : null; } }; // git grep exits 1 for no match
+const wholeWord = (name: string): RegExp => new RegExp(`(?<![A-Za-z0-9])${name}(?![A-Za-z0-9])`, "i");
+/** OUTSIDE-LINE: the git facts for a line, or null when any call fails (no hold). The base-tree part is kept per repository, base and line; the manifest part is read fresh, because the session may add the package between proof rounds. */
+function outsideFacts(repo: string, base: string, line: string): { absent: string[]; inManifest: string[]; manifestAdded: number } | null {
+  const names = outsideNames(line); if (!names.length) return null;
+  const key = `${repo}\0${base}\0${line}`; let absent = ABSENT_MEMO.get(key);
+  if (!absent) {
+    absent = [];
+    for (const n of names) {
+      const o = gitOut(repo, ["grep", "-I", "-i", "-w", "-l", "-F", "-e", n, base, "--"]); if (o === null) return null;
+      if (!o.split("\n").some((l) => l && !LOCKFILE_RE.test(l.slice(base.length + 1)))) absent.push(n);
+    }
+    ABSENT_MEMO.set(key, absent);
+  }
+  if (!absent.length) return { absent, inManifest: [], manifestAdded: 0 };
+  const tracked = gitOut(repo, ["ls-files", "-z"]); if (tracked === null) return null;
+  const inManifest = new Set<string>();
+  for (const f of tracked.split("\0")) { if (!f || !MANIFEST.test(f)) continue; let t = ""; try { t = readFileSync(join(repo, f), "utf8"); } catch { continue; } for (const n of absent) if (wholeWord(n).test(t)) inManifest.add(n); }
+  const num = gitOut(repo, ["diff", "--numstat", base, "--"]); if (num === null) return null;
+  let manifestAdded = 0; for (const l of num.split("\n")) { const [a, , f] = l.split("\t"); if (f && MANIFEST.test(f) && /^\d+$/.test(a ?? "")) manifestAdded += Number(a); }
+  return { absent, inManifest: [...inManifest], manifestAdded };
+}
 /** The fixed rule: an acceptance line is met when Loki's own run has at least one passing check for its number and no failing one, and (when `base` is
  *  given and its comparison is available) at least one of those checks does not also pass on the base commit. No model is asked. A passing check that read nothing
  *  of the product or the tree (stepKind inert) is not counted. */
@@ -633,6 +774,7 @@ export function ruleStatus(asks: string[], r: ProofRerun | null, base?: ProofBas
     const e = r?.lines[String(i + 1)], opt = optionalAsk(line) ? { optional: true as const } : {}, counted = e ? e.proved - (e.inert ?? 0) : 0;
     if (e && e.proved > 0 && e.failed === 0 && counted === 0) return { line, status: "unmet" as const, reason: `its only passing check${e.proved === 1 ? "" : "s"} read nothing of the product or the tree when ${e.proved === 1 ? "it" : "they"} ran (for example: ${e.first_inert ?? ""}); make the request with loki_http or run the real command inside loki_cmd, so Loki sees it`.slice(0, 300), ...opt };
     if (e && e.proved > 0 && e.failed === 0 && empty.has(i + 1)) return { line, status: "unmet" as const, reason: provesNothingReason(base!, i + 1), ...opt };
+    if (e && e.proved > 0 && e.failed === 0 && r?.facts) { const f = outsideFacts(r.facts.repo, r.facts.base, line), hold = f ? outsideHold({ line, ...f, http: e.http ?? 0 }) : null; if (hold) return { line, status: "unmet" as const, reason: hold.slice(0, 400), ...opt }; }
     if (e && e.proved > 0 && e.failed === 0) return { line, status: "met" as const, evidence: `Loki's own run: ${counted} passing check${counted === 1 ? "" : "s"}; first: ${e.first_counted ?? e.first_proved ?? ""}`.slice(0, 300), ...opt };
     return { line, status: "unmet" as const, reason: (!r ? "there is no proof script for Loki to run" : r.refused ? `Loki did not run the proof script: ${r.refused}` : r.exit === null ? "Loki's own run of the proof did not finish" : e && e.failed > 0 ? `a check failed in Loki's own run: ${e.first_failed ?? ""}` : "Loki's own run has no passing check for this line").slice(0, 300), ...opt };
   });

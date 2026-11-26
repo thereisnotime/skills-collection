@@ -78,6 +78,7 @@ stand down without waiting for a human to disable it.
 | Setting up or recovering an already-authorized persistent calendar job with delivery deadlines | `references/launchd-plist-reference.md` § Calendar deadlines and recovery; check overdue work and actual delivery separately |
 | Cooldown/backoff/notification-throttle patterns + sanitized war stories | `references/quiet-watchdog-patterns.md` |
 | SRE alert layering (page vs ticket, fatigue numbers) | `references/alert-discipline.md` |
+| Watchdog alerts spamming a shared team channel, or repeating every poll despite a cooldown/renotify window | `references/alert-discipline.md` § Channel isolation and fingerprint stability |
 | Monitoring an adaptive/quiet-hours scheduler or preventing silent channel/probe blackouts | `references/alert-discipline.md` § Adaptive cadences, quiet windows, and startup delays & § Primary-channel blackout and probe blindness |
 | A watchdog alert appears under Script Editor or its sender is unclear | `references/alert-discipline.md` § Message content; inspect the delivered card |
 | A local notification was sent but the user cannot see it | `references/alert-discipline.md` § Local notifications are not visible; verify the requested display surface |
@@ -191,12 +192,28 @@ native executable needs an already authorized launcher's FDA identity, follow
 `macos-permissions` and its
 [measured uv attribution case](../macos-permissions/references/uv-fda-trap.md).
 If the real protected read proves that exact `uv` launcher is required, retain
-the verified responsibility chain. For a native executable, the installed uv's
-supported `uv run --no-project --offline --no-cache -- <absolute-binary> ...` form
-can avoid the shared main cache while preserving that launcher; verify the same
-protected operation from the real job before accepting it. Do not generalize this
-exception to Python dependency startup. `--no-cache` uses a temporary cache; it
-does not promise zero temporary disk use or, for other Python tasks, zero downloads.
+the verified responsibility chain. For a persistent native executable, prefer a
+service-owned, non-default `UV_CACHE_DIR` with
+`uv run --no-project --offline -- <absolute-binary> ...`: it avoids the shared
+main cache lock and does not create a new system temporary directory on every
+start. Keep that directory private and stable, then verify the job holds only
+`<private-cache>/.lock`, survives a restart without cache growth, and still
+passes the real protected read. The owning installer must generate the cache
+environment; do not hand-edit the plist into a second installation path.
+`--no-cache` is acceptable for a bounded one-shot, but it uses a per-invocation
+temporary cache; normal exit cleans it, while `SIGKILL`, panic or power loss can
+leave the temporary directory behind. Do not generalize either exception to
+Python dependency startup.
+
+When comparing direct execution with a uv launcher, give both alternatives the
+same maximum launchd retry windows and judge them with the same domain canary.
+Stopping a direct binary after two failed attempts while observing a uv wrapper
+succeed on its third is not a comparable A/B result. Process state, a listening
+port or HTTP 200 alone does not prove the protected database or business read
+works. If the user explicitly chooses to reuse one uv binary's existing
+permission subject to avoid repeated authorization, record that as an accepted
+exception rather than a pending migration; its scope remains the same absolute
+uv path and the same TCC service.
 
 Consult [uv's environment-use guidance](https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment)
 for direct environment execution and its
@@ -302,6 +319,7 @@ nothing but failure logs for six days.
 | App 一打开就高速开关，或频率高于所有 watchdog 周期 | 将每个候选 watchdog **实际发出** connect/disconnect/relaunch 的日志与时间戳，对齐同一时间窗的系统状态转换；注册、进程存在和“有能力”都不等于正在执行。若 `neagent`/PlugInKit 同时反复报 `Failed to start extension` / `could not acquire startup assertion`，按 `tunnel-doctor` 查 Network Extension 生命周期，不重启全部 watchdog |
 | "It re-launches the app I quit" | URL-scheme/`open` calls missing the process-alive gate (clause 4) |
 | "It spams the same repair every few minutes" | No exhausted-round cool-down (clause 3); also check the ladder's failure path doesn't reset its dead-counter |
+| "Alerts flood a shared group or bypass the renotify timer every poll" | Move ops alerts off shared business channels and stabilize fingerprints across volatile counters and fresh in-progress worker snapshots (`references/alert-discipline.md` § Channel isolation and fingerprint stability; producer fix in `references/quiet-watchdog-patterns.md` Pattern 9) |
 | "It reports healthy through a real outage" | Health check certifies only the path it probes — one green probe ≠ all planes healthy (add the second plane's probe). 同一命令若声称覆盖 DIRECT+proxy，两面都通过才可报整体 healthy/recovered；DIRECT 失败并重新写入失败状态后，不得再宣称 `failure state cleared`（Pattern 5） |
 | "bootout didn't stick / it came back" | Confirm the exact domain/service target and who bootstrapped it again; for a persistent stop follow § Stop semantics |
 | Silent no-runs | `StandardErrorPath` missing → failures invisible; then `log show --predicate 'process == "launchd"' --last 15m` |

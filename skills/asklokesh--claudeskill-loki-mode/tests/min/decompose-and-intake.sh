@@ -338,8 +338,8 @@ case "$OUT" in *"sizes large"*|*"split into"*|*"Split planning"*) wsplit=yes ;; 
 wstages="$(python3 -I -c 'import json,sys
 ev=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 print(" ".join("%s:%s" % (e["stage"], e["type"].split(".")[1]) for e in ev if e["type"] in ("stage.completed", "stage.skipped") and e["stage"] in ("plan", "wall")))' "$WEV" 2>/dev/null)"
-[ "$wsize" = large ] && [ "$wstages" = "wall:skipped plan:completed" ] && ok "whole-first: the whole-issue run takes the measured LOKI_UNIT_ID=whole path: sized large by structure, plan session kept, Wall off by default" \
-    || bad "whole-first: the whole-issue run sized '${wsize:-none}' with stages '${wstages:-none}' (want large, wall:skipped plan:completed)"
+[ "$wsize" = large ] && [ "$wstages" = "plan:skipped wall:skipped" ] && ok "whole-first: the whole-issue run takes the measured LOKI_UNIT_ID=whole path: sized large by structure, no plan session (the epic lists its own acceptance criteria, #701), Wall off by default" \
+    || bad "whole-first: the whole-issue run sized '${wsize:-none}' with stages '${wstages:-none}' (want large, plan:skipped wall:skipped)"
 
 # S1b no-loss (issue run): an issue run whose implement reply ends with a finish line has the same stage order, receipt key set, implement key set and
 # normalized implement brief as on the base commit (8c7ae842b, captured by this same leg there).
@@ -355,12 +355,13 @@ print(" ".join("%s:%s" % (e["stage"], e["type"].split(".")[1]) for e in ev if e[
 # It is 88f0207ba3c89b01 since ce0e9c178 (2026-11-17, "Finished work is never lost"): that commit adds STASH_RULE (e10ext/context.ts, the fixed rules
 # "Never run git stash ...") to the brief of every session that writes code, on purpose (opencode 63310 lost its whole change in a stash). Attribution by
 # reading the merged commits: it is the only one that adds brief text to an issue run; lane B's tip gave 56283bbaf3afe29d.
+# It is b8fb76be34ea8c2d since the untrusted-input rule line of #692 (buildImplementBrief, UNTRUSTED_INPUT_RULE, added on purpose in the cache-stable prefix): measured 2026-11-26, the kept brief with that one line and its blank line removed hashes to 88f0207ba3c89b01 again, and nothing else in the signature moved.
 # The receipt key set gained verified_by with VERIFY-PLAN V7 (2026-11-20): every receipt says what verified the change; nothing else in the signature moved.
 W3="$T/whole-sig"; make_repo "$W3" 0
 LOKI_E10_PROVE=0 LOKI_E10_PROVE_BY_RUNNING=0 LOKI_E10_ISSUE_ACCEPTANCE=0 E2E_STUB_MODE=done run_loki "$W3" "$T/whole-sig-stub.log" start acme/search#24 --no-pr --max-cost 5
 cp "$(dirname "$(ls "$W3"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")/implement-brief.txt" "${S1B_KEEP:-/dev/null}" 2>/dev/null # S1B_KEEP=<file>: keep the brief the hash is taken from (for a diff when the pin moves)
 W3SIG="$(python3 -I "$ROOT/tests/min/fixtures/e2e/s1b/sig.py" "$(dirname "$(ls "$W3"/.loki/runs/*/events.jsonl 2>/dev/null | head -1)")" "$W3" 2>&1)"
-[ "$W3SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,self_review,task,time,toolchain,tree,verdict,verification,verified_by,wall; implement=already_done_evidence,brief_files,cascade,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,self_review,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=88f0207ba3c89b01" ] \
+[ "$W3SIG" = "stages=intake,{plan,wall},implement,verify,commit,seal; receipt=base_sha,checks,context,cost,cost_preview,diff_sha256,events_sha256,evidence,head_sha,log_seal,loki_version,model,model_source,mutation_outcome,mutation_proof,not_applicable,not_proven,provider,receipt_sha256,repo,resumed,run_id,schema,seal_accuracy,seeded_corpus,self_review,task,time,toolchain,tree,verdict,verification,verified_by,wall; implement=already_done_evidence,brief_files,cascade,coverage_resume,diff_stat,duration_s,exit,impacted_tests,iteration_ids,model,self_review,session_id,session_resume,spec_conflict_reason,summary_tail,tests_reverted; brief=b8fb76be34ea8c2d" ] \
     && ok "S1b no-loss (issue run): stage order, receipt key set, implement key set and the normalized implement brief equal the base commit's" || bad "S1b no-loss (issue run) differs from the base commit: $W3SIG"
 
 # --- F4 rerun guard: before any model call, an open Loki pull request from the origin's owner that covers the issue stops `loki start owner/repo#N` --------
@@ -495,21 +496,28 @@ c1_has "$ISSUE_P" "Never use a fixed port number: pick a port you have just chec
     && ! c1_has "$ISSUE_P" "Time budget: about" \
     && ok "candidate 1: the issue brief has the port rule, the tried-first rule, the take-the-time and deliver-each lines, no reconciling sentences and no time-budget sentence" \
     || bad "candidate 1: issue-run block lines wrong"
-c1_has "$ISSUE_P" "$CARD_LINE" && [ "$ISSUE_PATH" = "$ISSUE_PLANPATH:$T/fake-opt/postgresql@15/bin" ] && [ -f "$ISSUE_RUN/env-card.json" ] && grep -q '"type":"env.card"' "$ISSUE_RUN/events.jsonl" \
+c1_has "$ISSUE_P" "$CARD_LINE" && [ "${ISSUE_PATH##*:}" = "$T/fake-opt/postgresql@15/bin" ] && ! c1_has "$ISSUE_PLANPATH" "$T/fake-opt" && [ -f "$ISSUE_RUN/env-card.json" ] && grep -q '"type":"env.card"' "$ISSUE_RUN/events.jsonl" \
     && ok "candidate 1 card: a repo needing postgres with a keg off PATH gets the newest keg's line in the brief and its bin appended (not prepended) to the implement session's PATH only; env-card.json and one event" \
-    || bad "candidate 1 card: line $(grep -c 'Available on this machine' <<< "$ISSUE_P"), implement PATH tail '${ISSUE_PATH##*:}', plan PATH equal to implement head: $([ "${ISSUE_PATH%:*}" = "$ISSUE_PLANPATH" ] && echo yes || echo no)"
+    || bad "candidate 1 card: line $(grep -c 'Available on this machine' <<< "$ISSUE_P"), implement PATH tail '${ISSUE_PATH##*:}', plan PATH free of the keg: $(c1_has "$ISSUE_PLANPATH" "$T/fake-opt" && echo no || echo yes)"
+c1_run issue-ownlist none start acme/search#24 --no-pr --max-cost 5 -- # PFSTUB plain-first: a large issue with its own acceptance list starts no plan session
+PFV="$(python3 -I -c 'import json,sys
+for l in open(sys.argv[1]):
+    e = json.loads(l)
+    if e.get("type") == "variant" and e.get("stage") is None: print(e["data"].get("plan_skipped"), e["data"].get("size")); break' "$C1RUN/events.jsonl" 2>/dev/null)"
+[ "$PFV" = "True large" ] && [ -z "$(ls "$T"/c1-issue-ownlist.prompt.plan* 2>/dev/null)" ] && [ -n "$C1P" ] \
+    && ok "plain-first stub: a large issue with its own acceptance list emits variant plan_skipped true and starts no plan session" || bad "plain-first stub: variant '$PFV', plan prompts: $(ls "$T"/c1-issue-ownlist.prompt.plan* 2>/dev/null | wc -l)"
 c1_run issue-none none start acme/search#24 --no-pr --max-cost 5 --
-c1_has "$C1P" "This issue lists several things to deliver." && ! c1_has "$C1P" "Available on this machine" && [ "$C1PATH" = "$C1PLANPATH" ] \
+c1_has "$C1P" "This issue lists several things to deliver." && ! c1_has "$C1P" "Available on this machine" && ! c1_has "$C1PATH" "$T/fake-opt" \
     && ok "candidate 1 card: an issue run on a repo that needs no service gets no card line and an unchanged PATH" || bad "candidate 1 card: repo needing nothing got a card or a PATH change"
 c1_run text-pg pg "add a multiply(a, b) function to calc.ts" --no-pr -- LOKI_E10_DEFAULT_BUDGETS=1 # the time sentence exists only under a time limit (NO-DEFAULT-BUDGET); the knob restores today's limit
 c1_has "$C1P" "- Never kill processes." && c1_has "$C1P" "Time budget: about" && ! c1_has "$C1P" "LOKI_UNFINISHED" && ! c1_has "$C1P" "prove the change works by running it" && ! c1_has "$C1P" "Available on this machine" && [ -n "$C1PATH" ] && ! c1_has "$C1PATH" "$T/fake-opt" \
     && ok "candidate 1: a text goal keeps today's rules, finish line and time sentence, gets no block and no card, and no keg directory reaches its PATH" \
     || bad "candidate 1: the text goal changed: old rule $(grep -c 'Never kill processes' <<< "$C1P"), time $(grep -c 'Time budget' <<< "$C1P"), UNFINISHED $(grep -c LOKI_UNFINISHED <<< "$C1P"), block $(grep -c 'prove the change works' <<< "$C1P"), card $(grep -c 'Available on this' <<< "$C1P"), keg on PATH $(grep -c fake-opt <<< "$C1PATH"), PATH set $([ -n "$C1PATH" ] && echo yes || echo no)"
 c1_run issue-off pg start acme/search#24 --no-pr --max-cost 5 -- LOKI_E10_PROVE_BY_RUNNING=0 LOKI_E10_DEFAULT_BUDGETS=1 # time sentence needs a time limit (NO-DEFAULT-BUDGET)
-c1_has "$C1P" "- Never kill processes." && c1_has "$C1P" "Time budget: about" && ! c1_has "$C1P" "LOKI_UNFINISHED" && ! c1_has "$C1P" "Available on this machine" && [ "$C1PATH" = "$C1PLANPATH" ] \
+c1_has "$C1P" "- Never kill processes." && c1_has "$C1P" "Time budget: about" && ! c1_has "$C1P" "LOKI_UNFINISHED" && ! c1_has "$C1P" "Available on this machine" && ! c1_has "$C1PATH" "$T/fake-opt" \
     && ok "candidate 1: LOKI_E10_PROVE_BY_RUNNING=0 restores today's issue-run rules, time sentence and PATH, with no block and no card" || bad "candidate 1: the opt-out left a candidate-1 change"
 c1_run issue-cardoff pg start acme/search#24 --no-pr --max-cost 5 -- LOKI_E10_ENV_CARD=0
-c1_has "$C1P" "This issue lists several things to deliver." && ! c1_has "$C1P" "Available on this machine" && [ "$C1PATH" = "$C1PLANPATH" ] \
+c1_has "$C1P" "This issue lists several things to deliver." && ! c1_has "$C1P" "Available on this machine" && ! c1_has "$C1PATH" "$T/fake-opt" \
     && ok "candidate 1 card: LOKI_E10_ENV_CARD=0 turns off only the card" || bad "candidate 1 card: LOKI_E10_ENV_CARD=0 did not turn the card off"
 # The path a real user hits most: the session cannot do an item, writes LOKI_UNFINISHED, is resumed once, changes nothing. One PR, PARTIAL, the diff committed,
 # and the session's own what-is-left text on the receipt and in the PR body.
@@ -532,6 +540,15 @@ const onPath = st.detectServiceBinaries(["redis"], { PATH: process.env.T + "/fak
 console.log([errCard === null, onPath.length === 1 && onPath[0].on_path === true && st.envCardLine(onPath) === null, c.proveByRunningBlock("opencode", "issue") === "", c.proveByRunningBlock("claude", "text") === "", c.fixedRules({}, false) === c.FIXED_RULES].join(" "));
 ' 2>&1)"
 [ "$C1U" = "true true true true true" ] && ok "candidate 1 unit: a detection error gives no card and never throws; a service already on PATH adds no line; opencode and a text goal get no block; non-issue rules are today's constant" || bad "candidate 1 unit gave: $C1U"
+# --- PLAIN-FIRST (#701): an issue with its own acceptance list is implemented without a plan session, at any size. Pure cell, no model, no run.
+# Plant: stages/plan.ts ownListSkipsPlan returns false always (reads "ynnnn").
+PFU="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const p = await import(process.env.ROOT + "/loki-ts/src/engine10/stages/plan.ts");
+console.log([p.ownListSkipsPlan("auto", "issue", 9) === true, p.ownListSkipsPlan("auto", "issue", 0) === false, p.ownListSkipsPlan("auto", "text", 9) === false, p.ownListSkipsPlan("always", "issue", 9) === false, p.ownListSkipsPlan("never", "issue", 9) === false].map((b) => (b ? "y" : "n")).join(""));
+' 2>&1)"
+[ "$PFU" = "yyyyy" ] && ok "plain-first unit: auto mode plus an issue source plus at least one own acceptance line skips the plan; no lines, a text goal, LOKI_E10_PLAN=1 and =0 do not take that path" || bad "plain-first unit gave: $PFU"
+# plain-first stub leg (WRITTEN, NOT RUN in the lane that added it): acme/search#24 is sized large and carries its own acceptance criteria, so the variant event
+# says plan_skipped true and no plan prompt is written. It sits after c1_run is defined, so it is placed with the c1 legs below (PFSTUB).
 # --- Q1 PROVE (stages/prove.ts, LOKI_E10_PROVE default on): an issue run on claude gets a listing call that fixes the asks (each a verbatim line of the
 # issue, stages/prove_list.ts) and a prover session that did not write the change; the harness runs its per-ask scripts and the exit codes cap the label.
 # The stub answers both calls (E2E_STUB_LIST, E2E_STUB_PROVE). PR legs publish to a local bare origin, so a kept pull request is a local:// URL.
@@ -925,9 +942,9 @@ c1_run tm-haiku none start acme/search#24 --no-pr --max-cost 5 --session-model h
 c1_run tm-off none start acme/search#24 --no-pr --max-cost 5 --session-model haiku -- E2E_STUB_ARGV_LOG="$T/c1-tm-off.argv" E2E_STUB_MEMORY_LOG="$T/c1-tm-off.mem"; TMB="$(tm_facts tm-off)"
 c1_run tm-sonnet none start acme/search#24 --no-pr --max-cost 5 --session-model sonnet -- LOKI_E10_TASK_MEMORY=1 E2E_STUB_ARGV_LOG="$T/c1-tm-sonnet.argv" E2E_STUB_MEMORY_LOG="$T/c1-tm-sonnet.mem"; TMC="$(tm_facts tm-sonnet)"
 echo "    task memory (implement argv | implement disable | plan disable | modes | MEMORY.md | scratch): haiku =1 $TMA; default $TMB; sonnet =1 $TMC"
-case "$TMA" in "yes|unset|unset|555/444|task+asks|gone") ok "task memory e2e: with LOKI_E10_TASK_MEMORY=1 a Haiku issue run's implement session carries autoMemoryDirectory and finds a read-only MEMORY.md with the task and its numbered acceptance lines; the plan session gets no auto-memory env from Loki; the scratch is removed after the run" ;; *) bad "task memory e2e (haiku) gave $TMA" ;; esac
-case "$TMB" in "none|unset|unset|"*"|nobody|na") ok "task memory e2e: by default (LOKI_E10_TASK_MEMORY unset) Loki writes no memory and no session carries a memory setting or env" ;; *) bad "task memory e2e (default) gave $TMB" ;; esac
-case "$TMC" in "none|unset|unset|"*) ok "task memory e2e: a Sonnet run with LOKI_E10_TASK_MEMORY=1 carries no memory setting or env on any session" ;; *) bad "task memory e2e (sonnet) gave $TMC" ;; esac
+case "$TMA" in "yes|unset|nosession|555/444|task+asks|gone") ok "task memory e2e: with LOKI_E10_TASK_MEMORY=1 a Haiku issue run's implement session carries autoMemoryDirectory and finds a read-only MEMORY.md with the task and its numbered acceptance lines; no plan session starts, so none gets an auto-memory env from Loki (#701); the scratch is removed after the run" ;; *) bad "task memory e2e (haiku) gave $TMA" ;; esac
+case "$TMB" in "none|unset|nosession|"*"|nobody|na") ok "task memory e2e: by default (LOKI_E10_TASK_MEMORY unset) Loki writes no memory and no session carries a memory setting or env" ;; *) bad "task memory e2e (default) gave $TMB" ;; esac
+case "$TMC" in "none|unset|nosession|"*) ok "task memory e2e: a Sonnet run with LOKI_E10_TASK_MEMORY=1 carries no memory setting or env on any session" ;; *) bad "task memory e2e (sonnet) gave $TMC" ;; esac
 
 # --- split repair: a list detail is repaired, any other refusal is re-asked once with the exact error ------------------------
 # FireLater#24 (v11.116.0): one 520-character acceptance criterion refused the whole split and the epic ran as one 413 s session.
@@ -1658,6 +1675,27 @@ console.log([fl.length, JSON.stringify(fl), JSON.stringify(heading), JSON.string
 WIA='9 | ["Implement PostgreSQL full-text search with ranking","Create advanced filter query builder","Add filter template save/load functionality","Implement search history tracking","Build faceted search UI","Create search analytics dashboard","Add comprehensive search tests","Document search query syntax","Optimize search performance for large datasets"] | ["results are ranked","an empty query returns nothing"] | ["one works","two works"] | [] | ["alpha works"]'
 [ "$IA" = "$WIA" ] && ok "issue acceptance: FireLater#24 gives its nine lines verbatim, in order; a bold or plain Acceptance criteria heading without checkboxes is read; no list gives none; checked boxes and attestations are left out" \
     || bad "issue acceptance gave: $IA"
+
+# #688 PLAN-SCOPE: with the issue's own acceptance lines the plan may not scope any of them out. The brief swaps the optional "Out of scope:"
+# permission for "they are the scope"; a plan-written Out of scope line is dropped from the printed and stored card and kept as scope_narrowed.
+PS="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const ic = await import("./src/util/intent_card.ts"), pl = await import("./src/engine10/stages/plan.ts");
+const I = ic.INTENT_CARD_INSTRUCTION, T = ic.intentCardInstruction(true), OLD = "You may add one optional line starting";
+const c1 = ic.intentCardInstruction(false) === I && I.includes(OLD) && !T.includes(OLD) && T.includes("they are the scope");
+const base = pl.buildPlanBrief("t", ["f.ts"], "/x/plan-output.txt", undefined, false, true), off = pl.buildPlanBrief("t", ["f.ts"], "/x/plan-output.txt", undefined, false, true, false, false, undefined, false), on = pl.buildPlanBrief("t", ["f.ts"], "/x/plan-output.txt", undefined, false, true, false, false, undefined, true);
+const c2 = base === off && base.includes(OLD) && on.includes("they are the scope") && !on.includes(OLD);
+const raw = "1. migrate routes\nWhat I think you want: migrate the routes\nAcceptance: every route uses the helper\nOut of scope: migrating every route\nAcceptance: tests pass";
+const w = process.stderr.write.bind(process.stderr); let printed = ""; (process.stderr as any).write = (s: string) => { printed += s; return true; };
+const withIssue = await ic.applyIntent(raw, true, "/nonexistent", () => {}, ["a", "b", "c", "d", "e", "f", "g"]);
+const shown = printed; printed = "";
+const plain = await ic.applyIntent(raw, true, "/nonexistent", () => {}, []);
+(process.stderr as any).write = w;
+const wd = withIssue.data as any, pd = plain.data as any;
+const c3 = shown.length > 0 && !/out of scope/i.test(shown) && wd.scope_narrowed === "migrating every route" && !wd.intent_card.some((l: string) => /^out of scope/i.test(l)) && /out of scope/i.test(printed) && pd.intent_card.some((l: string) => /^out of scope/i.test(l)) && !("scope_narrowed" in pd);
+console.log(JSON.stringify([c1, c2, c3]));
+' 2>&1)"
+[ "$PS" = "[true,true,true]" ] && ok "plan scope: issue lines swap the Out of scope permission for 'they are the scope' (no issue lines: brief byte-identical); a plan Out of scope line is dropped from the card and kept as scope_narrowed" \
+    || bad "plan scope gave: $PS"
 ia_run() { # ia_run <name> <line-check reply file or -> <VAR=value...>: the FireLater#24 body (or IA_BODY) as acme/search#24 on the stub, the switch on unless IA_ON is set empty; sets IAD, IARUN, IAOUT
     local name="$1" reply="$2" d="$T/ia-$1"; shift 2
     make_repo "$d" 0

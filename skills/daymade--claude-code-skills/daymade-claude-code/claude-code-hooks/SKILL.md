@@ -346,8 +346,22 @@ the layout is:
 ~/.claude/hooks/<name>.sh             # symlink → SSOT
 
 ```
+A synchronous prompt/tool hook must not resolve Python through a package manager
+or environment dispatcher. For a `.py` entry, `--python` being absolute and
+executable is insufficient: probe that it really executes Python 3, requires
+`sys.executable` to resolve to the same file, and rejects `uv`, `uvx`, `env`,
+`pip`, direct `.py` command paths and non-Python executables. A
+committed direct-runtime shim is acceptable only when it is the machine's
+declared behavior SSOT. See
+[references/hook_pitfalls.md](references/hook_pitfalls.md) #73 for the failure
+shape and bidirectional fixtures.
+
 After a reinstall, restore only the entries the current installer declares active;
 do not reconstruct registrations from old filenames or reinstall retired aliases.
+When renaming a hook-bearing plugin while keeping a compatibility-alias plugin on
+disk, disable the alias plugin (or strip its hooks) so the same event does not
+fire twice; see
+[references/hook_pitfalls.md](references/hook_pitfalls.md#74-renaming-a-hook-bearing-plugin-while-keeping-a-compatibility-alias-plugin-fires-the-same-hook-twice).
 Preserve independent rule state and authorization writers when migrating entries.
 Verify the consumed entrypoint, modules and effective settings, then exercise a
 real matching event in a fresh native session. A dangling link can silently disarm

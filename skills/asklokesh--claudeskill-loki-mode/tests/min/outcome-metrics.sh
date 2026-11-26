@@ -363,4 +363,119 @@ qa="$(cd "$ROOT/loki-ts" && bun -e "$QAJS" "$QA/.loki/runs" 2>&1)"
 (cd "$QA" && LOKI_TS_ENTRY="$ROOT/loki-ts/dist/loki.js" bash "$ROOT/bin/loki" stats --outcomes) >"$T/qa-cli.txt" 2>&1
 grep -q 'Quote accuracy  *5 of 6 in range, median error 34%' "$T/qa-cli.txt" && ok "loki stats --outcomes prints the Quote accuracy row" || bad "stats --outcomes text row: $(grep -i quote "$T/qa-cli.txt" | head -2)"
 
+# 11.182.0 run-says (#686). (a) The start quote reads every finished run of the shape (verified and not_proven), not only the
+# ones that went well. (b) outcomeFor writes a not_proven row for PARTIAL and none for SPEC_CONFLICT. (c) not_proven rows leave the
+# router unchanged (isCodeLoss, routeScore, haikuFloorExecutor). (d) A piped LiveLine prints a line per turn, proof run, acceptance
+# round and review, and repeats the status every 60 s; a terminal gets none of it. The LiveLine cell lives here, not in
+# engine10-e2e-stub.sh, because that file is owned by another lane this round.
+# Planted defects: (a) estimateFromHistory reads only verdict "pass"; (b) outcomeFor returns null for PARTIAL; (c) haikuFloorExecutor
+# stops skipping not_proven rows; (d) LiveLine.tick never repeats, and separately pipedEvent also runs on a terminal.
+RSJS="$T/run-says.ts"
+cat > "$RSJS" <<'TS'
+const SRC = process.argv[2]!, cache = process.argv[3]!;
+const cp = await import(`${SRC}/runner/router/cost_preview.ts`);
+const hi = await import(`${SRC}/runner/router/history.ts`);
+const { LiveLine } = await import(`${SRC}/e10ext/liveline.ts`);
+const out: Record<string, unknown> = {};
+const shape = "ts-lib", W = cp.WALL_KIND;
+const row = (verdict: string, usd: number, executor = "sonnet", owner: string | null = null) => ({ shape, executor, verdict, owner, escalated: false, usd, wallS: 100, wallKind: W });
+const pass = [0.16, 0.25, 0.31, 0.40, 0.47, 0.55, 0.62, 0.70, 0.78, 0.86].map((u) => row("pass", u));
+const np = [row("not_proven", 4.65), row("not_proven", 5.42)];
+for (const r of pass) hi.appendRunOutcome("k-pass", r, cache);
+for (const r of [...pass, ...np]) hi.appendRunOutcome("k-all", r, cache);
+out.pass_only = cp.startText(cp.estimateFromHistory(shape, "k-pass", cache, { env: {} }));
+out.all = cp.startText(cp.estimateFromHistory(shape, "k-all", cache, { env: {} }));
+out.need = cp.startText(cp.estimateFromHistory(shape, "k-none", cache, { env: { LOKI_COST_PRIOR: "0" } }));
+const partial = cp.outcomeFor(shape, "claude-sonnet-4", "PARTIAL", 5.42, 1972);
+out.partial = partial === null ? null : { verdict: partial.verdict, owner: partial.owner, escalated: partial.escalated, usd: partial.usd, wallS: partial.wallS, wallKind: partial.wallKind };
+out.spec_conflict = cp.outcomeFor(shape, "sonnet", "SPEC_CONFLICT", 1, 10);
+out.already = cp.outcomeFor(shape, "sonnet", "ALREADY_SATISFIED", 1, 10);
+const base = [row("pass", 0.1, "haiku"), row("fail", 0.1, "haiku", "code"), row("pass", 0.1, "haiku"), row("pass", 0.2, "sonnet"), row("pass", 0.2, "sonnet"), row("fail", 0.2, "sonnet", "code")];
+const withNp = [...base, row("not_proven", 3, "haiku"), row("not_proven", 3, "sonnet"), row("not_proven", 3, "haiku", "code")];
+out.router_same = [hi.routeScore(base, shape, "haiku"), hi.routeScore(base, shape, "sonnet")].map((x) => JSON.stringify(x)).join("|") === [hi.routeScore(withNp, shape, "haiku"), hi.routeScore(withNp, shape, "sonnet")].map((x) => JSON.stringify(x)).join("|");
+out.loss_same = base.every((r, i) => hi.isCodeLoss(r) === hi.isCodeLoss(r)) && withNp.slice(base.length).every((r) => hi.isCodeLoss(r) === false);
+// Three haiku rows (one code loss) then a not_proven haiku row: the floor window must still see the first three, so the answer matches the history without it.
+const floorRows = [row("fail", 0.1, "haiku", "code"), row("fail", 0.1, "haiku", "code"), row("pass", 0.1, "haiku")];
+for (const r of floorRows) hi.appendRunOutcome("k-floor-a", r, cache);
+for (const r of [...floorRows, row("not_proven", 5, "haiku"), row("not_proven", 5, "haiku")]) hi.appendRunOutcome("k-floor-b", r, cache);
+out.floor = [hi.haikuFloorExecutor("k-floor-a", shape, cache), hi.haikuFloorExecutor("k-floor-b", shape, cache)].join(",");
+const ev = (type: string, stage: string | null, data: Record<string, unknown> = {}) => ({ v: 1, seq: 0, ts: "2026-01-01T00:00:00Z", run: "r1", type, stage, data });
+const drive = (tty: boolean) => {
+  let buf = "", t = 0; const ll = new LiveLine({ tty, write: (s: string) => { buf += s; }, now: () => t, columns: 200, graceS: 0, env: {} });
+  ll.onEvent(ev("stage.started", "implement"));
+  t = 1000; ll.onEvent(ev("session.started", "implement")); t = 2000; ll.onEvent(ev("session.started", "implement"));
+  ll.onEvent(ev("proof.rerun", "implement", { proved: 30, failed: 0 }));
+  ll.onEvent(ev("acceptance.round", "implement", { round: 1, met: 6, unmet: 2 }));
+  ll.onEvent(ev("review.early", "implement", { level: "block", findings: 12 }));
+  ll.onEvent(ev("proof.rerun", "implement", {})); ll.onEvent(ev("acceptance.round", "implement", { round: 2 })); // missing numbers print nothing
+  t = 4000; for (let i = 0; i < 14; i++) { ll.tick(); t += 10_000; }
+  return buf;
+};
+out.pipe = drive(false).split("\n").filter((l) => l !== "");
+const tb = drive(true);
+out.tty_events = ["turn 2 started", "Loki ran the proof", "acceptance check", "independent review"].filter((x) => tb.includes(x));
+out.tty_newline = tb.includes("\n");
+console.log(JSON.stringify(out));
+TS
+rs="$(cd "$ROOT/loki-ts" && bun "$RSJS" "$ROOT/loki-ts/src" "$T/rs-cache" 2>&1)"
+rsj() { printf '%s' "$rs" | jq -r "$1" 2>/dev/null; }
+rsj .pass_only | grep -qF 'estimate: about $0.51 (range $0.16-$0.86), ' && rsj .pass_only | grep -qF ', from 10 finished runs of shape ts-lib'  && ok "quote with ten verified runs: numbers unchanged, now worded 'finished runs'" || bad "pass-only quote: $rs"
+rsj .all | grep -q 'from 12 finished runs of shape ts-lib' && [ "$(rsj .all | grep -c 'range \$0.16-\$5.42)')" = "1" ] && ok "two not_proven runs (\$4.65, \$5.42) are counted: 12 finished runs, upper bound \$5.42" || bad "quote with not_proven rows: $rs"
+rsj .need | grep -q '0 finished runs for shape ts-lib, need 3' && ok "too-few-runs reason says finished runs" || bad "need wording: $rs"
+[ "$(rsj '.partial|[.verdict,.owner,.escalated,.usd,.wallS,.wallKind]|@json')" = '["not_proven",null,false,5.42,1972,"total-v1"]' ] && [ "$(rsj .spec_conflict)" = "null" ] && [ "$(rsj .already)" = "null" ] && ok "outcomeFor: PARTIAL is a not_proven row; SPEC_CONFLICT and ALREADY_SATISFIED write none" || bad "outcomeFor: $rs"
+[ "$(rsj .router_same)" = "true" ] && [ "$(rsj .loss_same)" = "true" ] && [ "$(rsj .floor)" = "sonnet,sonnet" ] && ok "not_proven rows leave routeScore, isCodeLoss and haikuFloorExecutor unchanged" || bad "router with not_proven rows: $rs"
+[ "$(rsj '.pipe|length')" = "7" ] && [ "$(rsj '.pipe[0]')" = "[implement] implementing  0s  run 0s  spend not measured yet" ] && [ "$(rsj '.pipe[1]|startswith("[implement] turn 2 started  run 2s  spend not measured yet")')" = "true" ] && [ "$(rsj '.pipe[2]')" = "[implement] Loki ran the proof: 30 passed, 0 failed" ] && [ "$(rsj '.pipe[3]')" = "[implement] acceptance check, round 1: 6 of 8 lines met" ] && [ "$(rsj '.pipe[4]')" = "[implement] independent review: block, 12 findings" ] && [ "$(rsj '[.pipe[5],.pipe[6]]|map(startswith("[implement] implementing"))|all')" = "true" ] && ok "piped LiveLine: one stage line, a line per turn, proof, acceptance round and review, two repeats in 130 s of silence" || bad "piped LiveLine: $rs"
+[ "$(rsj '.tty_events|length')" = "0" ] && [ "$(rsj .tty_newline)" = "false" ] && ok "terminal LiveLine: the same events add no line" || bad "terminal LiveLine: $rs"
+
+# #694 quote-size. A quote is drawn from finished runs of the same size, says so when it has none, and is restated once the run has
+# sized the task. (1) three PARTIAL large runs give the median/range line; (2) another size has none and says so with the largest
+# finished run; (3) FAILED, no-receipt, NOT RECORDED and zero-time directories are skipped without a throw; (4) the released start
+# line is byte-identical on ten pass rows; (5) the supervisor's decision prints nothing with the preview off, under --json, with no
+# size, after the first print or on another event. Planted defects: mean in place of the median (cell 1); FAILED receipts counted (cell 3).
+QSJS="$T/quote-size.ts"
+cat > "$QSJS" <<'TS'
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+const SRC = process.argv[2]!, base = process.argv[3]!;
+const cp = await import(`${SRC}/runner/router/cost_preview.ts`);
+const hist = await import(`${SRC}/runner/router/history.ts`);
+const out: Record<string, unknown> = {};
+const mk = (dir: string, id: string, receipt: unknown, size: string | null) => {
+  const d = join(dir, id); mkdirSync(d, { recursive: true });
+  if (receipt !== null) writeFileSync(join(d, "receipt.json"), JSON.stringify(receipt));
+  if (size !== null) writeFileSync(join(d, "events.jsonl"), `{"type":"run.started","data":{}}\n{"type":"variant","data":{"size":"${size}"}}\n`);
+};
+const rc = (verdict: string, usd: unknown, total_s: number) => ({ verdict, cost: { usd }, time: { total_s } });
+const runs = join(base, "runs"); mkdirSync(runs, { recursive: true });
+mk(runs, "r1", rc("PARTIAL", 4.65, 1270), "large"); mk(runs, "r2", rc("PARTIAL", 5.42, 1972), "large"); mk(runs, "r3", rc("PARTIAL", 7.22, 2511), "large");
+const rows = cp.rowsFromReceipts(runs);
+out.large = cp.sizedText(rows, "large");
+out.small = cp.sizedText(rows, "small");
+out.none = cp.sizedText([], "large");
+const skipDir = join(base, "skip"); mkdirSync(skipDir, { recursive: true });
+mk(skipDir, "b1", rc("FAILED", 3, 100), "large"); mk(skipDir, "b2", null, "large"); mk(skipDir, "b3", rc("VERIFIED", "NOT RECORDED", 100), "large"); mk(skipDir, "b4", rc("PARTIAL", 2, 0), "large");
+let threw = false, skipRows: unknown[] = [];
+try { skipRows = cp.rowsFromReceipts(skipDir); } catch { threw = true; }
+out.skip_rows = skipRows.length; out.skip_threw = threw; out.missing_dir = cp.rowsFromReceipts(join(base, "nope")).length;
+const cache = join(base, "cache");
+for (const u of [0.16, 0.25, 0.31, 0.40, 0.47, 0.55, 0.62, 0.70, 0.78, 0.86]) hist.appendRunOutcome("k-ten", { shape: "ts-lib", executor: "sonnet", verdict: "pass", owner: null, escalated: false, usd: u, wallS: 100, wallKind: hist.WALL_KIND }, cache);
+out.start = cp.startText(cp.estimateFromHistory("ts-lib", "k-ten", cache, { env: {} }));
+const line = (env: Record<string, string>, json: boolean, printed: boolean, type: unknown, size: unknown) => cp.sizedQuoteLine(env, json, printed, type, size, runs);
+out.off = line({ LOKI_COST_PREVIEW: "0" }, false, false, "variant", "large");
+out.nosize = line({}, false, false, "variant", undefined);
+out.json = line({}, true, false, "variant", "large");
+out.again = line({}, false, true, "variant", "large");
+out.other = line({}, false, false, "stage.started", "large");
+out.on = line({}, false, false, "variant", "large");
+console.log(JSON.stringify(out));
+TS
+QS="$(cd "$ROOT/loki-ts" && bun "$QSJS" "$ROOT/loki-ts/src" "$T/qs" 2>&1)"
+qsj() { printf '%s' "$QS" | jq -r "$1" 2>/dev/null; }
+[ "$(qsj .large)" = 'sized large: about $5.42 (range $4.65-$7.22), about 33 min, from 3 finished large runs in this repository' ] && ok "sizedText: three finished large runs give the median, range and minutes" || bad "sizedText large: $QS"
+[ "$(qsj .small)" = 'sized small: no estimate yet (0 finished small runs here); the largest finished run in this repository cost $7.22 and took 42 min' ] && ok "sizedText: a size with no finished run says so and names the largest finished run" || bad "sizedText small: $QS"
+[ "$(qsj .none)" = "" ] && ok "sizedText: no finished run on record prints nothing" || bad "sizedText none: $QS"
+[ "$(qsj '[.skip_rows,.skip_threw,.missing_dir]|@json')" = "[0,false,0]" ] && ok "rowsFromReceipts: FAILED, no receipt, NOT RECORDED cost and zero time are skipped; a missing dir reads empty; no throw" || bad "rowsFromReceipts skips: $QS"
+[ "$(qsj .start)" = 'estimate: about $0.51 (range $0.16-$0.86), about 2 min (range 2-2 min), from 10 finished runs of shape ts-lib' ] && ok "start line on ten pass rows is byte-identical to the released text" || bad "start line: $QS"
+[ "$(qsj '[.off,.nosize,.json,.again,.other]|@json')" = '["","","","",""]' ] && [ "$(qsj .on)" = "$(qsj .large)" ] && ok "sizedQuoteLine: nothing with the preview off, no size, --json, a repeat or another event; the sized line otherwise" || bad "sizedQuoteLine: $QS"
+
 finish

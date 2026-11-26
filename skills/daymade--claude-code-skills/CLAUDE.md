@@ -234,6 +234,7 @@ For Shadowrocket module activation or database rule-order claims, use the same
 proxy-conflict reference; keep its dated build observations separate from current write acceptance.
 When a watchdog is suspected, first align the actual actor and state transitions through
 [macos-watchdog troubleshooting](daymade-macos/macos-watchdog/SKILL.md#troubleshooting-quick-map).
+For an interrupted batch collector, follow [interrupted-batch recovery](daymade-macos/macos-watchdog/references/interrupted-batches.md). For intermittent network evidence, use the [collection and recovery acceptance SOP](debugging-network-issues/references/intermittent-evidence-collection.md).
 For unresolved tunnel packet-loss
 localization, read the [capture procedure](debugging-network-issues/references/packet-capture-recipes.md#four-boundary-tunnel-captures).
 For same-provider node failures with a working subscription, enter
@@ -338,6 +339,8 @@ For Git inspections whose stdout must not hide a nonzero exit, or dispatcher-own
 environment state, read [hook_pitfalls.md #69/#70](daymade-claude-code/claude-code-hooks/references/hook_pitfalls.md).
 For raw-JSON fast-path filters or PATH-preceding OS command wrappers, read
 [hook_pitfalls.md #71/#72](daymade-claude-code/claude-code-hooks/references/hook_pitfalls.md).
+For duplicate hook firing across a compatibility-alias Skill rename, read
+[hook_pitfalls.md #74](daymade-claude-code/claude-code-hooks/references/hook_pitfalls.md#74-renaming-a-hook-bearing-plugin-while-keeping-a-compatibility-alias-plugin-fires-the-same-hook-twice).
 
 Python entry points registered as synchronous Claude Code/Codex lifecycle hooks or
 background services (LaunchAgents included) must call a fixed direct interpreter
@@ -698,6 +701,9 @@ For failures while completing a retrieval, enter
 For an existing hook integration or a blocked read-only discovery command, use its
 [companion-hook procedure](daymade-claude-code/prior-work-retrieval/SKILL.md#companion-hooks)
 and [discovery boundaries](daymade-claude-code/prior-work-retrieval/SKILL.md#boundaries).
+Standalone status prompts do not create a retrieval requirement; the one-turn
+Stop exception for an already-active requirement, including its retained write
+gate, is defined there.
 
 ### Local Conversation History Boundary
 
@@ -749,6 +755,11 @@ For Claude history discovery without a known Session, use
 [read-claude-code-history's indexed search entry](daymade-claude-code/read-claude-code-history/SKILL.md#indexed-content-search).
 Keep executable examples and coverage requirements in that owner.
 
+For Antigravity (`agy`) indexed inventory, FTS5 search, exact-session evidence, or
+locating recently interrupted or resumed sessions whose SQLite timestamps lagged, use
+[Antigravity (agy)](daymade-claude-code/read-claude-code-history/SKILL.md#antigravity-agy).
+Keep commands and stale-timestamp handling in that owner.
+
 For Codex session inventory, launch-source interpretation or task clustering, use
 [Recent inventory](daymade-claude-code/read-codex-history/SKILL.md#recent-inventory).
 Edit shared reader code in `daymade-claude-code/_conversation_core/`, then run
@@ -797,8 +808,9 @@ them instead of restating volatile protocol facts.
 
 ### Ghostty Terminal Sessions
 
-For pre-reboot snapshots of local Claude Code / Codex CLI sessions across terminals,
-or restoring and reconciling their IDs in Ghostty, enter [`ghostty-use`](ghostty-use/SKILL.md).
+For pre-reboot snapshots of local Claude Code / Codex / Antigravity (`agy`) CLI sessions
+across terminals, or restoring and reconciling their IDs in Ghostty, enter
+[`ghostty-use`](ghostty-use/SKILL.md).
 Unmanaged/legacy manual Codex account
 switches start at its
 [account-owner selection](ghostty-use/references/codex-account-switch.md#choose-the-account-owner-first).
@@ -915,6 +927,10 @@ For Skill authoring in an approved independent Fleet clone, follow the
 For requested local availability, follow
 [source-backed activation and consumed-bundle readback](daymade-skill/skill-governance/references/skill-surface-governance.md#5-reconcile-source-backed-activation)
 and the [fresh-host delivery gate](daymade-skill/skill-governance/references/skill-surface-governance.md#14-verify-a-newly-registered-skill).
+When renaming a Skill while keeping a compatibility shim, follow
+[marketplace-dev's compatibility-shim checklist](daymade-claude-code/marketplace-dev/references/suite_consolidation_workflow.md#renaming-a-skill-while-keeping-a-compatibility-shim)
+for source, README, and cross-repo drift, then reconcile multi-host hook deduplication via
+[skill-governance §8](daymade-skill/skill-governance/references/skill-surface-governance.md#reconcile-a-compatibility-alias-skill-rename).
 For a daemon using a pinned plugin copy, follow the
 [pin-update workflow](daymade-claude-code/claude-switch-models-setup/references/troubleshooting.md#advance-the-pin).
 For a named-target availability verdict, use the

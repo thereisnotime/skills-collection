@@ -8,9 +8,9 @@ import { terminalWidth } from "../util/term_width.ts"; import { ROLE_FLAG_ENV } 
 import { diffStat, runHead, formatRunSummary, handoffSection, readRiskSummary, writeHandoff, withNextLine, withFoldLine, withRiskLine, nextOf, resultOf, summaryObject, useColor } from "../util/run_summary.ts"; // OC-OUTPUT, RISKTIER
 import { commitUnsealedWork, deepAfterPr, deliverAsDraft, guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
 import { kidOf, loadSigningKey, secretPushLine, secretPushRefusal } from "./stages/seal.ts";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"; import { homedir } from "node:os";
 import { deliverables, ISSUE_LABELS_ENV, issueWholeFirst } from "../features/decompose.ts"; import { smallMaxChars } from "./sizing.ts";
-import { dirname, join, relative, resolve } from "node:path"; import { writeRunState } from "../util/seal_drift.ts";
+import { dirname, join, relative, resolve, sep } from "node:path"; import { writeRunState } from "../util/seal_drift.ts";
 import { loadSpecFile, type LoadedSpec } from "../util/spec_file.ts";
 import { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker } from "../util/engine_origin.ts";
 export { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker }; // re-exported: callers and tests import these from here
@@ -37,7 +37,7 @@ import { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, runIntent
 
 export { backstopS, BACKSTOP_GRACE_S }; // re-exported: callers import the backstop math from here, its home before r4
 import { createStuckWatch, stuckMinutes } from "../util/slack_events.ts";
-import { encodeEstimate, startText } from "../runner/router/cost_preview.ts";
+import { encodeEstimate, sizedQuoteLine, startText } from "../runner/router/cost_preview.ts";
 export const START_LINE = "Loki 10 engine";
 export const TAMPER_NOT_PROVEN = "event log modified outside the engine";
 async function slackEvent(...a: Parameters<typeof import("../util/slack_events.ts").notifyEvent>): Promise<void> { try { await (await import("../util/slack_events.ts")).notifyEvent(...a); } catch { /* best-effort */ } }
@@ -125,6 +125,7 @@ export interface SupervisorOptions {
   capS?: number; // global cap in seconds (default LOKI_E10_CAP_S, else DEFAULT_CAP_S); the backstop fires at cap minus grace
   graceS?: number; // default BACKSTOP_GRACE_S
   restoreBranch?: string | null; // P12-07i: the user's branch before a resume checkout, restored on stop instead of the run branch
+  sizedQuote?: boolean; // #694: print the second quote once the run is sized; the start line's caller sets it (off under --json and for callers that do not)
   resume?: boolean; // P12-07i: re-enter an interrupted run: appends run.resumed instead of run.started and tells the worker to restore settled stages
 }
 export interface SupervisorResult {
@@ -222,9 +223,11 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   let lastEventMs = Date.now(); const hang = Number.isFinite(ceilingS) ? undefined : { silenceS: hangSilenceS(env), lastEventMs: () => lastEventMs }; // NO-DEFAULT-BUDGET: with no backstop, a worker silent this long with no process of its own is hung
   let spawnArgv: string[] = opts.workerArgv; try { spawnArgv = ulimitArgv(opts.workerArgv, workerEnv); } catch { /* spawnWorker refuses the same input */ } log.append("capability.recorded", null, { stages: workerStages().map((st) => stageCapability(st, envWithPwd(workerEnv, opts.repoDir), spawnArgv)) }); // GAME10-05a: worker stages are read from the env and argv spawnWorker is given; pr is recorded by recordSpawnEnv at its own spawn
   let sealed: Record<string, unknown> | null = null; const origBranch = opts.restoreBranch !== undefined ? opts.restoreBranch : currentBranch(opts.repoDir), sessionGroups = new Set<number>(); // session children are detached (own group), so the worker's group kill misses them
+  let sizedQuoteSaid = false;
   const onWorkerLine = (line: string): void => {
     const e = log.ingest(line); if (e) { lastEventMs = Date.now(); stuck.event(String(e.stage ?? "unknown"), Date.now()); quiet.event(e.stage ?? null, e.type, Date.now()); }
     if (e?.type === "session.started" && typeof e.data.pgid === "number") sessionGroups.add(e.data.pgid); if (e?.type === "receipt.sealed") { sealed = e.data; log.checkpoint(e.data["receipt_sha256"]); }
+    if (e?.type === "variant" && !sizedQuoteSaid) { const sl = sizedQuoteLine(env, opts.sizedQuote !== true, false, e.type, e.data.size, join(opts.repoDir, ".loki", "runs")); if (typeof e.data.size === "string") sizedQuoteSaid = true; if (sl) process.stdout.write(`${sl}\n`); } // #694: once the run has sized its task, a second quote from finished runs of that size
     if (e?.type === "variant" && e.data.intent_confirm === true && workerEnv.LOKI_INTENT_TTY === "1") {
       void askIntent(String(e.data.card ?? ""), join(opts.repoDir, ".loki", "runs", opts.runId));
     }
@@ -381,6 +384,27 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   if (!task && !fresh) { const rr = (await import("../util/run_outputs.ts")).startRecovery; try { const rd = safeGit(process.cwd(), ["rev-parse", "--show-toplevel"]).trim(), rec = await rr(rd, "", noPr); if (rec !== null) return rec; } catch { /* not a repo: the no-task error below */ } } // SB-12: a bare `loki start` offers or resumes an interrupted run
   if (!task) { process.stderr.write('loki: no goal given.\nusage: loki "<goal>"   (or: loki start <prd.md | owner/repo#N>)\n'); noteRefusal("prd_missing"); return 64; } // L009: a bare `loki start` or `loki quick` ends here (after the interrupted-run offer), never in the legacy loop
   if (spec === null) { const r = (await import("../util/one_line_goal.ts")).refuseCommandGoal(task); if (r !== null) return r; } // run safety: "status --help" passed as one argument is a command typed in quotes, never a run
+  if (spec === null && sealPatch === null && !process.env.LOKI_UNIT_ID) { // ANYWHERE: a GitHub issue started outside a checkout of its repository runs in Loki's own clone (util/one_line_goal.ts startPlace)
+    const g = await import("../util/one_line_goal.ts"), slug = g.startSlug(task, label), root = join(homedir(), ".loki", "checkouts");
+    const inOwn = ((): boolean => { try { return realpathSync(process.cwd()).startsWith(realpathSync(root) + sep); } catch { return false; } })(); // already inside one of Loki's clones: never clone again (a renamed repository would otherwise loop)
+    if (slug && !inOwn) {
+      let remotes: string[] | null = null;
+      try { const top = safeGit(process.cwd(), ["rev-parse", "--show-toplevel"]).trim(); remotes = safeGit(top, ["remote"]).split("\n").map((r) => r.trim()).filter(Boolean).map((r) => { try { return safeGit(top, ["remote", "get-url", r]).trim(); } catch { return ""; } }).filter(Boolean); } catch { /* not a git checkout */ }
+      if (g.startPlace(slug, remotes) === "clone") {
+        const { prepareCheckout } = await import("../commands/issues_watch.ts"), { runOwnerAlive } = await import("../util/run_pid.ts"), { findInterrupted } = await import("../util/run_outputs.ts"), { spawn } = await import("node:child_process");
+        const dir = join(root, slug.replace("/", "__")), runs = join(dir, ".loki", "runs");
+        const live = existsSync(runs) ? readdirSync(runs).find((r) => runOwnerAlive(join(runs, r))) : undefined;
+        if (live) { process.stderr.write(`loki: a Loki run (${live}) is live in ${dir}; wait for it, or start from your own checkout of ${slug}\n`); noteRefusal("other"); return 2; }
+        const unfinished = existsSync(join(dir, ".git")) && findInterrupted(dir, undefined, true) !== null; // an interrupted run's work is never reset away: the start below offers or resumes it
+        if (!unfinished) { const co = prepareCheckout({ slug, dir: root }); if (!co.ok) { process.stderr.write(`loki: this folder is not a checkout of ${slug} and Loki could not make its own: ${co.error}. Fix: gh auth login, or cd into a checkout of ${slug}\n`); noteRefusal("other"); return 2; } }
+        process.stderr.write(`loki: this folder is not a checkout of ${slug}; working in Loki's own clone at ${dir} (run loki status, loki verify and loki address from that folder)\n`);
+        const child = spawn(process.argv[0]!, [...SAFE_BUN_FLAGS, process.argv[1]!, "engine10", ...args], { cwd: dir, stdio: "inherit", env: envWithPwd(process.env, dir) });
+        process.on("SIGTERM", () => { try { child.kill("SIGTERM"); } catch { /* gone */ } }); process.on("SIGHUP", () => { try { child.kill("SIGHUP"); } catch { /* gone */ } });
+        process.on("SIGINT", () => { if (!process.stdin.isTTY) try { child.kill("SIGINT"); } catch { /* gone */ } }); // on a terminal Ctrl-C reaches the child by itself; sending it again would count as a second interrupt
+        return await new Promise<number>((done) => { child.on("error", () => done(1)); child.on("exit", (c) => done(c ?? 1)); });
+      }
+    }
+  }
   let repoDir: string;
   try {
     repoDir = safeGit(process.cwd(), ["rev-parse", "--show-toplevel"]).trim();
@@ -504,7 +528,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   const statusStep = noPr || !ISSUE_RE.test(task) ? undefined : (await import("../util/run_outputs.ts")).issueStatusProjector({ pushSh: (await import("./stages/pr.ts")).DEFAULT_PUSH_SH, env, origin: readOriginUrl(repoDir), repoDir, runDir, runId, issueRef: task, eventsPath }), stopPlan = statusStep ? tail(eventsPath, (e) => { if (e.type === "stage.completed" && e.stage === "plan") void statusStep(); }, { intervalMs: 500 }) : () => {};
   let refusedAs: PreflightBlocker = "other"; // AN-08
   const res = await runSupervisor({
-    runId, repoDir, env, capS, capCeilingS: sized?.ceilingS,
+    runId, repoDir, env, capS, capCeilingS: sized?.ceilingS, sizedQuote: !json,
     workerArgv: [process.execPath, ...SAFE_BUN_FLAGS, resolve(process.argv[1]!), "engine10", "worker", runId, provider, model, deep ? "deep" : "fast"], deepArgv: noPr ? undefined : [process.execPath, ...SAFE_BUN_FLAGS, resolve(process.argv[1]!), "engine10", "deep-worker", runId, provider, model], status: statusStep,
     started: {
       task_source: isIssue ? "issue" : "text", issue_ref: isIssue ? task : null, road, provider, model, deep, cap_s: capS, cap_ceiling_s: sized?.ceilingS ?? capS, max_cost_usd: cap.usd,

@@ -2,7 +2,7 @@
 
 Loki Mode, by [Autonomi](https://www.autonomi.dev/), turns a spec or an issue into a verified pull request with a receipt you can check. This page covers installing it, a first run, and the options around it.
 
-**Version:** v11.178.0
+**Version:** v11.185.0
 
 **Engine note:** `loki start` is the primary command. `loki start`, `loki "<task>"`, `loki owner/repo#N` and `loki quick` all run the Loki 10 engine, whatever the flag order or input form (PRD file, issue ref, task or one-word brief). The previous loop runs only on `--engine legacy`, `LOKI_ENGINE=legacy`, or for one call when a flag Loki 10 cannot honor is present. See the [user guide](v10/GUIDE.md) and the [5-minute quickstart](QUICKSTART.md).
 
@@ -40,7 +40,7 @@ Skips the bundled Bun binary (62 to 86 MB per platform), the Claude Agent SDK an
 
 ### Docker and other methods
 
-See [alternative-installations.md](alternative-installations.md) for Docker, the GitHub Action and a git clone install.
+See [alternative-installations.md](alternative-installations.md) for Docker and a git clone install.
 
 ---
 
@@ -60,6 +60,8 @@ Required (`loki doctor` fails without them):
 | Node.js | 20+ (22 LTS is the CI target) |
 | git | any recent version |
 | curl | any |
+
+For issue refs and pull requests you also need the GitHub CLI (`gh`), logged in with `gh auth login`.
 
 Plus a way to reach a model. Claude Code (`claude`) is the default provider and the only one with every feature, so the default path needs it installed and logged in: `npm install -g @anthropic-ai/claude-code`, then `claude auth login`. With only `ANTHROPIC_API_KEY` set, `loki "<goal>"` runs on the bundled Claude Agent SDK with no CLI and no extra setting. `loki edit` and `loki chat` call the `claude` CLI directly. The only other provider is `opencode` (optional; any model, including OpenRouter via `OPENROUTER_API_KEY`). codex, cline, aider and gemini were removed and exit 2 with a migration line.
 

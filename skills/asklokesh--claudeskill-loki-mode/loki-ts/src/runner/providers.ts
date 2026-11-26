@@ -12,7 +12,7 @@
 //
 // The dispatch table always returns an invoker; an unknown name throws.
 
-import { mkdirSync, existsSync, readFileSync, realpathSync, appendFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, existsSync, readFileSync, realpathSync, appendFileSync, writeFileSync, lstatSync, readdirSync } from "node:fs";
 import { delimiter, dirname, join, isAbsolute, relative, resolve, sep } from "node:path";
 import { run as shellRun, shellQuote } from "../util/shell.ts";
 import { envWithPwd, MAX_TURNS_EXIT } from "./worker_proc.ts";
@@ -616,6 +616,7 @@ export function claudeProvider(): ProviderInvoker {
         ...modelArgv,
         ...autoFlags,
         ...sessionArgv,
+        ...(process.env["LOKI_E10_STAGE"] && claudeFlagSupported("--setting-sources") ? ["--setting-sources", "user"] : []), // #655: this route's own guard is a --settings hook, so hooks cannot be turned off alone; the repository's settings are not loaded at all
         // The run-owned scratch directory is a working directory of the session: the write fence above blocks Write and Edit outside the working
         // directories, and a session that reaches for Write (not a shell heredoc) to leave its proof script there was refused and ended unfinished.
         ...(process.env["LOKI_SCRATCH"] && claudeFlagSupported("--add-dir") ? ["--add-dir", process.env["LOKI_SCRATCH"]] : []),
@@ -783,6 +784,31 @@ export function userAuthSettings(env: Readonly<Record<string, string | undefined
   } catch { /* no user settings, or unreadable: nothing to forward */ }
   return out;
 }
+// #665: an engine10 session loads no Claude Code settings source of the repository (no settings file, hooks, env block, helper command, skill, command,
+// subagent or .mcp.json), so the instruction files that source used to load are carried as text. Root files only: CLAUDE.md, .claude/CLAUDE.md and
+// .claude/rules/*.md of the session's working folder. A symlink is never followed; a file over the cap is cut and says so.
+export const GUIDANCE_FILE_CAP = 20_000, GUIDANCE_TOTAL_CAP = 40_000;
+export const GUIDANCE_LEAD = "Repository instruction files (from the repository you are working in; they state its conventions and commands. Follow them where they do not conflict with the task, the rules below or the finish line):";
+export function projectGuidance(cwd: string): string {
+  const parts: string[] = []; let left = GUIDANCE_TOTAL_CAP;
+  const realDir = (rel: string): boolean => { try { return lstatSync(resolve(cwd, rel)).isDirectory(); } catch { return false; } }; // false for a symlink
+  const add = (rel: string): void => {
+    if (left <= 0) return;
+    try {
+      const p = resolve(cwd, rel);
+      if (!lstatSync(p).isFile()) return; // a symlink or a directory is not read
+      const raw = readFileSync(p, "utf8"), cap = Math.min(GUIDANCE_FILE_CAP, left), text = raw.slice(0, cap).replace(/<\/repository-instructions/gi, "</repository-instructions_");
+      if (text.trim() === "") return;
+      parts.push(`<repository-instructions file="${rel}">\n${text}${raw.length > cap ? `\n[cut at ${cap} characters]` : ""}\n</repository-instructions>`); left -= text.length;
+    } catch { /* absent or unreadable: nothing to carry */ }
+  };
+  add("CLAUDE.md");
+  if (realDir(".claude")) {
+    add(".claude/CLAUDE.md");
+    if (realDir(".claude/rules")) { try { for (const f of readdirSync(resolve(cwd, ".claude", "rules")).filter((n) => /^[A-Za-z0-9._-]+\.md$/.test(n)).sort()) add(`.claude/rules/${f}`); } catch { /* unreadable */ } }
+  }
+  return parts.length ? `${GUIDANCE_LEAD}\n${parts.join("\n")}\n\n` : "";
+}
 export function buildSdkLoopOptions(args: {
   tier: string | undefined;
   model: string;
@@ -839,13 +865,14 @@ export function buildSdkLoopOptions(args: {
   } catch {
     // MCP bundle unreadable -> omit (loop still runs, just without MCP tools).
   }
-  // settingSources: match the shell route's claude_code preset behavior (project
-  // + user settings resolved by the CLI). Explicit so the SDK does not diverge.
-  out.settingSources = engine10 ? ["project"] : ["user", "project", "local"];
-  if (engine10) { // the user source is not loaded: carry only its auth and proxy parts (userAuthSettings), so a user whose login lives there still signs in
+  // settingSources: outside engine10, match the shell route (user, project and local settings resolved by the CLI). An engine10 session loads none (#665):
+  // the repository's settings file, env block, helper commands, skills, commands and subagents never reach it; its instruction files ride in the prompt (projectGuidance).
+  out.settingSources = engine10 ? [] : ["user", "project", "local"];
+  if (engine10) { // no settings source is loaded: carry only its auth and proxy parts (userAuthSettings), so a user whose login lives there still signs in
     const ua = userAuthSettings();
     if (Object.keys(ua.settings).length) out.settings = { ...ua.settings, ...out.settings };
     if (Object.keys(ua.env).length) out.authEnv = ua.env;
+    out.settings = { ...out.settings, disableAllHooks: true }; // #655: settings-file, skill and plugin hooks of the target repository do not run; Loki's own guards are SDK hook callbacks, which this key leaves running
   }
 
   // effort tier (same mapping as buildAutoFlags).
@@ -957,7 +984,7 @@ export function sdkQueryProvider(): ProviderInvoker {
         // the SDK runs, so preflight, doctor and this invoker agree on one binary. Unset (production): the SDK resolves its own.
         const sdkExe = process.env["LOKI_SDK_NODE_MODULES"] ? (await import("../commands/doctor.ts")).sdkBinaryPath(process.env) : null;
         const q = query({
-          prompt: call.prompt,
+          prompt: process.env["LOKI_E10_STAGE"] && !resumeId ? projectGuidance(call.cwd) + call.prompt : call.prompt, // #665: the repository's instruction files, once, at the front of a fresh session's first prompt (a resumed session already holds them)
           options: {
             ...(sdkExe ? { pathToClaudeCodeExecutable: sdkExe } : {}),
             ...(resumeId ? { resume: resumeId } : {}),
@@ -985,7 +1012,7 @@ export function sdkQueryProvider(): ProviderInvoker {
                           PreToolUse: [
                             ...(hostGuardRequired(call.cwd) ? [{
                               matcher: "Bash",
-                              hooks: [createHostGuardHook(call.cwd)], // in-process; validate-bash.sh runs only for a command one of its rules could deny
+                              hooks: [createHostGuardHook(call.cwd, process.env, undefined, process.env["LOKI_SCRATCH"])], // in-process; the session's own scratch ($LOKI_SCRATCH, the child env copies it) is a working directory too; validate-bash.sh runs only for a command one of its rules could deny
                               onFailure: "block", // SDK 0.3.317: a guard that throws or returns invalid output blocks the call (SDK default lets it run)
                             }] : []),
                             ...(process.env["LOKI_E10_STAGE"] ? [{

@@ -774,6 +774,7 @@ const TOOL_SPECS: readonly ToolSpec[] = [
   { displayName: "jq (optional: loki status, bash fallback CLI)", jsonName: "jq", cmd: "jq", required: "recommended" },
   { displayName: "git", jsonName: "git", cmd: "git", required: "required" },
   { displayName: "curl", jsonName: "curl", cmd: "curl", required: "required" },
+  { displayName: "gh (GitHub CLI: issue refs and pull requests)", jsonName: "gh", cmd: "gh", required: "recommended" },
   { displayName: "bash (>= 4.0)", jsonName: "bash", cmd: "bash", required: "recommended", min: "4.0" },
   // v7.4.9: Bun powers the routed commands (version, status, stats, doctor,
   // provider show/list, memory list/index). Marked recommended -- if missing,
@@ -2272,7 +2273,7 @@ const defaultRoundTrip: RoundTripRunner = async () => {
   const prompt = "Reply with the single word OK";
   const args = provider === "claude" ? ["-p", prompt] : provider === "opencode" ? ["run", prompt] : null;
   if (!args) return { ok: false, detail: `round-trip unsupported for provider ${provider}` };
-  const r = spawnSync(provider, args, { encoding: "utf8", timeout: 60000, env: providerProbeEnv() });
+  const r = spawnSync(provider, args, { encoding: "utf8", timeout: 60000, env: providerProbeEnv(), cwd: homedir() }); // #665: the probe checks the user's own sign-in, so it never runs inside a repository whose Claude Code settings would load
   if (r.error) return { ok: false, detail: String(r.error.message).slice(0, 200) };
   return { ok: r.status === 0, detail: (r.status === 0 ? r.stdout : r.stderr || `exit ${r.status}`).trim().slice(0, 200) };
 };

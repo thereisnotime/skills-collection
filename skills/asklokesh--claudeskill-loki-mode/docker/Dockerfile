@@ -23,12 +23,12 @@ RUN bun run build:all
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="11.178.0"
+LABEL version="11.185.0"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="11.178.0"
+LABEL org.opencontainers.image.version="11.185.0"
 LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Providers: Claude Code (CLI or Agent SDK) and opencode"
 LABEL url="https://www.autonomi.dev/"
 
@@ -161,6 +161,8 @@ COPY --chown=loki:loki scripts/verify-pr-sandbox.sh ./scripts/verify-pr-sandbox.
 COPY --chown=loki:loki tests/detect-*.sh ./tests/
 COPY --chown=loki:loki loki-ts/dist/ ./loki-ts/dist/
 COPY --chown=loki:loki loki-ts/data/ ./loki-ts/data/
+COPY --chown=loki:loki src/policies/ ./src/policies/
+RUN node -e "require('/opt/loki-mode/src/policies/claude_permissions.js')"
 
 # Control Plane (packages/control-plane), built in the cp-build stage above.
 # Only the bundle, the built UI and the migrations ship: no src, tests or bun

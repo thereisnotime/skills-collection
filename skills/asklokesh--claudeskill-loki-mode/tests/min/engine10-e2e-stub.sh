@@ -977,6 +977,197 @@ console.log([r6.notes.length, r6.notes[0], r6.notes.filter(x.isUnmetNote).length
 [ "$U3" = '5 | cross-review flag (claude): UNMET: Acceptance: six is cut today | 1 | ["cross-review flag (claude): one","cross-review flag (claude): two"] | true | false' ] \
     && ok "F3 unit: an UNMET reason written sixth is kept (sorted first, the cap stays 5); a review with no UNMET keeps its order; bold UNMET counts, the word inside a reason does not" || bad "F3 unit gave: $U3"
 
+# EARLY-REVIEW-REASONS (FireLater#17, loki-mode#680): the early review round handed the session five bare UNMET lines and none of the eight specific findings, because the receipt's
+# cap of 5 puts UNMET first. The round now reads the full ordered list (findings, then UNMET, bounded by handBackReasons); the receipt notes stay 5 and UNMET first.
+# Plant ERR-1: xreview.ts parseReview builds reasonsAll with the UNMET lines first: the hand-back leads with UNMET and the unit cell fails.
+ERR="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/xreview.ts");
+const spec = Array.from({ length: 8 }, (_, i) => `- finding ${i + 1}: the check at step ${i + 1} can be bypassed`), unmet = Array.from({ length: 6 }, (_, i) => `- UNMET: acceptance line ${i + 1}`);
+const out = JSON.stringify({ result: ["VERDICT: BLOCK", ...spec, ...unmet, "", "The change does not deliver the acceptance lines above."].join("\n") });
+const r = x.parseReview("claude", out), back = x.handBackReasons(r);
+const old = r.notes.filter((n) => /^cross-review (block|flag) /.test(n) || x.isUnmetNote(n)).slice(0, 8); // what reviewRound handed back before this change
+const long = x.handBackReasons({ provider: "claude", level: "flag", notes: [], reasons: Array.from({ length: 20 }, () => "y".repeat(2000)) });
+console.log([r.notes.length, x.isUnmetNote(r.notes[0]), old.filter((n) => !x.isUnmetNote(n)).length, back.length, back.slice(0, 8).every((b, i) => b === `finding ${i + 1}: the check at step ${i + 1} can be bypassed`), back[8] === "The change does not deliver the acceptance lines above." && back.slice(9).length === 6 && back.slice(9).every((b) => b.startsWith("UNMET: ")), x.handBackReasons(x.parseReview("claude", JSON.stringify({ result: "VERDICT: PASS" }))).length, long.length, Math.max(...long.map((l) => l.length)) <= 900 && long.slice(0, 13).reduce((n, l) => n + l.length, 0) <= 12000 && long[13] === "(7 more reviewer findings are in the receipt)"].join(" | "));
+' 2>&1)"
+[ "$ERR" = '5 | true | 0 | 15 | true | true | 0 | 14 | true' ] \
+    && ok "EARLY-REVIEW-REASONS unit: the old hand-back held 0 specific findings; the new one lists the 8 findings and the closing paragraph first then all 6 UNMET lines (each clipped to 900); 20 reasons of 2000 characters keep 13 whole entries (12,000 character budget) and a last entry counts the 7 left; the receipt notes stay 5 with UNMET first; a PASS hands back nothing" || bad "EARLY-REVIEW-REASONS unit gave: $ERR"
+
+# REVIEW-FIRST (FireLater#17, loki-mode#684): the review now reads first and the session hears each reader once. Cells 1 and 2: the reviewer's findings reach the session whole (a finding
+# keeps its sub-bullets, an UNMET item its reason) and are bounded by a character budget, never a count. Cell 3: a reviewer gap on a line with a passing check is handed back once per
+# line. Cell 4: the one resume text carries the review's findings and the unmet lines. The stub-run leg (review.early before the first -pf session) is below, next to RW-02 proved.
+# Plant RF-1: xreview.ts handBackReasons cuts at 12 items again (`.slice(0, 12)` before the budget loop): cell 1 reads 12 entries, not 17, and goes red.
+RF1="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/xreview.ts");
+const subs = ["sub alpha detail", "sub beta detail", "sub gamma detail"], finds = Array.from({ length: 9 }, (_, i) => `- finding ${i + 2}: step ${i + 2} can be bypassed`), unmet = Array.from({ length: 6 }, (_, i) => `- UNMET: acceptance line ${i + 1}\n  - reason ${i + 1} is not proved by running`);
+const text = ["VERDICT: BLOCK", "This review read only the diff shown to it.", "- finding 1: the first check can be bypassed", ...subs.map((t) => `  - ${t}`), ...finds, ...unmet].join("\n");
+const r = x.parseReview("claude", JSON.stringify({ result: text })), back = x.handBackReasons(r);
+const bare = [...subs, ...Array.from({ length: 6 }, (_, i) => `reason ${i + 1} is not proved by running`)];
+console.log([r.notes.length === 5, r.notes.every(x.isUnmetNote), back.length, subs.every((t) => back[1].includes(t)), Array.from({ length: 6 }, (_, i) => back[11 + i]).every((b, i) => (b ?? "").startsWith(`UNMET: acceptance line ${i + 1}`) && b.includes(`reason ${i + 1} is not proved by running`)), back.every((b) => !bare.includes(b)), back[0], back[1].startsWith("finding 1: the first check can be bypassed Details: ")].join(" | "));
+' 2>&1)"
+[ "$RF1" = 'true | true | 17 | true | true | true | This review read only the diff shown to it. | true' ] \
+    && ok "REVIEW-FIRST unit 1: 17 whole items (disclaimer, a finding with its 3 sub-bullets folded in, 9 findings, 6 UNMET items each with its reason); no bare sub-bullet; the receipt notes stay 5 and all UNMET" || bad "REVIEW-FIRST unit 1 gave: $RF1"
+RF2="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/xreview.ts");
+const words = (i) => Array.from({ length: 330 }, (_, j) => `w${i}x${j}`).join(" ");
+const out = x.handBackReasons({ provider: "claude", level: "flag", notes: [], reasons: Array.from({ length: 60 }, (_, i) => words(i).slice(0, 2000)) });
+const kept = out.slice(0, -1), total = kept.reduce((n, l) => n + l.length, 0), last = out[out.length - 1];
+console.log([total <= 12000, kept.length, kept.every((k) => k.endsWith("...") || /w\d+x\d+$/.test(k)), kept.every((k) => k.length <= 900), last, kept.length + 47 === 60].join(" | "));
+' 2>&1)"
+[ "$RF2" = 'true | 13 | true | true | (47 more reviewer findings are in the receipt) | true' ] \
+    && ok "REVIEW-FIRST unit 2: 60 findings of 2000 characters hand back 13 whole entries within 12,000 characters (each ends on a whole word or the ellipsis) and a last entry names the 47 left out" || bad "REVIEW-FIRST unit 2 gave: $RF2"
+RF3="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts");
+const g = (n) => ({ n, line: `${n}. line ${n}`, reason: `gap on ${n}` }), handed = new Set();
+const a = x.gapOnce(handed, [g(2), g(7)], 1), b = x.gapOnce(handed, [g(7)], 2), c = x.gapOnce(handed, [g(2), g(7)], 3);
+console.log([a.handBack.map((h) => h.n).join(","), a.disputes.length, b.handBack.length, b.disputes.map((d) => `${d.line.split(".")[0]}@${d.round}`).join(","), c.handBack.length, c.disputes.map((d) => `${d.line.split(".")[0]}@${d.round}`).join(","), [...handed].sort().join(",")].join(" | "));
+' 2>&1)"
+[ "$RF3" = '2,7 | 0 | 0 | 7@2 | 0 | 2@3,7@3 | 2,7' ] \
+    && ok "REVIEW-FIRST unit 3: a reviewer gap on a line with a passing check is handed back once (round 1: lines 2 and 7; round 2: none, line 7 disputed; round 3: none, lines 2 and 7 disputed)" || bad "REVIEW-FIRST unit 3 gave: $RF3"
+RF4="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts");
+const rev = x.combinedHandBack(["a"], ""), un = x.combinedHandBack([], "x"), both = x.combinedHandBack(["a"], "x");
+console.log([rev.startsWith("An independent reviewer read your whole change and found 1 problem:\n\n1. a\n"), rev.split("\n").includes("x"), un, both === `${rev}\n\nx`, JSON.stringify(x.combinedHandBack([], ""))].join(" | "));
+' 2>&1)"
+[ "$RF4" = 'true | false | x | true | ""' ] \
+    && ok "REVIEW-FIRST unit 4: the one hand-back is the review's findings only, the unmet text only, both in that order, or empty" || bad "REVIEW-FIRST unit 4 gave: $RF4"
+grep -q 'gapOnce(' "$ROOT/loki-ts/src/engine10/stages/implement.ts" && [ "$(grep -c 'combinedHandBack(' "$ROOT/loki-ts/src/engine10/stages/implement.ts")" -ge 2 ] \
+    && ok "REVIEW-FIRST: the proof loop calls gapOnce and combinedHandBack" || bad "REVIEW-FIRST: implement.ts does not call gapOnce and combinedHandBack"
+
+# REVIEW-CLOSES (loki-mode#692): after a review is handed back, a follow-up review reads what the fix changed before the receipt is sealed, and no tree gets two readers in one round. Cell 1: which
+# reader picks the tree. Cell 2: the follow-up prompt block. Cell 3: the hand-back text carries the test-first and own-parser lines. Cell 4: the brief rule line, once. Cell 5: when the line check still runs.
+# Plants: implement.ts readerFor returns "line-check" always (cell 1 goes red); drop the "When the reviewer gave an input" sentences from combinedHandBack (cell 3 goes red).
+RC1="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts");
+const s = { reviewOn: true, reviewed: true, changedSinceReview: true, followUps: 0, max: 2 }, r = (o) => x.readerFor({ ...s, ...o });
+console.log([r({ reviewed: false, changedSinceReview: false }), r({}), r({ followUps: 1 }), r({ followUps: 2 }), r({ changedSinceReview: false }), r({ reviewOn: false, reviewed: false }), r({ max: 0 }), r({ reviewed: false, max: 0 })].join(" | "));
+' 2>&1)"
+[ "$RC1" = 'review | follow | follow | line-check | line-check | line-check | line-check | review' ] \
+    && ok "REVIEW-CLOSES unit 1: readerFor gives review before any review, follow for follow-ups 0 and 1, line-check at 2, on an unchanged tree, with review off, and never follow with max 0" || bad "REVIEW-CLOSES unit 1 gave: $RC1"
+RC2="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/xreview.ts");
+const b = x.followBlock(["a".repeat(500), "b"]), t = b.join("\n");
+console.log([b.filter((l) => /^\d+\. /.test(l)).length, b.find((l) => l.startsWith("1. "))?.length === 303, b.includes("2. b"), t.includes("only what changed since that review"), t.includes("do not restate an UNMET line unless this diff makes it unmet.")].join(" | "));
+' 2>&1)"
+[ "$RC2" = '2 | true | true | true | true' ] \
+    && ok "REVIEW-CLOSES unit 2: followBlock numbers two earlier findings, clips the first to 300 characters, and says the diff is only what changed since that review" || bad "REVIEW-CLOSES unit 2 gave: $RC2"
+RC3="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts");
+const a = x.combinedHandBack(["x"], ""), u = x.combinedHandBack([], "u"), e = x.combinedHandBack([], "");
+console.log([a.includes("add that exact input as a test"), a.includes("already depends on"), a.includes("Add no mechanism the issue does not ask for. When the reviewer gave an input"), a.includes("Where the reviewer is wrong, say why in one line"), u.includes("add that exact input as a test"), u.includes("already depends on"), JSON.stringify(e)].join(" | "));
+' 2>&1)"
+[ "$RC3" = 'true | true | true | true | false | false | ""' ] \
+    && ok "REVIEW-CLOSES unit 3: the review hand-back asks for the reviewer's input as a test and for the repository's own parser; an unmet-only hand-back carries neither; empty stays empty" || bad "REVIEW-CLOSES unit 3 gave: $RC3"
+RC4="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts");
+const rule = "Code that reads untrusted input uses the parser or escaping library this repository already depends on for that format. Hand-written matching of such input is a defect unless the repository has no such dependency; then say so in your reply.";
+const a = x.buildImplementBrief("t", null, []), b = x.buildImplementBrief("a different task", "1. plan", ["t.test.ts"]);
+console.log([a.split(rule).length - 1, b.split(rule).length - 1].join(" | "));
+' 2>&1)"
+[ "$RC4" = "1 | 1" ] \
+    && ok "REVIEW-CLOSES unit 4: the implement brief carries the untrusted-input rule exactly once, with and without a plan" || bad "REVIEW-CLOSES unit 4 gave: $RC4"
+RC5="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts");
+const n = x.needsLineCheck;
+console.log([n("line-check", true), n("review", false), n("follow", false), n("review", true), n("follow", true)].join(" | "));
+' 2>&1)"
+[ "$RC5" = 'true | true | true | false | false' ] \
+    && ok "REVIEW-CLOSES unit 5: the line check runs for its own reader and for any reader whose review did not run, never after a review that did" || bad "REVIEW-CLOSES unit 5 gave: $RC5"
+
+# REVIEW-HOLDS (#698, FireLater#21): the review state of the implement loop decides the label. Reviews said flag 11, block 14, block 11; the last block's findings went to a turn no reviewer read again; the run sealed
+# VERIFIED. Now a follow-up names which earlier findings are still open (stillOpen), review findings are handed back followMax() times (default 1) and every fix made in answer is read (mayHandBack), a closing read
+# covers a change no review read (needsClosingRead), and reviewHolds turns the last review state into holds that seal reads (a VERIFIED reading becomes PARTIAL). Pure cells 1 to 8; the stub-run legs are further down.
+# Plants: closure.ts reviewHolds returns [] always (cells 7 and 8 go red); implement.ts mayHandBack returns true always (cell 4 goes red); implement.ts needsClosingRead returns false always (cell 5 goes red).
+RH1="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/xreview.ts"), s = x.stillOpen;
+console.log([JSON.stringify(s("x\nSTILL OPEN: 2, 4", 5)), JSON.stringify(s("STILL OPEN: none", 5)), JSON.stringify(s("no such line", 5)), JSON.stringify(s("- **STILL OPEN:** 3, 9", 5)), JSON.stringify(s("STILL OPEN: 1\nthen more\nSTILL OPEN: 2, 2, 3", 5))].join(" | "));
+' 2>&1)"
+[ "$RH1" = '[2,4] | [] | null | [3] | [2,3]' ] \
+    && ok "REVIEW-HOLDS unit 1: stillOpen reads the numbers up to the earlier count, none as [], a missing line as null, a marked line, and the last line wins" || bad "REVIEW-HOLDS unit 1 gave: $RH1"
+RH2="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/xreview.ts");
+const b = x.followBlock(["a".repeat(500), "b"]), last = b[b.length - 1];
+console.log([b.filter((l) => /^\d+\. /.test(l)).length, b.find((l) => l.startsWith("1. "))?.length === 303, b.includes("2. b"), last.includes("STILL OPEN:"), last.includes("STILL OPEN: none")].join(" | "));
+' 2>&1)"
+[ "$RH2" = '2 | true | true | true | true' ] \
+    && ok "REVIEW-HOLDS unit 2: followBlock keeps its two numbered entries and ends with the STILL OPEN line request" || bad "REVIEW-HOLDS unit 2 gave: $RH2"
+RH3="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts");
+console.log([x.followMax({}), x.followMax({ LOKI_E10_REVIEW_FOLLOW_MAX: "2" }), x.followMax({ LOKI_E10_REVIEW_FOLLOW_MAX: "0" })].join(" | "));
+' 2>&1)"
+[ "$RH3" = '1 | 2 | 0' ] \
+    && ok "REVIEW-HOLDS unit 3: followMax defaults to 1 hand-back and honors 2 and 0" || bad "REVIEW-HOLDS unit 3 gave: $RH3"
+RH4="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts"), m = (handBacks, max) => x.mayHandBack({ handBacks, max });
+console.log([m(0, 1), m(1, 1), m(0, 0), m(1, 2)].join(" | "));
+' 2>&1)"
+[ "$RH4" = 'true | false | false | true' ] \
+    && ok "REVIEW-HOLDS unit 4: mayHandBack is true only while the hand-backs that carried review findings are under the bound" || bad "REVIEW-HOLDS unit 4 gave: $RH4"
+RH5="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts"), n = x.needsClosingRead;
+console.log([n({ reviewRan: true, tree: "b", reviewedTree: "a" }), n({ reviewRan: true, tree: "a", reviewedTree: "a" }), n({ reviewRan: false, tree: "b", reviewedTree: "a" })].join(" | "));
+' 2>&1)"
+[ "$RH5" = 'true | false | false' ] \
+    && ok "REVIEW-HOLDS unit 5: needsClosingRead is true only when a model review ran and the tree is not the tree it read" || bad "REVIEW-HOLDS unit 5 gave: $RH5"
+RH6="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/stages/implement.ts"), k = "Add no mechanism the issue does not ask for";
+console.log([x.combinedHandBack(["x"], "").split(k).length - 1, x.combinedHandBack([], "u").includes(k)].join(" | "));
+' 2>&1)"
+[ "$RH6" = '1 | false' ] \
+    && ok "REVIEW-HOLDS unit 6: the review hand-back carries the close-where-the-code-is line once; an unmet-only hand-back does not" || bad "REVIEW-HOLDS unit 6 gave: $RH6"
+RH7="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const x = await import("./src/engine10/closure.ts"), h = x.reviewHolds, j = JSON.stringify;
+const b = { findings: 3, follow: false, still_open: [], changed_unread: false };
+const two = h({ level: "flag", findings: 3, follow: true, still_open: ["alpha", "beta"], changed_unread: false });
+const nul = h({ level: "flag", findings: 3, follow: true, still_open: null, changed_unread: false });
+console.log([j(h(undefined)), j(h(null)), j(h("x")), j(h({})), j(h({ ...b, level: "pass", findings: 0 })), j(h({ ...b, level: "flag" })), h({ ...b, level: "block" }).length, h({ ...b, level: "block" })[0].startsWith("review block open"), two.length, two[0], nul.length, nul[0].includes("did not say"), ["pass", "flag", "block"].map((l) => { const r = h({ ...b, level: l, changed_unread: true }); return r.length + (r[0].startsWith("changed after the last review") ? "y" : "n"); }).join(",")].join(" | "));
+' 2>&1)"
+[ "$RH7" = '[] | [] | [] | [] | [] | [] | 1 | true | 2 | reviewer finding still open after the fix: alpha | 1 | true | 1y,1y,1y' ] \
+    && ok "REVIEW-HOLDS unit 7: reviewHolds gives nothing for no state, a pass, or a flag the session rebutted; one line for a block, for a follow-up that did not say, and for an unread change; one line per finding still open" || bad "REVIEW-HOLDS unit 7 gave: $RH7"
+RH8="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const c = await import("./src/engine10/closure.ts"), p = await import("./src/engine10/stages/pr.ts");
+const holds = c.reviewHolds({ level: "block", findings: 11, follow: true, still_open: null, changed_unread: true });
+console.log([holds.length > 0, p.lokiLabelFor("PARTIAL").name].join(" | "));
+' 2>&1)"
+[ "$RH8" = 'true | loki: needs you' ] \
+    && ok "REVIEW-HOLDS unit 8: the FireLater#21 end state (a block, then a turn that changed the code and no review read it) is held and its pull request label is 'loki: needs you'" || bad "REVIEW-HOLDS unit 8 gave: $RH8"
+
+# SEAL-REUSE (#702, #691; FireLater#14 run bb59): the implement loop's closing read blocked the tree being sealed (12 findings, 6 "review open" holds), and the seal then paid for its own whole-diff review (77.2 s, $0.77) and the acceptance line check (8 s, $0.26) that cannot change the label. When the last read saw the sealed tree and said block, seal reuses it (LOKI_E10_SEAL_REVIEW_REUSE=0 turns that off). seal.ts is a label file; the reuse can only keep or lower a label.
+# Pure cells 1, 2, 3 and 5; the stub-run legs (4a, 4b) are further down and are written, not run by their author.
+# Plants: seal.ts sealReuse returns true for level "flag" (cell 1 goes red); the tree comparison removed from sealReuse (cells 1 and 3 go red).
+SR1="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const s = await import("./src/engine10/stages/seal.ts"), f = s.sealReuse;
+const T = "a".repeat(40), st = { level: "block", findings: 12, follow: true, still_open: [], changed_unread: false, tree: T, read: { notes: ["n1"], reasons: ["r1"], provider: "claude", reviewed_by: "model", reviewer_model: "sonnet" } };
+console.log([f(st, T, {}), f({ ...st, level: "flag" }, T, {}), f({ ...st, level: "pass" }, T, {}), f({ ...st, changed_unread: true }, T, {}), f(st, "b".repeat(40), {}), f({ ...st, read: { ...st.read, notes: [] } }, T, {}), f(undefined, T, {}), f(null, T, {}), f("x", T, {}), f({}, T, {}), f({ ...st, tree: "" }, "", {}), f({ ...st, read: undefined }, T, {}), f({ ...st, read: { notes: "x" } }, T, {}), f({ ...st, changed_unread: undefined }, T, {}), f(st, T, { LOKI_E10_SEAL_REVIEW_REUSE: "0" }), f(st, T, { LOKI_E10_SEAL_REVIEW_REUSE: "off" }), f(st, T, { LOKI_E10_SEAL_REVIEW_REUSE: "1" })].join(" "));
+' 2>&1)"
+[ "$SR1" = "true false false false false false false false false false false false false false false false true" ] \
+    && ok "SEAL-REUSE unit 1: sealReuse is true only for a block, unchanged since the read, on the sealed tree, with notes; any other level, a changed or different tree, empty notes, a missing or mistyped field, or the switch at 0 or off is false" || bad "SEAL-REUSE unit 1 gave: $SR1"
+SR2="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const s = await import("./src/engine10/stages/seal.ts"), x = await import("./src/engine10/stages/xreview.ts"), c = await import("./src/engine10/closure.ts");
+const T = "c".repeat(40), five = ["f1", "f2", "f3", "f4", "f5"], twelve = Array.from({ length: 12 }, (_, i) => "finding " + (i + 1));
+const st = { level: "block", findings: 12, follow: true, still_open: five, changed_unread: false, tree: T, read: { notes: five, reasons: twelve, provider: "claude", reviewed_by: "model", reviewer_model: "sonnet" } };
+const xr = s.reusedReview(st.read), rec = x.reviewReceipt("claude", xr).review;
+console.log([s.sealReuse(st, T, {}), x.minVerdict("VERIFIED", xr), x.modelReviewRan(xr), xr.notes.length, xr.reasons.length, xr.reused, rec.ran, c.reviewHolds(st).length].join(" | "));
+' 2>&1)"
+[ "$SR2" = "true | PARTIAL | true | 5 | 12 | implement loop | reviewer (sonnet), read during the run | 6" ] \
+    && ok "SEAL-REUSE unit 2: the FireLater#14 state as stored is reused, the rebuilt review is a model review that turns VERIFIED into PARTIAL, keeps the 5 notes and 12 reasons, reads 'reviewer (sonnet), read during the run' on the receipt, and the state still gives its 6 review-open holds" || bad "SEAL-REUSE unit 2 gave: $SR2"
+SR3="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const s = await import("./src/engine10/stages/seal.ts");
+const T = "d".repeat(40), H = "e".repeat(40);
+const st = { level: "block", findings: 11, follow: true, still_open: ["x"], changed_unread: false, tree: T, read: { notes: ["n"], reasons: ["r"], provider: "claude", reviewed_by: "model", reviewer_model: "sonnet" } };
+console.log([s.sealReuse(st, H, {}), s.sealReuse(st, T, {})].join(" | "));
+' 2>&1)"
+[ "$SR3" = "false | true" ] \
+    && ok "SEAL-REUSE unit 3: the FireLater#21 case (a lint fix round changed two files after the last read, so the sealed tree is not the tree the read saw) is not reused, and the same state on the read tree is" || bad "SEAL-REUSE unit 3 gave: $SR3"
+SR5="$(cd "$ROOT/loki-ts" && bun --no-env-file --config=/dev/null -e '
+const c = await import("./src/engine10/closure.ts"), j = JSON.stringify;
+const base = { level: "block", findings: 12, follow: true, still_open: ["a", "b"], changed_unread: false };
+const withRead = { ...base, tree: "f".repeat(40), read: { notes: ["n"], reasons: ["r"], provider: "claude", reviewed_by: "model", reviewer_model: "sonnet" } };
+const a = j(c.reviewHolds(base)), b = j(c.reviewHolds(withRead));
+console.log([a === b, c.reviewHolds(base).length].join(" | "));
+' 2>&1)"
+[ "$SR5" = "true | 3" ] \
+    && ok "SEAL-REUSE unit 5: reviewHolds gives the same lines for a block state with and without tree and read" || bad "SEAL-REUSE unit 5 gave: $SR5"
+
 # G5 SKIP-NOTE end to end (oc63960): a full suite red only on base ids must seal without the "fix round skipped" note holding it; the same run with one
 # new failing id in that suite is held by it. Plant G5-10: util/check_result.ts suiteSkipHolds always false: the new-id run seals without the note.
 snote() { python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r.get("verdict"), any(str(n).startswith("fix round skipped: only full-suite failures remained") for n in r.get("not_proven", [])))' "$RUNDIR/receipt.json" 2>/dev/null || echo no-receipt; }
@@ -2042,6 +2233,37 @@ while IFS= read -r line; do
     case "$line" in "OK "*) ok "${line#OK }" ;; "NO "*) bad "${line#NO }" ;; esac
 done <<< "$out"
 
+# --- RECEIPT-STATUS: the sealed verdict is the commit status loki/receipt on the pull request head (no network: argument shapes and wiring) ---
+# Planted defects: pushArgv drops the context (2nd field false); runPr sets it green for a draft (3rd false); the push script accepts any context (4th false).
+RS="$(cd "$ROOT/loki-ts" && bun -e '
+import { pushArgv } from "./src/engine10/types.ts";
+const fs = await import("node:fs"), pr = fs.readFileSync("./src/engine10/stages/pr.ts", "utf8"), sh = fs.readFileSync("../autonomy/lib/engine10-push.sh", "utf8"), S = "a".repeat(40);
+console.log([pushArgv({ cmd: "status", sha: S, state: "pending", description: "d" }).length,
+  pushArgv({ cmd: "status", sha: S, state: "success", description: "d", context: "loki/receipt" }).join("|") === `status|${S}|success|d|loki/receipt`,
+  pr.includes(`context: "loki/receipt"`) && pr.includes(`const green = verdict === "VERIFIED" && !draft`),
+  sh.includes("loki/deep-verify | loki/receipt) ;;") && sh.includes(`-f "context=$_e10_ctx"`) && !sh.includes("-f context=loki/deep-verify")].join(","));' 2>&1)"
+[ "$RS" = "4,true,true,true" ] \
+    && ok "receipt status: deep verify keeps the three-argument status call, loki/receipt rides as a fourth, the pull request stage sets it green only for a VERIFIED non-draft, and the push script accepts only the two contexts" \
+    || bad "receipt status gave: $RS"
+
+# --- MANY: the digest counts merge-ready work, and the combined pull request head carries loki/receipt ------------------------------------------
+# Planted defects: digestSummary counts a VERIFIED row with no pull request (1st field false); counts an unreported or partial cost as exact (2nd field false);
+# combineSlices sets green with a slice left out (4th field false); runReceiptStatus sets a status on a GitLab origin (3rd field true).
+MD="$(cd "$ROOT/loki-ts" && bun -e '
+import { digestSummary, renderIssuesDigest } from "./src/commands/issues_run.ts";
+import { runReceiptStatus } from "./src/engine10/stages/pr.ts";
+const fs = await import("node:fs"), cs = fs.readFileSync("./src/commands/issues_combine.ts", "utf8");
+const row = (issue, outcome, pr, cost) => ({ issue, title: "t", triage: "not triaged", outcome, pr, cost, time: "1m" });
+const rows = [row(1, "VERIFIED", "https://github.com/a/b/pull/1", "$1.00"), row(2, "VERIFIED, no PR: x", "none", "$0.50"), row(3, "PARTIAL", "https://github.com/a/b/pull/3", "NOT RECORDED"), row(4, "PARTIAL", "https://github.com/a/b/pull/4", "partial: $0.2500 for 1 of 2 sessions")];
+const s = digestSummary(rows);
+console.log([/^Merge-ready \(VERIFIED with a pull request\): 1 of 4\./.test(s), s.includes("at least $1.75 in all (1 priced in part, 1 reported no cost), at least $1.75 per merge-ready pull request") && digestSummary(rows.slice(0, 1)).endsWith("Cost: $1.00 in all, $1.00 per merge-ready pull request."),
+  runReceiptStatus({ repoDir: "/nonexistent", sha: "a".repeat(40), state: "success", description: "d", pinnedOrigin: "https://gitlab.com/a/b.git" }) || runReceiptStatus({ repoDir: "/nonexistent", sha: "short", state: "success", description: "d", pinnedOrigin: "https://github.com/a/b.git" }),
+  cs.includes("const all = dropped.size === 0 && o.excluded.length === 0, green = all && res.verdict === \"VERIFIED\"") && cs.includes("status: (a) => pr.runReceiptStatus(a),"),
+  renderIssuesDigest("a/b", new Date(0), new Date(1), rows).trimEnd().endsWith(s), renderIssuesDigest("a/b", new Date(0), new Date(1), []).includes("Merge-ready")].join(","));' 2>&1)"
+[ "$MD" = "true,true,false,true,true,false" ] \
+    && ok "many: the digest ends with the merge-ready count, the dollars in all and per merge-ready pull request, naming an unreported cost; the combined pull request gets loki/receipt, green only with every slice in and a VERIFIED combined receipt; no status on a GitLab origin or a bad sha" \
+    || bad "many gave: $MD"
+
 # ---------------------------------------------------------------- RUN-DEADLINE (dev4 cap kills): an outer deadline becomes the fixed run cap, and the run seals before it
 cat > "$T/deadline.ts" <<'TS'
 import { mkdtempSync, rmSync } from "node:fs";
@@ -2244,8 +2466,87 @@ rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function 
 rw_engine proved "$RWD/list.md"; RWF="$(rw_facts)"
 # STAGE-A (not yet run): expected string derived by reading the code on 2026-11-22. R2-5: the proof script only reads calc.ts (a change to code), so the run reads PARTIAL.
 [ "$RWF" = "PARTIAL road=work source=text lines=2 receipt=met,met own=2 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \
-&& [ "$RWSTAGES" = "implement linecheck review implement linecheck " ] \
+&& [ "$(sed 's/review linecheck/linecheck review/' <<< "$RWSTAGES")" = "implement linecheck review implement linecheck " ] \
     && ok "RW-02 proved: the same text task with a proof script that passes in Loki's own run is PARTIAL (the script only reads calc.ts), both lines met by Loki's own count; 5 model calls ($RWSTAGES)" || bad "RW-02 proved gave: $RWF; sessions '$RWSTAGES' ($(grep -E '^(Outcome|NOT PROVEN)' <<< "$RWOUT" | tr '\n' ' ' | cut -c1-600))"
+# REVIEW-FIRST stub-run leg (written, not run by its author; the lead runs it after the bundle is rebuilt on the merged tree): with a review that flags something, the independent review
+# finishes (review.early) before the first hand-back session (an iteration id ending in -pf) starts, and no -pf session ran before it.
+rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
+rw_engine reviewfirst "$RWD/list.md" LOKI_RISK_TIER=medium LOKI_REVIEW_DEFAULT=1 E2E_STUB_REVIEW=FLAG
+RFS="$(python3 -I - "$RWRUN" <<'RFPY'
+import json, os, sys
+try: ev = [json.loads(l) for l in open(os.path.join(sys.argv[1], "events.jsonl"))]
+except Exception: print("no events"); sys.exit(0)
+early = next((i for i, e in enumerate(ev) if e["type"] == "review.early"), None)
+pf = next((i for i, e in enumerate(ev) if e["type"] == "session.started" and str(e["data"].get("session_id", "")).endswith("-pf")), None)
+print("early=" + ("yes" if early is not None else "no"), "pf=" + ("yes" if pf is not None else "no"), "order=" + ("ok" if early is not None and pf is not None and early < pf else "bad"))
+RFPY
+)"
+[ "$RFS" = "early=yes pf=yes order=ok" ] && ok "REVIEW-FIRST stub run: review.early comes before the first -pf hand-back session" || bad "REVIEW-FIRST stub run gave: $RFS (sessions '$RWSTAGES')"
+# REVIEW-CLOSES stub-run leg (written, not run by its author; the lead runs it after the bundle is rebuilt on the merged tree). The stub reviewer gives one verdict on every call (no block-then-pass
+# sequence), so with BLOCK the first review is handed back once (LOKI_E10_REVIEW_FOLLOW_MAX, default 1) and the fix is read once: exactly two review.early events, with follow 0, 1, and no line check
+# before the second of them (REVIEW-HOLDS: findings of the follow-up are not handed back). The stub also changes the tree in the -rv self review turn, so a third read, the closing one (closing true, follow 2), follows by rule 1(b). Needs a stub that changes the tree in the -pf hand-back session; if it does not, the second review.early never appears and this leg reads fewer than three.
+rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
+rw_engine reviewcloses "$RWD/list.md" LOKI_RISK_TIER=medium LOKI_REVIEW_DEFAULT=1 E2E_STUB_REVIEW=BLOCK LOKI_E10_SEAL_REVIEW_REUSE=0 # SEAL-REUSE off: this leg pins the seal that runs its own review and line check (the reuse legs follow the REVIEW-HOLDS legs)
+RCS="$(python3 -I - "$RWRUN" <<'RCPY'
+import json, os, sys
+try: ev = [json.loads(l) for l in open(os.path.join(sys.argv[1], "events.jsonl"))]
+except Exception: print("no events"); sys.exit(0)
+early = [e for e in ev if e["type"] == "review.early"]
+print("early=" + str(len(early)), "follow=" + ",".join(str(e["data"].get("follow", 0)) for e in early), "closing=" + ",".join(str(e["data"].get("follow", 0)) for e in early if e["data"].get("closing")))
+RCPY
+)"
+# The seal stage reads the tree itself (its own review and line check). The bound is in the loop: with the reviewer always blocking and LOKI_E10_REVIEW_FOLLOW_MAX at its default 1, exactly two review.early events
+# (follow 0, 1) and no loop line check after a model review has read a tree, so the first line check is the seal's and comes after the seal's own review (three reviews before it: two in the loop, one at the seal; the seal runs its review, then its line check).
+RCPRE="${RWSTAGES%%linecheck*}"
+[ "$RCS" = "early=3 follow=0,1,2 closing=2" ] && [ "$(grep -o review <<< "$RCPRE" | wc -l | tr -d ' ')" = 4 ] && ok "REVIEW-CLOSES stub run: three review.early (the first, follow 1 the bound, then the closing read of the -rv self review turn the stub changes the tree in, #698 rule 1b), and no loop line check (the seal's own review is the fourth review before the first line check)" || bad "REVIEW-CLOSES stub run gave: $RCS (sessions '$RWSTAGES')"
+# REVIEW-HOLDS stub-run leg (written, not run by its author; the lead runs it after the bundle is rebuilt on the merged tree). (a) The reviewer flags with two findings (the stub concern and a second
+# line) and every follow-up says `STILL OPEN: 2`: two review.early events (follow absent, then 1), exactly one -pf hand-back session, no loop line check (three reviews before the first line check: two in the loop and the seal's own), a PARTIAL receipt held by "review open".
+rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
+rw_engine reviewholds "$RWD/list.md" LOKI_RISK_TIER=medium LOKI_REVIEW_DEFAULT=1 E2E_STUB_REVIEW=FLAG "E2E_STUB_REVIEW_EXTRA=STILL OPEN: 2"
+RHS="$(python3 -I - "$RWRUN" <<'RHPY'
+import json, os, sys
+try: ev = [json.loads(l) for l in open(os.path.join(sys.argv[1], "events.jsonl"))]
+except Exception: print("no events"); sys.exit(0)
+try: r = json.load(open(os.path.join(sys.argv[1], "receipt.json")))
+except Exception: r = {}
+early = [e for e in ev if e["type"] == "review.early"]
+pf = [e for e in ev if e["type"] == "session.started" and str(e["data"].get("session_id", "")).endswith("-pf")]
+print("early=" + str(len(early)), "follow=" + ",".join(str(e["data"].get("follow", 0)) for e in early), "closing=" + ",".join(str(e["data"].get("follow", 0)) for e in early if e["data"].get("closing")), "pf=" + str(len(pf)), r.get("verdict"), "held=" + ("open" if any(h.get("kind") == "review open" for h in r.get("held_by") or []) else "no"))
+RHPY
+)"
+RHPRE="${RWSTAGES%%linecheck*}"
+[ "$RHS" = "early=3 follow=0,1,2 closing=2 pf=1 PARTIAL held=open" ] && [ "$(grep -o review <<< "$RHPRE" | wc -l | tr -d ' ')" = 4 ] && ok "REVIEW-HOLDS stub run (a): a flag still open after the one fix is read twice, hands back once, the -rv self review turn the stub changes the tree in gets its closing read (#698 rule 1b, handed back nowhere), no loop line check, and seals PARTIAL held by review open" || bad "REVIEW-HOLDS stub run (a) gave: $RHS (sessions '$RWSTAGES')"
+# SEAL-REUSE stub-run legs (written, not run by their author; the lead runs them after the bundle is rebuilt on the merged tree). The stub reviewer blocks on every call, so the loop reads three times (as in REVIEW-CLOSES) and the last read, the closing one, saw the tree that is sealed.
+# (a) Reuse on: the seal makes no review session and no acceptance line check (the stub log has three review sessions in all and no linecheck), the seal.steps event carries one "cross review" step with reused true and no "acceptance line check" step, and the receipt is PARTIAL held by "review open" and "review block". Needs the sealed commit's tree to equal the tree the closing read saw; if the commit step drops a file the loop saw, the reuse does not fire and this leg reads reused=no (the safe direction).
+rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
+rw_engine sealreuse "$RWD/list.md" LOKI_RISK_TIER=medium LOKI_REVIEW_DEFAULT=1 E2E_STUB_REVIEW=BLOCK
+SRS="$(python3 -I - "$RWRUN" <<'SRPY'
+import json, os, sys
+try: ev = [json.loads(l) for l in open(os.path.join(sys.argv[1], "events.jsonl"))]
+except Exception: print("no events"); sys.exit(0)
+try: r = json.load(open(os.path.join(sys.argv[1], "receipt.json")))
+except Exception: r = {}
+steps = [s for e in ev if e["type"] == "seal.steps" for s in (e["data"].get("steps") or [])]
+cr = [s for s in steps if s.get("step") == "cross review"]
+kinds = [h.get("kind") for h in r.get("held_by") or []]
+print("cross=" + str(len(cr)), "reused=" + ("yes" if cr and cr[0].get("reused") is True else "no"), "linecheck=" + ("yes" if any(s.get("step") == "acceptance line check" for s in steps) else "no"), r.get("verdict"), "open=" + ("yes" if "review open" in kinds else "no"), "block=" + ("yes" if "review block" in kinds else "no"))
+SRPY
+)"
+[ "$SRS" = "cross=1 reused=yes linecheck=no PARTIAL open=yes block=yes" ] && [ "$(grep -o review <<< "$RWSTAGES" | wc -l | tr -d ' ')" = 3 ] && ! grep -q linecheck <<< "$RWSTAGES" && ok "SEAL-REUSE stub run (a): the loop's last read blocked the sealed tree, so the seal records one reused cross review step, makes no review session and no line check, and seals PARTIAL held by review open and review block" || bad "SEAL-REUSE stub run (a) gave: $SRS (sessions '$RWSTAGES')"
+# (b) A verify fix round changes a file after the loop's last read: the sealed tree is not the read tree, so the seal review runs as today (its step has no reused flag).
+rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts'
+rw_engine sealreuse-fix "$RWD/list.md" LOKI_RISK_TIER=medium LOKI_REVIEW_DEFAULT=1 E2E_STUB_REVIEW=BLOCK E2E_STUB_MODE=wrong E2E_STUB_FIX=fixit
+SRS2="$(python3 -I - "$RWRUN" <<'SRPY2'
+import json, os, sys
+try: ev = [json.loads(l) for l in open(os.path.join(sys.argv[1], "events.jsonl"))]
+except Exception: print("no events"); sys.exit(0)
+steps = [s for e in ev if e["type"] == "seal.steps" for s in (e["data"].get("steps") or [])]
+cr = [s for s in steps if s.get("step") == "cross review"]
+print("cross=" + str(len(cr)), "reused=" + ("yes" if any(s.get("reused") is True for s in cr) else "no"))
+SRPY2
+)"
+[ "$SRS2" = "cross=1 reused=no" ] && ok "SEAL-REUSE stub run (b): a verify fix round that changes a file after the last read leaves the seal's own review in place (one cross review step, not reused)" || bad "SEAL-REUSE stub run (b) gave: $SRS2 (sessions '$RWSTAGES')"
+# Leg (b) (a session turn after the review that changes no file: one review.early, no follow-up, not held by review open) is not written: the stub's -pf session always changes the tree and the stub fixture is not in this lane's files. Unit 7 covers its rule (a flag with still_open [] and nothing changed gives no hold).
 rw_proof 'grep -q "export function multiply" calc.ts' 'grep -q "export function multiply" calc.ts' 'false' # line 2 has one passing and one failing check
 rw_engine failing "$RWD/list.md"; RWF="$(rw_facts)"
 [ "$RWF" = "PARTIAL road=work source=text lines=2 receipt=met,unmet own=1 reruns=yes noscript=no plan=skipped src=issue cap=2400" ] \

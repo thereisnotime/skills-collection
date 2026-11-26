@@ -3593,3 +3593,51 @@ action, and a nonblocking fault must not be reported as a healthy no-match.
   source checkout leaves the live wrapper's SHA-256 and exit status unchanged;
   and verify an explicit reinstall from a verified ref atomically updates the
   runtime copy and passes readback.
+## 73. An absolute executable is not necessarily a fixed Python runtime
+
+- **Failure:** a registrar accepts `--python /absolute/path/to/uv`, `env` or
+  `pip` because the path exists and is executable. Its smoke can even succeed,
+  but every later prompt/tool boundary enters a package manager or environment
+  resolver. One long-running `uv run` then holds the shared cache lock and turns
+  a local maintenance event into timeouts across many unrelated hooks.
+- **Fix:** for `.py` hooks, inspect the candidate's lexical path and every
+  symlink hop before behavior probing; reject known wrappers (`uv`, `uvx`,
+  `env`, `pip`, `pip3`), direct `.py` files and non-Python executables. Run the
+  candidate without a shell using `-I -B -c`, a small timeout and a controlled
+  environment; require stdout to report Python 3 and `os.path.samefile(
+  sys.executable, candidate)` to be true. The same-file check rejects a script
+  that merely `exec`s another interpreter. The only wrapper exception is the
+  exact direct-runtime shim declared by the machine behavior SSOT. Perform all
+  checks before writing settings or creating a hook symlink, and never put
+  `uv run`, `pip install` or another package manager on a synchronous hook path.
+- **Bidirectional calibration:** keep a healthy fixed interpreter, including a
+  path with spaces. Create dangerous fixtures named `uv`, `env` and `pip` that
+  symlink to the same working Python; static existence and behavior checks pass,
+  so only the wrapper-name assertion can reject them. Add a `python3` script
+  that `exec`s the real interpreter: it behaves like Python but must fail the
+  same-file check unless it is the exact SSOT shim. Add `/bin/sh` as the
+  non-Python control. For every rejection, assert settings are byte-for-byte
+  unchanged and no hook symlink or partial install remains.
+
+## 74. Renaming a hook-bearing plugin while keeping a compatibility-alias plugin fires the same hook twice
+
+- **Failure:** a skill that ships a `PreToolUse` or `SessionStart` hook is renamed
+  to a new canonical plugin while the old plugin remains registered as a
+  compatibility shim. If both `<new>@<marketplace>` and `<old>@<marketplace>`
+  remain enabled in `~/.claude/settings.json` (or if both old and new entries
+  persist in a sibling host's `hooks.json` or an external runtime binding under
+  `~/.config/<old>/`), the host executes the hook twice on every matching event —
+  doubling latency, emitting duplicate advisories/inbox reads, or racing on shared
+  cursor/state files.
+- **Fix:** enforce single-owner hook registration across any Skill rename: strip
+  active hook declarations from the compatibility-alias plugin at source, and run
+  the host-level reconciliation procedure in `daymade-skill:skill-governance` §8
+  ([Reconcile a compatibility-alias Skill rename](https://github.com/daymade/claude-code-skills/blob/main/daymade-skill/skill-governance/references/skill-surface-governance.md#reconcile-a-compatibility-alias-skill-rename))
+  to disable the alias plugin, migrate sibling-host hook registries, and rebind
+  external runtime pointers rather than maintaining a parallel checklist here.
+- **Bidirectional calibration:** inspect effective enabled plugins and hook
+  registries to confirm only the canonical handler is registered for the target
+  event (count = 1). Replay one matching dangerous/trigger event and verify it
+  fires and blocks/emits **exactly once** (no duplicate stdout/stderr blocks and
+  no double cursor advance); pair with one healthy non-matching control that
+  passes with exit 0.

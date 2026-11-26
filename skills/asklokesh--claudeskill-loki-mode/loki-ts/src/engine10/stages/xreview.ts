@@ -16,7 +16,7 @@ import { isClaudeModel, noteRoleModel, PROVIDER_DEFAULT_MODEL, roleModel } from 
 import { backstopS, type RunContext, type Verdict } from "../types.ts";
 export type ReviewLevel = "pass" | "flag" | "block" | "not_run";
 export type ReviewedBy = "model" | "deterministic" | "none";
-export interface CrossReview { provider: ReviewProvider; level: ReviewLevel; notes: string[]; same_vendor_default?: boolean; hygiene?: string[]; reviewed_by?: ReviewedBy; reviewer_model?: string; cost_iteration?: string; }
+export interface CrossReview { provider: ReviewProvider; level: ReviewLevel; notes: string[]; same_vendor_default?: boolean; hygiene?: string[]; reviewed_by?: ReviewedBy; reviewer_model?: string; cost_iteration?: string; reasons?: string[]; still_open?: number[] | null; reused?: "implement loop"; }
 /** True only when a model reviewer really returned a verdict; a deterministic-only result never credits "one reviewer". */
 export const modelReviewRan = (xr: CrossReview | null | undefined): xr is CrossReview => !!xr && xr.level !== "not_run" && xr.reviewed_by !== "deterministic" && xr.reviewed_by !== "none"; // a hygiene flag can lift level off not_run with no model call (reviewed_by none)
 // Compiled or bytecode cache files by extension or dir (generic across stacks). Any other run-added path counts only when the repo's own ignore rules ignore it (it was force-added); legit source such as src/build/index.ts never counts.
@@ -31,7 +31,7 @@ export function minVerdict(verdict: Verdict, review: CrossReview | null): Verdic
   return RANK[ceiling] < RANK[verdict] ? ceiling : verdict;
 }
 /** Exactly what review ran, for the receipt: a model verdict (fast-tier when pinned), the deterministic check alone, or none. */
-export const reviewRanWording = (xr: CrossReview | null | undefined): string => (modelReviewRan(xr) ? (xr.reviewer_model ? `reviewer (${xr.reviewer_model})` : "reviewer") : (xr as CrossReview | null | undefined)?.reviewed_by === "deterministic" ? "deterministic check" : "none"); // the guard's false branch narrows xr to never, so the cast restores the real type
+export const reviewRanWording = (xr: CrossReview | null | undefined): string => (modelReviewRan(xr) ? (xr.reviewer_model ? `reviewer (${xr.reviewer_model})` : "reviewer") + (xr.reused ? ", read during the run" : "") : (xr as CrossReview | null | undefined)?.reviewed_by === "deterministic" ? "deterministic check" : "none"); // the guard's false branch narrows xr to never, so the cast restores the real type
 /** Receipt review block plus the NOT PROVEN line, only when the flag is on. vendor_differs compares the judge to the builder. */
 export function reviewReceipt(builder: string, xr: CrossReview | null, env: NodeJS.ProcessEnv = process.env): { review?: { provider: string | null; vendor_differs: boolean; same_vendor?: boolean; defaulted?: boolean; level?: ReviewLevel; ran?: string; reviewer_model?: string; observations?: string[] }; notProven: string[] } {
   const obs = xr?.hygiene?.length ? { observations: xr.hygiene.map((f) => `committed build or cache artifact: ${f}`) } : {}; // an observation, never a not-proven claim
@@ -57,17 +57,45 @@ const clean = (s: string): string => capWhole(s.replace(/[\x00-\x1f\x7f`]+/g, " 
  *  seal.ts adds every such note to its open notes, which caps VERIFIED at PARTIAL. Levels, when the review runs and its prompt are unchanged. */
 const UNMET_REASON_RE = /^\s*\**UNMET\b/;
 export const isUnmetNote = (note: string): boolean => /^cross-review \w+ \([^)]*\):\s*\**UNMET\b/.test(note);
+/** The reviewer's text grouped by indentation: a top-level line starts an item and every more-indented line under it is folded into that item ("<parent> Details: <sub>; <sub>", or "UNMET: <line>. Why: <sub>; <sub>" for an UNMET parent). Items that are not UNMET first, then the UNMET items; each is whole up to REVIEW_ITEM_CAP characters. A header ending in ":" with nothing under it is dropped (as reviewFlagLines does). */
+export const REVIEW_ITEM_CAP = 900;
+export function reviewItems(text: string): string[] {
+  const items: { t: string; indent: number; subs: string[] }[] = [];
+  for (const raw of text.split("\n")) {
+    if (raw.trim() === "") continue;
+    const indent = raw.length - raw.trimStart().length, t = raw.replace(/^\s*[-*]\s*/, "").trim(), last = items[items.length - 1];
+    if (last && indent > last.indent) last.subs.push(t); else items.push({ t, indent, subs: [] });
+  }
+  const unmet = (r: string): boolean => UNMET_REASON_RE.test(r), flat = (x: string): string => x.replace(/[\x00-\x1f\x7f`]+/g, " ");
+  const out = items.filter((e) => e.subs.length > 0 || !e.t.endsWith(":")).map((e) => {
+    const u = unmet(e.t);
+    if (!e.subs.length) return { u, s: capWhole(flat(e.t), REVIEW_ITEM_CAP) };
+    const subs = e.subs.join("; ");
+    return { u, s: capWhole(flat(u ? `${e.t.replace(/[.:]+$/, "")}. Why: ${subs}` : `${e.t.replace(/:+$/, "")} Details: ${subs}`), REVIEW_ITEM_CAP) };
+  }).filter((e) => e.s);
+  return [...out.filter((e) => !e.u), ...out.filter((e) => e.u)].map((e) => e.s);
+}
 /** First line `VERDICT: PASS|FLAG|BLOCK`, then `- reason` lines. Anything else is not_run (never PASS). */
+const replyText = (p: ReviewProvider, out: string): string => { if (p !== "claude") return out; try { const j = JSON.parse(out) as { result?: unknown }; return typeof j?.result === "string" ? j.result : ""; } catch { return ""; } }; // claude runs with --output-format json: the reply is the result text; anything else is not_run
 export function parseReview(p: ReviewProvider, out: string): CrossReview {
-  if (p === "claude") { try { const j = JSON.parse(out) as { result?: unknown }; out = typeof j?.result === "string" ? j.result : ""; } catch { out = ""; } } // claude runs with --output-format json: the verdict is the result text; anything else is not_run
+  out = replyText(p, out);
   const m = /^\s*VERDICT:\s*(PASS|FLAG|BLOCK)\b/im.exec(out);
   if (!m) return { provider: p, level: "not_run", notes: [`cross-review not run: ${p} returned no VERDICT line`] };
   const level = m[1]!.toLowerCase() as ReviewLevel;
   const all = reviewFlagLines(out.slice(m.index + m[0].length)).map(clean).filter(Boolean), unmet = (r: string): boolean => UNMET_REASON_RE.test(r);
   const reasons = [...all.filter(unmet), ...all.filter((r) => !unmet(r))].slice(0, MAX_NOTES); // F3: UNMET reasons first, so the cap of 5 never cuts one
   const notes = level === "pass" ? [] : (reasons.length ? reasons : ["no reason given"]).map((r) => `cross-review ${level} (${p}): ${r}`);
-  return { provider: p, level, notes };
+  const grouped = level === "pass" ? [] : reviewItems(out.slice(m.index + m[0].length)), reasonsAll = level === "pass" ? [] : grouped.length ? grouped : ["no reason given"]; // the whole findings in the order a session reads it: specific findings first, the UNMET items after; a finding keeps its sub-bullets and is never cut by MAX_NOTES (only the early review round reads it, reviewRound in implement.ts)
+  return { provider: p, level, notes, ...(reasonsAll.length ? { reasons: reasonsAll } : {}) };
 }
+export const HAND_BACK_CLIP = 900, HAND_BACK_TOTAL = 12_000; // the early review's own bound: whole findings up to a total of characters, never a count and never a fragment of one
+/** What the early review round hands back to the session: the reviewer's whole findings (a finding keeps its sub-bullets), specific findings first, then its UNMET items, each clipped to HAND_BACK_CLIP, taken whole until HAND_BACK_TOTAL characters; what is left is counted in a last entry. The receipt side (notes, held_by, the label) keeps MAX_NOTES and the UNMET-first order. */
+export const handBackReasons = (xr: CrossReview | null | undefined): string[] => {
+  const all = (xr && (xr.level === "block" || xr.level === "flag") ? (xr.reasons ?? xr.notes.filter((n) => /^cross-review (block|flag) /.test(n) || isUnmetNote(n)).map((n) => n.replace(/^cross-review \w+ \([^)]*\):\s*/, ""))) : []).map((r) => capWhole(r, HAND_BACK_CLIP));
+  const kept: string[] = []; let total = 0;
+  for (const r of all) { if (total + r.length > HAND_BACK_TOTAL) break; kept.push(r); total += r.length; }
+  return kept.length < all.length ? [...kept, `(${all.length - kept.length} more reviewer findings are in the receipt)`] : kept;
+};
 /** Rule 6 (h2h 2026-11-01, 115 Loki runs): the unconfigured same-vendor review changed no verdict and was 74% of Loki-on-Haiku spend. It stays on by default for the high tier (auth, crypto, payments, migrations, CI, public API: no ready PR there without a review) and is opt-in for medium (LOKI_REVIEW_DEFAULT=1). A configured reviewer (loki.yaml review:, LOKI_REVIEW_PROVIDER, a reviewer agent) always runs. */
 export const reviewDefaultOn = (tier: string, env: NodeJS.ProcessEnv = process.env): boolean => tier === "high" || (tier === "medium" && env["LOKI_REVIEW_DEFAULT"] === "1");
 // Review time box: 300s (real claude reviews often exceed 60s); LOKI_E10_REVIEW_BOX_S overrides (tests). Seal's limit grows by it when a review is planned.
@@ -144,7 +172,20 @@ const reviewChecksBlock = (ctx: RunContext): string[] => { const cs = (ctx.outpu
  *  met was sealed PARTIAL on two defects the reviewer found (a documented quoted-phrase search rejected by input validation, a documented date filter that
  *  did nothing) that the session would have fixed in minutes. */
 export const reviewFixOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_REVIEW_FIX"] ?? "").trim());
-export async function crossReview(ctx: RunContext, verdict: Verdict, head: string, signal?: AbortSignal, early = false): Promise<CrossReview | null> {
+/** The follow-up review's block (loki-mode#692): what the earlier review found, numbered and clipped, and what to report now. Pure. */
+export function followBlock(earlier: string[]): string[] {
+  return ["This is a follow-up review. An earlier review of this change found the problems numbered below, and the author then changed the code. The diff below is only what changed since that review. Say which of the earlier problems are still open in this diff. Then look for new defects in the changed lines, above all in code that was rewritten to answer a finding. Report only what is still open or new; do not restate an UNMET line unless this diff makes it unmet.", "", ...earlier.map((f, i) => `${i + 1}. ${f.length > 300 ? f.slice(0, 300) : f}`), "End your reply with exactly one line: `STILL OPEN: <the numbers of the earlier problems that are still open or only partly fixed, separated by commas>`, or `STILL OPEN: none`."];
+}
+/** The follow-up reviewer's own list of earlier problems still open (1..earlier, ascending, no repeats); the last `STILL OPEN:` line wins; [] for none; null when there is no such line. Pure. */
+export function stillOpen(text: string, earlier: number): number[] | null {
+  let last: string | null = null;
+  for (const line of text.split("\n")) { const m = /^[\s>*_-]*(?:\*\*|__)?\s*STILL OPEN\s*(?:\*\*|__)?\s*:\s*(?:\*\*|__)?\s*(.*)$/i.exec(line); if (m) last = m[1]!; }
+  if (last === null) return null;
+  if (/^\W*none\b/i.test(last)) return [];
+  return [...new Set((last.match(/\d+/g) ?? []).map(Number).filter((n) => n >= 1 && n <= earlier))].sort((a, b) => a - b);
+}
+/** follow (loki-mode#692): a follow-up review of from..head instead of base..head; n numbers its cost file (default 1). An empty diff returns null with no call. */
+export async function crossReview(ctx: RunContext, verdict: Verdict, head: string, signal?: AbortSignal, early = false, follow?: { from: string; earlier: string[]; n?: number }): Promise<CrossReview | null> {
   // early: no risk record exists yet (verify writes it), so the reviewer is the configured one, else the run's own CLI; `head` is a tree of the uncommitted change
   const agent = configuredReviewer(ctx.repoDir), picked = pickReviewer(ctx, agent), earlyP = early && !picked.p && ctx.provider === "claude" && !isOff(process.env["LOKI_REVIEW_PROVIDER"]) ? (ctx.provider as ReviewProvider) : null;
   const p = picked.p ?? earlyP, dflt = picked.p ? picked.dflt : earlyP !== null; if (!p) return null; // a configured reviewer/council agent turns the default review on
@@ -160,19 +201,20 @@ export async function crossReview(ctx: RunContext, verdict: Verdict, head: strin
   };
   if (tier === "low") return tag({ provider: p, level: "not_run", notes: [`cross-review skipped: low risk (${p} not run)`] }); // COST-4: low risk records the skip, never a pass
   if (roomS(ctx) < MIN_REVIEW_S) return tag({ provider: p, level: "not_run", notes: [`cross-review not run: insufficient run time for ${p}`] });
-  const d = await safeGitRun(ctx.repoDir, ["diff", "--no-color", ctx.baseSha, head, "--", ".", ":(exclude).loki"], { timeoutMs: 20000 }).catch(() => null);
+  const d = await safeGitRun(ctx.repoDir, ["diff", "--no-color", follow ? follow.from : ctx.baseSha, head, "--", ".", ":(exclude).loki"], { timeoutMs: 20000 }).catch(() => null);
   if (!d || d.exitCode !== 0) return tag({ provider: p, level: "not_run", notes: [`cross-review not run: diff unavailable for ${p}`] });
+  if (follow && !d.stdout.trim()) return null; // nothing changed since the earlier review: no call
   const rd = lineCheckDiff(d.stdout), changedList = [...d.stdout.matchAll(/^diff --git a\/(\S+)/gm)].map((m) => m[1]!).slice(0, 80).join(", ");
   const prompt = [agent ? `${agent.prompt}\nReview ONLY the diff below. Do not modify files.` : "You are an independent code reviewer. Review ONLY the diff below for correctness bugs, spec violations and missing tests. Do not modify files.",
     REVIEW_TOOLS_NOTE,
-    "Reply with a first line exactly `VERDICT: PASS`, `VERDICT: FLAG` (concerns) or `VERDICT: BLOCK` (a reproduced defect), then one `- reason` line per concern.", ...acceptancePromptBlock(reviewAcceptance(ctx)), ...reviewChecksBlock(ctx), ...(rd.truncated || rd.cut.length ? [`The diff below is NOT the whole change: ${rd.truncated ? "it is cut at its end" : "it is complete except for the files named next"}${rd.cut.length ? `; lockfile, snapshot and generated files are left out (${rd.cut.slice(0, 8).join(", ")})` : ""}. Every changed file is listed here; read any you need with your tools before saying something is missing: ${changedList}`] : []), "", "```diff", rd.text, "```"].join("\n");
+    "Reply with a first line exactly `VERDICT: PASS`, `VERDICT: FLAG` (concerns) or `VERDICT: BLOCK` (a reproduced defect), then one `- reason` line per concern.", ...(follow ? followBlock(follow.earlier) : [...acceptancePromptBlock(reviewAcceptance(ctx)), ...reviewChecksBlock(ctx)]), ...(rd.truncated || rd.cut.length ? [`The diff below is NOT the whole change: ${rd.truncated ? "it is cut at its end" : "it is complete except for the files named next"}${rd.cut.length ? `; lockfile, snapshot and generated files are left out (${rd.cut.slice(0, 8).join(", ")})` : ""}. Every changed file is listed here; read any you need with your tools before saying something is missing: ${changedList}`] : []), "", "```diff", rd.text, "```"].join("\n");
   try {
     if (p === "claude") await ensureClaudeHelpCache();
     if (p === "claude") noteRoleModel("review", agent?.model || pin || ctx.model); // ROLE-MODELS: the receipt's models_by_role
     const r = await withChildLedger(run, join(ctx.repoDir, ".loki"), "xreview")(reviewArgv(p, prompt, process.env, p === "claude" ? agent?.model || pin : undefined), { cwd: ctx.repoDir, timeoutMs: boxFor(ctx) * 1000, group: true, signal });
-    const costId = `${ctx.runId}-xreview-${p}${early ? "-early" : ""}`; // the reviewer's own result-cost file, so seal's cost read includes it
+    const costId = `${ctx.runId}-xreview-${p}${follow ? `-follow${follow.n ?? 1}` : early ? "-early" : ""}`; // the reviewer's own result-cost file, so seal's cost read includes it
     writeReviewerCost(join(ctx.repoDir, ".loki"), costId, { reviewer: `xreview-${p}`, provider: p, model: p === "claude" ? agent?.model || pin : undefined, stdout: r.stdout, stderr: r.stderr });
     if (r.exitCode !== 0) return { ...tag({ provider: p, level: "not_run", notes: [`cross-review not run: ${p} exited ${r.exitCode}`] }), cost_iteration: costId };
-    return { ...tag(parseReview(p, r.stdout)), cost_iteration: costId };
+    return { ...tag(parseReview(p, r.stdout)), cost_iteration: costId, ...(follow ? { still_open: stillOpen(replyText(p, r.stdout), follow.earlier.length) } : {}) };
   } catch { return tag({ provider: p, level: "not_run", notes: [`cross-review not run: ${p} CLI unavailable`] }); }
 }

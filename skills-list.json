@@ -12189,8 +12189,8 @@
       "description": "\"Formats the final manuscript output to target journal style requirements\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
-      "lines": 1066,
-      "words": 10993,
+      "lines": 1068,
+      "words": 11301,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -12284,8 +12284,8 @@
       "description": "\"Peer Reviewer 3; evaluates cross-disciplinary relevance, broader impact, and alternative interpretations\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
-      "lines": 438,
-      "words": 4860,
+      "lines": 448,
+      "words": 4955,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12296,8 +12296,8 @@
       "description": "\"Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
-      "lines": 438,
-      "words": 5301,
+      "lines": 448,
+      "words": 5396,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12308,8 +12308,8 @@
       "description": "\"Challenges core arguments and logical coherence as the devils advocate reviewer in the editorial panel\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
-      "lines": 447,
-      "words": 6494,
+      "lines": 457,
+      "words": 6589,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12344,8 +12344,8 @@
       "description": "\"Peer Reviewer 1; assesses methodological soundness, research design validity, and statistical rigor\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
-      "lines": 450,
-      "words": 6177,
+      "lines": 460,
+      "words": 6338,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12356,8 +12356,8 @@
       "description": "\"Journal-Fit Reviewer seat; contributes the journal-fit / originality / overall-quality review card \u2014 the final editorial decision is editorial_synthesizer_agent's Phase 2 work\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
-      "lines": 340,
-      "words": 4112,
+      "lines": 350,
+      "words": 4207,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -23351,6 +23351,17 @@
   ],
   "expo--skills": [
     {
+      "name": "expo-mascot",
+      "description": "Create a customizable 2D mascot for an Expo app. Use for a numbered mascot concept sheet, a transparent base image, a Rive rig or idle loop, fitted outfit images, swappable Rive outfit slots, or placi",
+      "path": "expo--skills/plugins/expo-experiments/skills/expo-mascot/SKILL.md",
+      "remote_path": "plugins/expo-experiments/skills/expo-mascot/SKILL.md",
+      "lines": 58,
+      "words": 672,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
       "name": "expo-migrate-module",
       "description": "Migrate an existing Apple/Swift Expo native module from the Expo Modules API 1.0 definition DSL to the 2.0 macro API (sometimes called v2) while preserving its JavaScript and TypeScript contract. Use ",
       "path": "expo--skills/plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
@@ -28825,15 +28836,59 @@
   ],
   "squirrelscan--skills": [
     {
+      "name": "security-headers",
+      "description": "\"Write HTTP security header configs for Cloudflare, Vercel, Netlify, nginx, and Next.js in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents, covering HSTS, report-only CSP first, fr",
+      "path": "squirrelscan--skills/skills/security-headers/SKILL.md",
+      "remote_path": "skills/security-headers/SKILL.md",
+      "lines": 119,
+      "words": 910,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "json",
+        "nginx",
+        "ts"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
       "name": "audit-website",
       "description": "Audit a website with the squirrelscan CLI or the hosted squirrelscan MCP server and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 16 other rule cate",
       "path": "squirrelscan--skills/skills/audit-website/SKILL.md",
       "remote_path": "skills/audit-website/SKILL.md",
-      "lines": 133,
-      "words": 1802,
+      "lines": 135,
+      "words": 1843,
       "code_blocks": 2,
       "languages": [
         "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "seo-audit",
+      "description": "\"Run squirrelscan audit rules via the squirrel CLI or hosted squirrelscan MCP server in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents to check crawlability and indexability (robo",
+      "path": "squirrelscan--skills/skills/seo-audit/SKILL.md",
+      "remote_path": "skills/seo-audit/SKILL.md",
+      "lines": 74,
+      "words": 802,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "supabase-security-audit",
+      "description": "\"Audit a Supabase app with squirrelscan (the squirrel CLI or hosted squirrelscan MCP server) in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents to see if the public anon key can re",
+      "path": "squirrelscan--skills/skills/supabase-security-audit/SKILL.md",
+      "remote_path": "skills/supabase-security-audit/SKILL.md",
+      "lines": 100,
+      "words": 1111,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "sql",
+        "toml"
       ],
       "license": "See LICENSE file in repository root"
     },
@@ -28842,9 +28897,112 @@
       "description": "\"squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (350+ rules) and scores site health, via the squirrel CLI. Use when the user wants to c",
       "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
       "remote_path": "skills/squirrelscan/SKILL.md",
-      "lines": 186,
-      "words": 2773,
+      "lines": 204,
+      "words": 2970,
       "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "accessibility-audit",
+      "description": "\"Audit a site with squirrelscan's accessibility audit rules via the squirrel CLI or hosted squirrelscan MCP server in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents, checking acce",
+      "path": "squirrelscan--skills/skills/accessibility-audit/SKILL.md",
+      "remote_path": "skills/accessibility-audit/SKILL.md",
+      "lines": 75,
+      "words": 891,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "launch-checklist",
+      "description": "\"Run a pre-launch pass for a new site, redesign, or migration using squirrelscan audit rules via the squirrel CLI or hosted squirrelscan MCP server in Claude Code, GitHub Copilot, Codex, Cursor, and o",
+      "path": "squirrelscan--skills/skills/launch-checklist/SKILL.md",
+      "remote_path": "skills/launch-checklist/SKILL.md",
+      "lines": 75,
+      "words": 727,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "security-audit",
+      "description": "\"Run squirrelscan's security and integrity audit rules (squirrel CLI or hosted squirrelscan MCP server) in Claude Code, GitHub Copilot, Codex, Cursor and other coding agents to find leaked secrets, ex",
+      "path": "squirrelscan--skills/skills/security-audit/SKILL.md",
+      "remote_path": "skills/security-audit/SKILL.md",
+      "lines": 80,
+      "words": 1078,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "agent-experience-audit",
+      "description": "\"Evaluate your site's agent experience with squirrelscan audit rules via the squirrel CLI or hosted squirrelscan MCP server in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents, chec",
+      "path": "squirrelscan--skills/skills/agent-experience-audit/SKILL.md",
+      "remote_path": "skills/agent-experience-audit/SKILL.md",
+      "lines": 72,
+      "words": 864,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "website-ci-gate",
+      "description": "\"Add a squirrelscan CI check using the squirrel CLI in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents for GitHub Actions, GitLab, and preview deploys. It picks thresholds from a b",
+      "path": "squirrelscan--skills/skills/website-ci-gate/SKILL.md",
+      "remote_path": "skills/website-ci-gate/SKILL.md",
+      "lines": 113,
+      "words": 967,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "yaml"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "performance-audit",
+      "description": "\"Diagnose slow page loads with squirrelscan audit rules via the squirrel CLI or hosted squirrelscan MCP server in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents, checking the larg",
+      "path": "squirrelscan--skills/skills/performance-audit/SKILL.md",
+      "remote_path": "skills/performance-audit/SKILL.md",
+      "lines": 70,
+      "words": 771,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "broken-link-checker",
+      "description": "\"Find broken internal and external links, broken anchors, redirect chains, orphan pages, broken images, and dead sitemap URLs with squirrelscan audit rules via the squirrel CLI or hosted squirrelscan ",
+      "path": "squirrelscan--skills/skills/broken-link-checker/SKILL.md",
+      "remote_path": "skills/broken-link-checker/SKILL.md",
+      "lines": 75,
+      "words": 886,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "structured-data-audit",
+      "description": "\"Validate structured data with squirrelscan audit rules via the squirrel CLI or hosted squirrelscan MCP server in Claude Code, GitHub Copilot, Codex, Cursor, and other coding agents, checking JSON-LD ",
+      "path": "squirrelscan--skills/skills/structured-data-audit/SKILL.md",
+      "remote_path": "skills/structured-data-audit/SKILL.md",
+      "lines": 70,
+      "words": 808,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
@@ -147857,8 +148015,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/twitter-reader/SKILL.md",
       "remote_path": "twitter-reader/SKILL.md",
-      "lines": 233,
-      "words": 1073,
+      "lines": 240,
+      "words": 1130,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -147932,8 +148090,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 335,
-      "words": 2984,
+      "lines": 346,
+      "words": 3089,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -148093,8 +148251,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1464,
-      "words": 15228,
+      "lines": 1474,
+      "words": 15454,
       "code_blocks": 73,
       "languages": [
         "bash",
@@ -148432,8 +148590,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 316,
-      "words": 4544,
+      "lines": 334,
+      "words": 4775,
       "code_blocks": 0,
       "languages": []
     },
@@ -148442,8 +148600,8 @@
       "description": "Programmatic screenshot capture on macOS. Find window IDs with Swift CGWindowListCopyWindowInfo, control application windows via AppleScript (zoom, scroll, select), and capture with screencapture. Use",
       "path": "daymade--claude-code-skills/daymade-macos/capture-screen/SKILL.md",
       "remote_path": "daymade-macos/capture-screen/SKILL.md",
-      "lines": 295,
-      "words": 1507,
+      "lines": 298,
+      "words": 1644,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -148737,8 +148895,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
       "remote_path": "ghostty-use/references/automatic-snapshots.md",
-      "lines": 236,
-      "words": 1914,
+      "lines": 240,
+      "words": 1924,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -148846,7 +149004,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
       "remote_path": "daymade-skill/skill-governance/SKILL.md",
       "lines": 202,
-      "words": 1369,
+      "words": 1380,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -148871,8 +149029,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 298,
-      "words": 2433,
+      "lines": 299,
+      "words": 2450,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -148920,8 +149078,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/authoring-and-reuse.md",
       "remote_path": "daymade-skill/skill-creator/references/authoring-and-reuse.md",
-      "lines": 904,
-      "words": 13344,
+      "lines": 906,
+      "words": 13442,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -149025,8 +149183,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/existing-skill-migration.md",
       "remote_path": "daymade-skill/skill-creator/references/existing-skill-migration.md",
-      "lines": 274,
-      "words": 5525,
+      "lines": 279,
+      "words": 5583,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -149411,8 +149569,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 496,
-      "words": 4183,
+      "lines": 513,
+      "words": 4396,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -149589,7 +149747,7 @@
       "path": "daymade--claude-code-skills/daymade-claude-code/marketplace-dev/SKILL.md",
       "remote_path": "daymade-claude-code/marketplace-dev/SKILL.md",
       "lines": 459,
-      "words": 2787,
+      "words": 2790,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -149641,8 +149799,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1411,
-      "words": 15457,
+      "lines": 1425,
+      "words": 15566,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -149654,8 +149812,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 506,
-      "words": 4172,
+      "lines": 511,
+      "words": 4221,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -168813,6 +168971,16 @@
       ]
     },
     {
+      "name": "cognitive-toolkit",
+      "description": "Guided CBT and DBT practice exercises \u2014 thought record, opposite action, TIPP, DEAR MAN (with roleplay), wise mind, chain analysis and behavioral activation \u2014 with configurable Socratic pushback and o",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 115,
+      "words": 952,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "palmier-reels",
       "description": "This skill should be used when creating a vertical narrative reel (Instagram/Telegram, 1080\u00d71920) from scratch in Palmier Pro through its local MCP \u2014 turning a script, quotes or lesson notes into a be",
       "path": "glebis--claude-skills/palmier-reels/SKILL.md",
@@ -169000,6 +169168,18 @@
         "bash",
         "markdown",
         "yaml"
+      ]
+    },
+    {
+      "name": "ref-transfer",
+      "description": "Break a reference video (an ad, a launch film, a YouTube link or a local file) into a measured shot list, a scenario and a board of stills, then transfer its moves onto the user's own product as a 25\u2013",
+      "path": "glebis--claude-skills/ref-transfer/SKILL.md",
+      "remote_path": "ref-transfer/SKILL.md",
+      "lines": 63,
+      "words": 765,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -169427,6 +169607,16 @@
       ]
     },
     {
+      "name": "kinetic-ad",
+      "description": "This skill should be used when making a short vertical (9:16, 1080\u00d71920) kinetic-type promo or ad video in raea in the ink/paper/red style \u2014 Manrope 800 uppercase with IBM Plex Mono, physics letters, ",
+      "path": "glebis--claude-skills/kinetic-ad/SKILL.md",
+      "remote_path": "kinetic-ad/SKILL.md",
+      "lines": 81,
+      "words": 1064,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "brand-agency",
       "description": "Applies Agency brand colors and typography to artifacts including presentations, SVG graphics, documents, and web interfaces. This skill should be used when brand colors, visual formatting, neobrutali",
       "path": "glebis--claude-skills/brand-agency/SKILL.md",
@@ -169555,6 +169745,16 @@
         "bash",
         "markdown"
       ]
+    },
+    {
+      "name": "ui-motion",
+      "description": "Build interface animations from a product's real screens and real UX as raea components \u2014 panels, segmented toggles, buttons with a press, checkboxes that tick, a cursor that glides and clicks, typing",
+      "path": "glebis--claude-skills/ui-motion/SKILL.md",
+      "remote_path": "ui-motion/SKILL.md",
+      "lines": 69,
+      "words": 832,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "timebuzzer-led",
@@ -169851,6 +170051,18 @@
       "languages": []
     },
     {
+      "name": "visual-board",
+      "description": "Assemble a visual reference board as one PNG (plus per-section PNGs and optional HTML) that puts a reference video's stills, the product's real screens, its design tokens and the storyboard frames (re",
+      "path": "glebis--claude-skills/visual-board/SKILL.md",
+      "remote_path": "visual-board/SKILL.md",
+      "lines": 38,
+      "words": 385,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "balanced",
       "description": "Constructive, evidence-based dialogue mode that avoids sycophancy. This skill should be used when the user wants balanced multi-perspective analysis, critical feedback, or rigorous challenge of their ",
       "path": "glebis--claude-skills/balanced/SKILL.md",
@@ -169942,6 +170154,16 @@
         "bash",
         "markdown"
       ]
+    },
+    {
+      "name": "ui-tokens",
+      "description": "Extract a product's design tokens \u2014 colours (light and dark), type families and scale, spacing, radii, shadows and the product's own transitions and keyframes \u2014 from its code (CSS, HTML <style>, Googl",
+      "path": "glebis--claude-skills/ui-tokens/SKILL.md",
+      "remote_path": "ui-tokens/SKILL.md",
+      "lines": 36,
+      "words": 419,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "weekly-digest",
@@ -170047,6 +170269,18 @@
       ]
     },
     {
+      "name": "user-journeys",
+      "description": "Read a product (code, docs, UI screenshots) and produce a customer journey map (CJM) and user stories ranked as candidate scenes for a product video \u2014 every story has an action in the interface and a ",
+      "path": "glebis--claude-skills/user-journeys/SKILL.md",
+      "remote_path": "user-journeys/SKILL.md",
+      "lines": 42,
+      "words": 427,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
       "name": "publish-skill",
       "description": "This skill should be used when publishing a new or updated skill to the claude-skills-site Astro website. Use this skill for both adding new skills AND updating existing ones on the site. Triggers on ",
       "path": "glebis--claude-skills/publish-skill/SKILL.md",
@@ -170083,6 +170317,18 @@
       "languages": [
         "bash",
         "markdown"
+      ]
+    },
+    {
+      "name": "raea-animate",
+      "description": "Assemble a short product video in raea from the outputs of the interface-to-video chain \u2014 tokens (ui-tokens), the story arc (user-journeys), the UI components (ui-motion) and, if there is one, a refer",
+      "path": "glebis--claude-skills/raea-animate/SKILL.md",
+      "remote_path": "raea-animate/SKILL.md",
+      "lines": 68,
+      "words": 714,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -170149,11 +170395,11 @@
     },
     {
       "name": "handoff",
-      "description": "'Hand a written brief to an ACP agent that works in its own git worktree and herdr workspace, then check its work before anyone merges it. Writes a dated handoff doc, creates a beads epic when the rep",
+      "description": "'Hand a written brief to an ACP agent that works in its own git worktree as its own process, then check its work before anyone merges it. Writes a dated handoff doc, creates a beads epic when the repo",
       "path": "glebis--claude-skills/skills/handoff/SKILL.md",
       "remote_path": "skills/handoff/SKILL.md",
-      "lines": 67,
-      "words": 727,
+      "lines": 105,
+      "words": 1259,
       "code_blocks": 1,
       "languages": [
         "bash"

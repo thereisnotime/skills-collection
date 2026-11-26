@@ -42,14 +42,15 @@ Loki needs a model. [Claude Code](https://docs.claude.com/en/docs/claude-code) (
 
 ```bash
 cd your-repo
-loki setup                                   # first-run wizard (or: loki doctor --fix)
 loki start "add rate limiting to /api/login" # the primary path: build, verify, seal a receipt, open a PR
 loki start prd.md                            # same, from a PRD file
-loki start owner/repo#123                    # same, from a GitHub, GitLab or Jira issue
+loki start owner/repo#123                    # same, from a GitHub, GitLab or Jira issue; a GitHub issue runs from any folder
 loki "fix #123"                              # an issue of this checkout; a copied issue or PR URL works as is
 loki edit "rename fooBar to foo_bar"         # one small change, no loop
 loki chat                                    # interactive alternative: Plan and Build modes
 ```
+
+Every run checks what it needs first and prints the exact fix; `loki doctor --fix` runs the same checks on their own.
 
 `loki start`, `loki "<task>"`, `loki owner/repo#N` and `loki quick "<task>"` all run on the Loki 10 engine by default, whatever the flag order or input form. <!-- loki10-default --> Add `--no-pr` to build and verify without opening a pull request, `--max-cost <usd>` to cap spend, and `--provider <name>` to pick another coding CLI. The spend cap defaults to $100 when `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set and to no dollar cap on a subscription login; `budgets.per_run` in `loki.yaml` also sets it. Inspect the route without running: `loki route start prd.md` or `--explain-route`. New here? The [5-minute quickstart](docs/QUICKSTART.md) walks through it.
 
@@ -154,6 +155,10 @@ Required:
 - Git 2.x (`git`)
 - `curl`
 
+Needed for issue refs and pull requests:
+
+- GitHub CLI (`gh`), logged in with `gh auth login`. A text goal with `--no-pr` runs without it.
+
 Optional:
 
 - Python 3.8+ (`python3`): deep scans, Python repos and group runs use it. `loki "<goal>"` runs without it.
@@ -168,6 +173,8 @@ macOS and Linux are supported.
 
 - [Installation](docs/INSTALLATION.md), [environment variables](docs/environment-variables.md), [exit codes](docs/exit-codes.md), [known issues](docs/KNOWN-ISSUES.md), [privacy and telemetry](docs/PRIVACY.md)
 - Agent Change Receipt format: [docs/AGENT-CHANGE-RECEIPT.md](docs/AGENT-CHANGE-RECEIPT.md)
+- Merge gates: `loki start` sets the commit status `loki/receipt` on the pull request it opens; [require it in a branch rule, with or without Claude Ship](docs/v10/GUIDE.md#branch-rules-and-claude-ship).
+- Always on: [one container](docs/DOCKER.md#always-running-one-container-that-works-tagged-issues) works every issue you label and answers reviews, comments, failing checks and conflicts on its own pull requests (`docker compose -f deploy/docker-compose/loki-watch.yml up -d`). GitHub is the board: the label, the two Loki labels on pull requests and the `loki/receipt` status.
 - Label an issue, get a pull request (GitHub Actions, no hosted service, about 15 lines of workflow): [setup](docs/v10/GUIDE.md#triggers-without-a-cloud), [full example](docs/examples/loki-issue-to-pr.yml.example)
 - Jira and Linear intake: [docs/trackers.md](docs/trackers.md). Two-way Slack: [docs/slack.md](docs/slack.md). Multi-repo runs and composite receipts: [docs/WORKSPACES.md](docs/WORKSPACES.md). Deploy: [docs/DEPLOY-PLAN.md](docs/DEPLOY-PLAN.md)
 - MCP: the bundled server exposes 48 tools over stdio (`loki mcp`), including starting a run, reading its status and verifying its receipt. One-click install: [Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=loki-mode&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImxva2ktbW9kZSIsIm1jcCJdfQ==), [VS Code](vscode:mcp/install?%7B%22name%22%3A%22loki-mode%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22loki-mode%22%2C%22mcp%22%5D%7D). Or run `loki mcp install --client claude|cursor|vscode|windsurf`.
