@@ -8,7 +8,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statfsSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
-import { cleanupSessionScratch, createSessionScratch, scratchSessionEnv, TASK_MEMORY_SUBDIR } from "../runner/worker_proc.ts";
+import { cleanupSessionScratch, createSessionScratch, scratchSessionEnv, TASK_MEMORY_SUBDIR, withScratchMarker } from "../runner/worker_proc.ts";
 import { run } from "../util/shell.ts";
 import { noteHarnessRestored, safeGit, treeSnapshot, withTrackedRestored } from "../util/safe_git.ts";
 import { CONNECTION_ENV } from "./session.ts";
@@ -382,8 +382,8 @@ async function runProofScript(env: NodeJS.ProcessEnv, signal: AbortSignal | unde
       for (const f of HANDED) { try { const su = join(runDir, f); if (existsSync(su)) copyFileSync(su, join(scratch.dir, f)); } catch { /* a script that needs it says so */ } } // what Loki handed the session (the card's setup, and the setup fix when the setup check found one)
       const emptyDir = join(scratch.dir, "run"); mkdirSync(emptyDir, { mode: 0o700 }); // the script's argument is an EMPTY directory: the scratch itself holds Loki's helper, and a script that checks for emptiness refused it
       const t0 = Date.now(); ran = true;
-      try { const r = await run(["bash", p.script, emptyDir], { cwd: p.cwd, timeoutMs: (p.limitS ?? proofRerunS(env)) * 1000, group: true, signal, env: { ...blank, ...scratchSessionEnv(scratch), ...(p.extra ?? {}), LOKI_PROOF_TOKEN: token, LOKI_PROOF_LOG: resultLog } }); exit = r.exitCode; timedOut = r.timedOut === true; out = `${r.stdout}\n${r.stderr}`; }
-      finally { seconds = Math.round((Date.now() - t0) / 1000); }
+      try { const r = await run(withScratchMarker(scratch, ["bash", p.script, emptyDir]), { cwd: p.cwd, timeoutMs: (p.limitS ?? proofRerunS(env)) * 1000, group: true, signal, env: { ...blank, ...scratchSessionEnv(scratch), ...(p.extra ?? {}), LOKI_PROOF_TOKEN: token, LOKI_PROOF_LOG: resultLog } }); exit = r.exitCode; timedOut = r.timedOut === true; out = `${r.stdout}\n${r.stderr}`; }
+      finally { seconds = Math.round((Date.now() - t0) / 1000); } // #713: withScratchMarker hands the script the run's marker, kept by a daemon that leaves the group and drops the nonce
     }
   } catch (e) { out = `Loki's re-run did not complete: ${(e as Error).message}`; }
   let logged = ""; try { logged = readFileSync(resultLog, "utf8").replace(/[\x00-\x08\x0b-\x1f\x7f]+/g, " "); } catch { /* no result file: the output alone is counted */ }
@@ -682,7 +682,7 @@ async function runOwned(repoDir: string, script: (scratchDir: string) => string,
   let exit: number | null = null, out = "";
   try {
     const emptyDir = join(scratch.dir, "run"); mkdirSync(emptyDir, { mode: 0o700 }); // the script's argument is an EMPTY directory: the scratch itself holds Loki's helper, and a script that checks for emptiness refused it
-    const r = await run(["bash", script(scratch.dir), emptyDir], { cwd: repoDir, timeoutMs: timeoutS * 1000, group: true, signal, env: { ...blank, ...scratchSessionEnv(scratch), ...extra, LOKI_PROOF_LOG: join(scratch.dir, RESULT_LOG) } });
+    const r = await run(withScratchMarker(scratch, ["bash", script(scratch.dir), emptyDir]), { cwd: repoDir, timeoutMs: timeoutS * 1000, group: true, signal, env: { ...blank, ...scratchSessionEnv(scratch), ...extra, LOKI_PROOF_LOG: join(scratch.dir, RESULT_LOG) } }); // #713: the run's marker (runner/worker_proc.ts)
     exit = r.exitCode; out = `${r.stdout}\n${r.stderr}`;
   } catch (e) { out = `Loki's re-run did not complete: ${(e as Error).message}`; }
   const seconds = Math.round((Date.now() - t0) / 1000);
@@ -708,7 +708,12 @@ export async function runSetupScript(repoDir: string, setup: string, signal?: Ab
  *  done means and was asked for the script. An issue run keeps its measured behavior, and a stand-in title line never holds a label. Off with the re-run
  *  itself (LOKI_E10_PROOF_RERUN=0). */
 export const NO_OWN_PROOF_NOTE = "no proof script: the session left nothing Loki could run itself, so no acceptance line is proved by Loki's own run";
-export const noOwnProofNotes = (source: unknown, listed: number, r: ProofRerun | null, env: NodeJS.ProcessEnv = process.env): string[] => (source === "text" && listed > 0 && !r && proofRerunOn(env) ? [NO_OWN_PROOF_NOTE] : []);
+/** THIN-WRAP (#712): an issue run whose proof was given to an independent proof session (implement output proof_author) and that left no script Loki could
+ *  run is never VERIFIED either: without this note a model reading of the diff and the reply could decide every line. `independent` is false for every other
+ *  issue run, which keeps its measured behavior. LABEL: this can only lower a label. */
+export const NO_INDEPENDENT_PROOF_NOTE = "no proof script: the independent proof session left nothing Loki could run itself, so no acceptance line is proved by Loki's own run";
+export const noOwnProofNotes = (source: unknown, listed: number, r: ProofRerun | null, env: NodeJS.ProcessEnv = process.env, independent = false): string[] =>
+  source === "text" && listed > 0 && !r && proofRerunOn(env) ? [NO_OWN_PROOF_NOTE] : source === "issue" && listed > 0 && !r && proofRerunOn(env) && independent ? [NO_INDEPENDENT_PROOF_NOTE] : [];
 /** The facts for the acceptance line check: what Loki's own run of the script returned, and the script itself (so a script that checks nothing is visible). */
 export function proofFacts(runDir: string, r: ProofRerun | null, expected: boolean): string[] {
   if (!r) return expected ? ["The session left no proof script ($LOKI_SCRATCH/loki-proof.sh), so Loki could not re-run anything itself. Nothing in the reply counts as proof from running."] : [];

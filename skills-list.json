@@ -10850,11 +10850,12 @@
       "description": "Create a git commit with a clear, value-communicating message. Use when the user asks to commit/save staged or unstaged changes with a repo-appropriate message.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit/SKILL.md",
       "remote_path": "skills/ce-commit/SKILL.md",
-      "lines": 61,
-      "words": 859,
-      "code_blocks": 2,
+      "lines": 74,
+      "words": 842,
+      "code_blocks": 3,
       "languages": [
-        "bash"
+        "bash",
+        "powershell"
       ]
     },
     {
@@ -11816,7 +11817,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
       "lines": 778,
-      "words": 8076,
+      "words": 8089,
       "code_blocks": 11,
       "languages": []
     },
@@ -12189,8 +12190,8 @@
       "description": "\"Formats the final manuscript output to target journal style requirements\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
-      "lines": 1068,
-      "words": 11301,
+      "lines": 1074,
+      "words": 11793,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -12484,7 +12485,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/source_verification_agent.md",
       "remote_path": "deep-research/agents/source_verification_agent.md",
       "lines": 301,
-      "words": 2793,
+      "words": 2826,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -23401,11 +23402,11 @@
     },
     {
       "name": "eas-observe",
-      "description": "Use for anything related to EAS Observe - adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive and ObserveInteractiveMarker, the useObserve hook, the Expo Router /",
+      "description": "Use for anything related to EAS Observe - adding `expo-observe` to an Expo project (ObserveRoot/AppMetricsRoot, markInteractive, useObserve, ObserveInteractiveMarker, the Expo Router / React Navigatio",
       "path": "expo--skills/plugins/expo/skills/eas-observe/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-observe/SKILL.md",
-      "lines": 46,
-      "words": 708,
+      "lines": 47,
+      "words": 725,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -23674,9 +23675,9 @@
       "description": "\"Run and control a user's app on a remote iOS/Android simulator with Expo Simulators (also called EAS Simulator). Read before running any `eas simulator:*` commands - it has the current syntax and wor",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 287,
-      "words": 5222,
-      "code_blocks": 7,
+      "lines": 203,
+      "words": 3693,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ],
@@ -49059,6 +49060,7 @@
       "code_blocks": 6,
       "languages": [
         "bash",
+        "mermaid",
         "sql",
         "typescript"
       ]
@@ -54182,7 +54184,7 @@
       "path": "alirezarezvani--claude-skills/ra-qm-team/compliance-team-eu-ai-act/skills/eu-ai-act-specialist/SKILL.md",
       "remote_path": "ra-qm-team/compliance-team-eu-ai-act/skills/eu-ai-act-specialist/SKILL.md",
       "lines": 205,
-      "words": 2029,
+      "words": 2059,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -54307,7 +54309,7 @@
       "path": "alirezarezvani--claude-skills/ra-qm-team/skills/eu-ai-act-specialist/SKILL.md",
       "remote_path": "ra-qm-team/skills/eu-ai-act-specialist/SKILL.md",
       "lines": 205,
-      "words": 2029,
+      "words": 2059,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -54500,7 +54502,7 @@
       "path": "alirezarezvani--claude-skills/ra-qm-team/skills/medical-device-software/SKILL.md",
       "remote_path": "ra-qm-team/skills/medical-device-software/SKILL.md",
       "lines": 81,
-      "words": 937,
+      "words": 951,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -54582,7 +54584,7 @@
       "path": "alirezarezvani--claude-skills/ra-qm-team/medical-device-software/agents/cs-device-software-lead.md",
       "remote_path": "ra-qm-team/medical-device-software/agents/cs-device-software-lead.md",
       "lines": 53,
-      "words": 412,
+      "words": 427,
       "code_blocks": 0,
       "languages": []
     },
@@ -54592,7 +54594,7 @@
       "path": "alirezarezvani--claude-skills/ra-qm-team/medical-device-software/skills/medical-device-software/SKILL.md",
       "remote_path": "ra-qm-team/medical-device-software/skills/medical-device-software/SKILL.md",
       "lines": 81,
-      "words": 937,
+      "words": 951,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -147968,8 +147970,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 764,
-      "words": 5862,
+      "lines": 769,
+      "words": 5909,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -148090,8 +148092,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 346,
-      "words": 3089,
+      "lines": 348,
+      "words": 3226,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -148578,8 +148580,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-load-doctor/SKILL.md",
       "remote_path": "daymade-macos/macos-load-doctor/SKILL.md",
-      "lines": 237,
-      "words": 1915,
+      "lines": 243,
+      "words": 1954,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -148601,7 +148603,7 @@
       "path": "daymade--claude-code-skills/daymade-macos/capture-screen/SKILL.md",
       "remote_path": "daymade-macos/capture-screen/SKILL.md",
       "lines": 298,
-      "words": 1644,
+      "words": 1708,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -148639,8 +148641,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 329,
-      "words": 6526,
+      "lines": 332,
+      "words": 6569,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -148673,8 +148675,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/event-driven-observers.md",
       "remote_path": "daymade-macos/macos-watchdog/references/event-driven-observers.md",
-      "lines": 258,
-      "words": 2111,
+      "lines": 271,
+      "words": 2290,
       "code_blocks": 0,
       "languages": []
     },
@@ -149118,8 +149120,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/source-location-and-activation.md",
       "remote_path": "daymade-skill/skill-creator/references/source-location-and-activation.md",
-      "lines": 94,
-      "words": 1107,
+      "lines": 102,
+      "words": 1184,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -149207,8 +149209,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/change-verification.md",
       "remote_path": "daymade-skill/skill-creator/references/change-verification.md",
-      "lines": 218,
-      "words": 4521,
+      "lines": 226,
+      "words": 4589,
       "code_blocks": 0,
       "languages": []
     },
@@ -149812,8 +149814,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 511,
-      "words": 4221,
+      "lines": 514,
+      "words": 4256,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -168969,16 +168971,6 @@
         "json",
         "sql"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Guided CBT and DBT practice exercises \u2014 thought record, opposite action, TIPP, DEAR MAN (with roleplay), wise mind, chain analysis and behavioral activation \u2014 with configurable Socratic pushback and o",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 115,
-      "words": 952,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "palmier-reels",

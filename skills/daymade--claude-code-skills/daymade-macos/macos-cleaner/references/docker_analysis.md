@@ -110,6 +110,8 @@ procedure does not enable image, container, volume or system prune.
 
 OrbStack users have additional considerations.
 
+**Non-interactive SSH discovery.** Under the account that runs OrbStack, check `orb status` (try `~/.orbstack/bin/orb status` if `orb` is missing from `PATH`). If `docker` is missing from `PATH`, check `~/.orbstack/bin/docker` and `/Applications/OrbStack.app/Contents/MacOS/xbin/docker`. Verify the Docker context targets OrbStack before interpreting Docker results.
+
 For suspected OrbStack log growth, measure `~/.orbstack/log/` separately.
 
 **Discover image candidates before measuring.** `data.img` and `data.img.raw` can be regular files or aliases; a filename or configured `data_dir` does not prove which image the running VM uses. Run this read-only recipe on the target Mac with Python 3. It checks exact storage hints, keeps aliases visible, and reports distinct files by device/inode without scanning unrelated directories:
@@ -174,6 +176,10 @@ for item in images.values():
 The group-container location is a storage hint, not a universal path. Missing optional configuration remains visible; malformed configuration, broken links, permission errors and nonregular candidates stop the recipe rather than imply an empty or healthy store. Inspect another exact location only when target-specific configuration or application evidence identifies it.
 
 For each distinct resolved file, run `du -k '<resolved-image>'` and `df -k '<resolved-image>'` to bind its allocation to its host volume. Aliases of the same device/inode count once. Keep files on different volumes separate; external-volume allocation does not explain pressure on the internal Data volume. Sparse logical size is not physical allocation, and allocation is not reclaimable space. Retain unknown adoption until current runtime evidence binds the consumer; preserve conflicting images, do not pick the first match, start the VM, mount an image or delete a disk to resolve discovery.
+
+**Relocated `data_dir` and legacy internal images.** When investigating a relocation, use `orb config get data_dir` (when supported) or `~/.orbstack/vmconfig.json` as storage hints and check for `data.img` and `swap.img` under `~/Library/Group Containers/HUAQ24HBR6.dev.orbstack/data/`. Use `lsof` or equivalent open-handle inspection to confirm by resolved device/inode that the running VM has the relocated image open on the external volume. Check each distinct internal file for live handles across processes. Treat a no-match result as zero references only when process visibility is sufficient and the probe returns its expected status without warnings. Preserve the files if the VM is stopped or adoption, file identity, or handle coverage is uncertain. Configuration and mtime alone cannot establish disposability.
+
+Once external adoption is confirmed and a distinct legacy file has zero live references, verify the size and SHA-256 of any authorized external archive against the original before retiring it, or obtain explicit user confirmation to retire the exact file without an archive. Apply the skill's cleanup authorization gate in either case and recheck file identity and open handles immediately before removal.
 
 **Post-cleanup: distinguish VM space from host release.** On observed OrbStack 2.2.4, deleting Docker objects freed space inside the VM before sparse-image blocks followed through automatic TRIM. Observe `du -k` on the resolved image and `df -k` on its host volume separately; do not promise an immediate or fixed-size release. The observed 2.2.4 Settings → Storage had no manual Reclaim control; do not substitute a Danger Zone reset or assume another version's controls. Do not restart OrbStack to force reclaim: it interrupts co-resident Docker work and requires separate authorization.
 
@@ -258,6 +264,11 @@ docker run --rm --name <INSPECTION_CONTAINER_NAME> \
 ```
 
 Any volume reported non-empty goes through the full Database Volume Red Flag inspection above before deletion. Do not delete based on the sample-and-extrapolate shortcut this rule exists to warn against.
+
+**Large cohorts of automated/CI anonymous dangling volumes (dozens to hundreds):** spawning one inspection container per volume does not scale, yet the database-volume safeguard and mount-isolation boundary still apply. Follow a two-step separation without weakening coverage:
+
+1. **Separate named volumes from 64-hex anonymous dangling volumes first** using `docker volume ls -f dangling=true -q` and `docker volume inspect` (`Labels`, `CreatedAt`). Keep every named volume out of the bulk cohort for individual ownership review.
+2. **Batch-inspect exact enumerated anonymous candidates via native read-only volume mounts** under the same inspection-only authorization gate (using an already-present full image ID, an exact temporary-container name, `--pull=never --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges`, and bounded batches of `--mount type=volume,src=<EXACT_ID>,dst=/vols/<EXACT_ID>,readonly` — never host-mounting `/var/lib/docker/volumes` and never discovering new volumes inside the loop). Check every mounted volume for any file (`find /vols/<EXACT_ID> -mindepth 1 -maxdepth 1 -print`), then verify container cleanup with `docker ps -a --filter "name=^/<INSPECTION_CONTAINER_NAME>$"` (must be empty). **Any volume reported non-empty** stays out of bulk cleanup and enters the full individual Database Volume Red Flag inspection above; only verified-empty anonymous IDs from the exact enumerated set proceed to explicit user confirmation using per-object `docker volume rm <EXACT_ID>` commands.
 
 ## Step 2D: Root-Cause Fix — Stop the Source, Not Just the Symptom
 
